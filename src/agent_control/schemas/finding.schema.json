@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent.finding.v1",
+  "type": "object",
+  "required": ["schema", "finding_id", "summary"],
+  "properties": {
+    "schema": { "const": "agent.finding.v1" },
+    "finding_id": { "type": "string" },
+    "fingerprint": { "type": "string" },
+    "summary": { "type": "string" },
+    "severity": { "type": "string" },
+    "evidence": { "type": "array", "items": { "type": "string" } }
+  }
+}
