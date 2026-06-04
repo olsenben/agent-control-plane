@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent.event.v1",
+  "type": "object",
+  "required": ["schema", "event_id", "type", "project"],
+  "properties": {
+    "schema": { "const": "agent.event.v1" },
+    "event_id": { "type": "string" },
+    "type": { "type": "string" },
+    "source": { "type": "string" },
+    "delivery_id": { "type": ["string", "null"] },
+    "project": { "type": "string" },
+    "payload": { "type": "object" },
+    "recorded_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}
