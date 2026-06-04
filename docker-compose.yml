@@ -1,0 +1,58 @@
+# AgentControl + Redis (homelab). Start API + Redis only; enable workers later.
+# See docs/deploy.md for DNS, NPM, and secrets.
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  control-plane:
+    build: .
+    restart: unless-stopped
+    ports:
+      # LAN: NPM CT101 (optional) or Gitea CT100 -> CT103 192.168.4.62:8080
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ${AGENT_STATE_HOST_PATH:-../agent-state}:/data/agent-state
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Do not start until Gitea webhooks and secrets are configured (docs/deploy.md).
+  worker-state:
+    profiles: [workers]
+    build: .
+    restart: unless-stopped
+    command:
+      [
+        "agentctl",
+        "worker",
+        "run",
+        "--queues",
+        "state",
+        "--concurrency",
+        "1",
+      ]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ${AGENT_STATE_HOST_PATH:-../agent-state}:/data/agent-state
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis-data:
