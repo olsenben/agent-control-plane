@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent.trajectory.v1",
+  "type": "object",
+  "required": ["schema", "run_id"],
+  "properties": {
+    "schema": { "const": "agent.trajectory.v1" },
+    "run_id": { "type": "string" },
+    "steps": { "type": "array" }
+  }
+}
