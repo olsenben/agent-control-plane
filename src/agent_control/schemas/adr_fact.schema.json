@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "adr_fact.v1",
+  "type": "object",
+  "required": ["schema", "adr_id", "state"],
+  "properties": {
+    "schema": { "const": "adr_fact.v1" },
+    "fact_id": { "type": "string" },
+    "adr_id": { "type": "string" },
+    "title": { "type": "string" },
+    "state": { "type": "string" },
+    "fact_type": { "type": "string" },
+    "constraint": { "type": "string" },
+    "severity": { "type": "string" }
+  }
+}
