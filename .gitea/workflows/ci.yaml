@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions: read-all
+
+jobs:
+  test:
+    runs-on: agent-control
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: pytest -q
+      - name: Validate compose
+        run: |
+          cp .env.example .env
+          docker compose -f docker-compose.yml config
