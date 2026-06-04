@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent.contract.v1",
+  "type": "object",
+  "required": ["schema_version", "minimum_agentctl_version", "schema_source"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "minimum_agentctl_version": { "type": "string" },
+    "schema_source": { "type": "string" },
+    "validation_command": { "type": "string" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}
