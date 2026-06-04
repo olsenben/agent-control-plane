@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent.policy_violation.v1",
+  "type": "object",
+  "required": ["schema", "violation_type"],
+  "properties": {
+    "schema": { "const": "agent.policy_violation.v1" },
+    "violation_type": { "type": "string" },
+    "path": { "type": "string" },
+    "detail": { "type": "string" }
+  }
+}
