@@ -103,7 +103,6 @@ def state() -> None:
 @click.option("--events-json", type=click.Path(exists=True, path_type=Path))
 def state_reduce(repo: Path | None, mode: str, events_json: Path | None) -> None:
     """Reduce logical state. event-only mode needs no local checkout."""
-    settings = get_settings()
     project = "unknown/unknown"
     if repo:
         project = f"{repo.parent.name}/{repo.name}" if repo.name != ".agent" else "local/repo"
