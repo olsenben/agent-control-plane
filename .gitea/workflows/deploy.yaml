@@ -76,8 +76,9 @@ jobs:
             exit 1
           fi
           sleep 5
-          if ! docker compose --profile workers ps worker-state | grep -qi running; then
+          if [ -z "$(docker compose --profile workers ps --status running -q worker-state)" ]; then
             echo "worker-state is not running after deploy" >&2
+            docker compose --profile workers ps worker-state >&2 || true
             docker compose --profile workers logs --tail=80 worker-state >&2 || true
             exit 1
           fi
