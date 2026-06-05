@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     gitea_allowed_repos: str = Field(
         default="ai-sdlc-lab/demo-app",
         alias="GITEA_ALLOWED_REPOS",
-        description="Comma-separated owner/repo allowlist",
+        description="Comma-separated owner/repo allowlist; owner/* or * wildcards supported",
     )
     agent_state_root: Path = Field(
         default=Path("../agent-state"),
@@ -57,6 +57,21 @@ class Settings(BaseSettings):
 
     def allowed_repos_set(self) -> set[str]:
         return {r.strip() for r in self.gitea_allowed_repos.split(",") if r.strip()}
+
+    def is_repo_allowed(self, full_name: str) -> bool:
+        """Match owner/repo entries; owner/* allows any repo under that owner; * allows all."""
+        if not full_name or "/" not in full_name:
+            return False
+        owner, _repo = full_name.split("/", 1)
+        for pattern in self.allowed_repos_set():
+            if pattern == "*":
+                return True
+            if pattern.endswith("/*"):
+                if owner == pattern[:-2]:
+                    return True
+            elif pattern == full_name:
+                return True
+        return False
 
     def external_roles_set(self) -> set[str]:
         return {r.strip() for r in self.model_external_roles.split(",") if r.strip()}

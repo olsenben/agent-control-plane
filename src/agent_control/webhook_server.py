@@ -77,7 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         payload = json.loads(body)
         repo = payload.get("repository", {})
         full_name = repo.get("full_name", "")
-        if full_name not in settings.allowed_repos_set():
+        if not settings.is_repo_allowed(full_name):
             raise HTTPException(status_code=403, detail="repo not allowed")
         event_type = f"gitea.{x_gitea_event.replace('.', '_')}"
         event_id = deterministic_event_id("gitea", x_gitea_delivery, event_type)
