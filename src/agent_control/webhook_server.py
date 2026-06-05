@@ -25,7 +25,12 @@ ALLOWED_EVENTS = {
 
 
 def verify_hmac(secret: str, body: bytes, signature: str) -> bool:
-    if not signature.startswith("sha256="):
+    """Verify Gitea/GitHub webhook HMAC-SHA256 signatures.
+
+    Gitea sends raw hex in X-Gitea-Signature; GitHub-compatible X-Hub-Signature-256
+    uses a sha256= prefix. Accept both.
+    """
+    if not signature:
         return False
     expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     provided = signature.removeprefix("sha256=")
