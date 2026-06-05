@@ -69,6 +69,10 @@ curl -s http://127.0.0.1:8080/readyz
 curl -s http://192.168.4.62:8080/readyz
 ```
 
+## Log safety
+
+Deploy workflow does **not** run `docker compose config` on CT103 (it would print runtime `.env` values). Compose validation uses `.env.example` in the CI `test` job only.
+
 ## Day-2 flow
 
 ```text
