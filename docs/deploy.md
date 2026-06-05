@@ -83,10 +83,11 @@ curl -s http://127.0.0.1:8080/healthz
 curl -s http://127.0.0.1:8080/readyz
 ```
 
-Do **not** start workers until webhooks are configured:
+Manual bootstrap (CI deploy uses the same profile after webhooks are configured):
 
 ```bash
-# docker compose --profile workers up -d   # later
+docker compose --profile workers build control-plane worker-state
+docker compose --profile workers up -d
 ```
 
 ## Redis persistence
@@ -167,6 +168,6 @@ OLLAMA_HOST=<tailscale-ip>:11434
 ## Defer until section 1.3+
 
 - `GITEA_WEBHOOK_SECRET` and Gitea webhook registration
-- `docker compose --profile workers up` on CT103 (**state** queue only — not agent-worker)
+- CI deploy keeps **worker-state** (state queue) in sync via `--profile workers`; **agent-worker** CT is separate
 - **agent-worker CT** provision (see [agent-worker.md](agent-worker.md))
 - Do **not** run agent sandboxes or RQ repo workers on GPU Windows hosts

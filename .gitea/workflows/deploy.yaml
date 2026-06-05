@@ -28,7 +28,7 @@ jobs:
       - name: Validate compose
         run: |
           cp .env.example .env
-          docker compose -f docker-compose.yml config
+          docker compose --profile workers -f docker-compose.yml config
 
   deploy:
     runs-on: deploy
@@ -57,18 +57,29 @@ jobs:
           git pull --ff-only origin main
           test -f .env || { echo ".env missing on host; bootstrap manually on CT103"; exit 1; }
           # Do not run "docker compose config" here — it prints resolved .env values to logs.
-          docker compose up -d --build
+          # Rebuild both app images explicitly; worker-state is behind the workers profile.
+          docker compose --profile workers build control-plane worker-state
+          docker compose --profile workers up -d
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if curl -sf http://127.0.0.1:8080/readyz -o /tmp/readyz.json; then
               status=$(python3 -c "import json; print(json.load(open('/tmp/readyz.json'))['status'])")
               if [ "$status" = "ready" ] || [ "$status" = "degraded" ]; then
                 echo "readyz: ${status}"
-                exit 0
+                break
               fi
             fi
             sleep 3
           done
-          echo "readyz did not reach ready/degraded in time" >&2
-          cat /tmp/readyz.json >&2 || true
-          exit 1
+          if [ "${status:-}" != "ready" ] && [ "${status:-}" != "degraded" ]; then
+            echo "readyz did not reach ready/degraded in time" >&2
+            cat /tmp/readyz.json >&2 || true
+            exit 1
+          fi
+          sleep 5
+          if ! docker compose --profile workers ps worker-state | grep -qi running; then
+            echo "worker-state is not running after deploy" >&2
+            docker compose --profile workers logs --tail=80 worker-state >&2 || true
+            exit 1
+          fi
+          echo "worker-state: running"
           REMOTE

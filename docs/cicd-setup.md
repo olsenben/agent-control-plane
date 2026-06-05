@@ -71,7 +71,9 @@ curl -s http://192.168.4.62:8080/readyz
 
 ## Log safety
 
-Deploy workflow does **not** run `docker compose config` on CT103 (it would print runtime `.env` values). Compose validation uses `.env.example` in the CI `test` job only.
+Deploy workflow does **not** run `docker compose config` on CT103 (it would print runtime `.env` values). Compose validation uses `.env.example` in the CI `test` job only (including the `workers` profile).
+
+On deploy, CT103 runs `docker compose --profile workers build control-plane worker-state` then `up -d`, so **worker-state** is rebuilt with every merge to `main` (not only control-plane).
 
 ## Day-2 flow
 
