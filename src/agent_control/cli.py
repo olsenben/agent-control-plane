@@ -15,7 +15,7 @@ from agent_control.context_builder import build_context_capsule
 from agent_control.events import append_event, deterministic_event_id
 from agent_control.events import AgentEvent
 from agent_control.model_router import ping_role, resolve_role_primary
-from agent_control.queue import QUEUE_NAMES, STATE_WORKER_MAX_CONCURRENCY
+from agent_control.queue import QUEUE_NAMES, STATE_WORKER_MAX_CONCURRENCY, run_worker
 from agent_control.repo_snapshot import snapshot_repo
 from agent_control.state_reducer import ReductionMode, reduce_event_only
 from agent_control.webhook_server import create_app, verify_hmac
@@ -182,8 +182,18 @@ def queue_enqueue_test(queue_name: str) -> None:
     click.echo(json.dumps({"queue": queue_name, "status": "stub"}))
 
 
-@main.command("worker")
-@click.option("--queues", multiple=True, type=click.Choice(list(QUEUE_NAMES)))
+@main.group()
+def worker() -> None:
+    """RQ worker commands."""
+
+
+@worker.command("run")
+@click.option(
+    "--queues",
+    multiple=True,
+    type=click.Choice(list(QUEUE_NAMES)),
+    required=True,
+)
 @click.option("--concurrency", default=1, type=int)
 def worker_run(queues: tuple[str, ...], concurrency: int) -> None:
     if "state" in queues and concurrency > STATE_WORKER_MAX_CONCURRENCY:
@@ -191,7 +201,14 @@ def worker_run(queues: tuple[str, ...], concurrency: int) -> None:
             "warning: state worker concurrency should be 1 at MVP",
             err=True,
         )
-    click.echo(json.dumps({"queues": queues, "concurrency": concurrency, "status": "stub"}))
+    if concurrency != 1:
+        raise click.ClickException("only --concurrency 1 is supported at MVP")
+    settings = get_settings()
+    click.echo(
+        json.dumps({"queues": queues, "concurrency": concurrency, "status": "starting"}),
+        err=True,
+    )
+    run_worker(settings.redis_url, queues, concurrency=concurrency)
 
 
 @main.group()

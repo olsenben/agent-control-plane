@@ -22,4 +22,4 @@ pytest -q
 - `src/agent_control/` — platform modules (webhook, reducer, queue, agents, workflows)
 - `docs/` — architecture, security, runner lanes, tool-spike notes
 
-See `BOOTSTRAP.md` for Gitea org setup, `docs/architecture.md` for tiers, `docs/deploy.md` for CT103, `docs/agent-worker.md` for the worker tier, and `docs/rlm-runtime.md` for RLM placement and limits (separate from CT102 CI).
+See `BOOTSTRAP.md` for Gitea org setup, `docs/architecture.md` for tiers, `docs/deploy.md` for CT103, `docs/cicd-setup.md` for CT102→SSH→CT103 deploy, `docs/secrets-boundaries.md` for secrets tiers, `docs/agent-worker.md` for the worker tier, and `docs/rlm-runtime.md` for RLM placement and limits.

@@ -8,7 +8,7 @@ permissions: read-all
 
 jobs:
   test:
-    runs-on: agent-control
+    runs-on: docker-ci
     steps:
       - uses: actions/checkout@v4
       - name: Install

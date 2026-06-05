@@ -1,13 +1,13 @@
 {
   "hosts": {
-    "agentcontrol": "100.x.x.x/32",
+    "agentcontrol": "100.96.53.125/32",
     "gpu-3080": "100.107.20.28/32",
     "gpu-2070": "100.125.235.54/32"
   },
   "tagOwners": {
-    "tag:agent-control": ["your-admin@example.com"],
-    "tag:agent-worker": ["your-admin@example.com"],
-    "tag:agent-admin": ["your-admin@example.com"]
+    "tag:agent-control": ["olsenben@github"],
+    "tag:agent-worker": ["olsenben@github"],
+    "tag:agent-admin": ["olsenben@github"]
   },
   "acls": [
     {

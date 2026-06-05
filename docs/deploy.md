@@ -21,7 +21,7 @@ Public NPM for `control.ham-sup-lo.com` can wait with the same rule if you want 
 | Tier | ID | Role |
 |------|-----|------|
 | Gitea | CT100 | Source of truth |
-| agent-control | CT103 `192.168.4.62` | Webhook, Redis, state, dispatch (no repo sandboxes) |
+| agent-control (app) | CT103 `192.168.4.62` | Webhook, Redis, state, dispatch (no repo sandboxes, no runner) |
 | agent-worker | CT104 or VM (steelleg) | RLM/Aider sandbox — [agent-worker.md](agent-worker.md), [rlm-runtime.md](rlm-runtime.md) |
 | docker-ci | CT102 steelleg | Gitea Actions verification only |
 | GPU | buttholecentral / msi | Ollama inference over Tailscale only |
@@ -126,42 +126,28 @@ Per-tier optional OpenAI-compatible endpoints in `.env`:
 
 GPU primaries still gate `/readyz` degraded vs ready. External/fallback keys must stay in `.env` on CT103 only.
 
-## CT102 runner (docker-ci — verifier only)
+## CT102 runner (docker-ci + deploy)
 
-Outbound only (no inbound ports):
+Docker container `act_runner` on CT102 with labels `docker-ci,deploy`:
 
-- `https://git.ham-sup-lo.com` or `http://192.168.4.60:3000`
+- `docker-ci` — CI for target repos and `agent-control-plane` tests
+- `deploy` — SSH deploy to CT103 (`agent-control-plane` only)
 
-Ollama access is **not** required on CT102 for normal target-repo CI. The planned **agent-worker** CT will call GPU endpoints over Tailscale.
+See [runners.md](runners.md) and [cicd-setup.md](cicd-setup.md).
 
-```bash
-curl -sf https://git.ham-sup-lo.com/api/v1/version
-curl -s http://192.168.4.62:8080/readyz
-```
+## CT103 deploy target (no runner)
 
-UFW on CT102:
+CT103 runs the app only. CI/CD deploys via CT102 SSH:
 
 ```bash
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw enable
+sudo bash scripts/ct103-host-bootstrap.sh
+sudo bash scripts/ct103-ufw.sh
 ```
 
-Register runner:
+Runtime secrets in `/opt/ai-sdlc-lab/agent-control-plane/.env` (never through CI).
+Deployment secrets in Gitea: `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_USER`.
 
-```bash
-./act_runner register --instance https://git.ham-sup-lo.com \
-  --token <TOKEN> --name runner-docker-ci-ct102 --labels docker-ci
-```
-
-## CT103 agent-control runner
-
-```bash
-./act_runner register --instance https://git.ham-sup-lo.com \
-  --token <TOKEN> --name runner-agent-control-ct103 --labels agent-control
-```
-
-Runs `agent-control-plane` CI and deploy workflows only.
+Push to `main` runs `.gitea/workflows/deploy.yaml` (test → SSH → git pull → compose up → `/readyz`).
 
 ## Tailscale ACLs
 

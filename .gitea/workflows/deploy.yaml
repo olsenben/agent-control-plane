@@ -3,31 +3,78 @@ name: deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ct103
+  cancel-in-progress: false
 
 permissions: read-all
 
 jobs:
-  deploy:
-    runs-on: agent-control
+  test:
+    runs-on: docker-ci
     steps:
-      - name: Deploy to CT103
+      - uses: actions/checkout@v4
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: pytest -q
+      - name: Validate compose
+        run: |
+          cp .env.example .env
+          docker compose -f docker-compose.yml config
+
+  deploy:
+    runs-on: deploy
+    needs: test
+    steps:
+      - name: Deploy to CT103 via SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          DEPLOY_DIR=/opt/ai-sdlc-lab/agent-control-plane
-          cd "$DEPLOY_DIR"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          trap 'rm -f ~/.ssh/deploy_key' EXIT
+
+          ssh -i ~/.ssh/deploy_key \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<'REMOTE'
+          set -euo pipefail
+          cd /opt/ai-sdlc-lab/agent-control-plane
           git fetch origin main
           git checkout main
           git pull --ff-only origin main
-          test -f .env || { echo ".env missing on host; bootstrap manually"; exit 1; }
+          test -f .env || { echo ".env missing on host; bootstrap manually on CT103"; exit 1; }
           docker compose config
           docker compose up -d --build
+          REMOTE
+
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            code=$(curl -s -o /tmp/readyz.json -w "%{http_code}" http://127.0.0.1:8080/readyz)
+            code=$(curl -s -o /tmp/readyz.json -w "%{http_code}" "http://${DEPLOY_HOST}:8080/readyz")
             if [ "$code" = "200" ]; then
               status=$(python3 -c "import json; print(json.load(open('/tmp/readyz.json'))['status'])")
-              if [ "$status" = "ready" ] || [ "$status" = "degraded" ]; then break; fi
+              if [ "$status" = "ready" ] || [ "$status" = "degraded" ]; then
+                break
+              fi
             fi
             sleep 3
           done
-          curl -sf http://127.0.0.1:8080/readyz -o /tmp/readyz.json
-          python3 -c "import json,sys; s=json.load(open('/tmp/readyz.json'))['status']; sys.exit(0 if s in ('ready','degraded') else 1)"
+
+          curl -sf "http://${DEPLOY_HOST}:8080/readyz" -o /tmp/readyz.json
+          python3 -c "
+          import json, sys
+          data = json.load(open('/tmp/readyz.json'))
+          status = data.get('status')
+          print(json.dumps(data, indent=2))
+          sys.exit(0 if status in ('ready', 'degraded') else 1)
+          "
