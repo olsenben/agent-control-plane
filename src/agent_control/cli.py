@@ -12,10 +12,16 @@ from agent_control import __version__
 from agent_control.adr_compiler import compile_adrs
 from agent_control.config import get_settings
 from agent_control.context_builder import build_context_capsule
-from agent_control.events import append_event, deterministic_event_id
-from agent_control.events import AgentEvent
+from agent_control.events import (
+    AgentEvent,
+    append_event,
+    deterministic_event_id,
+    list_reduction_outbox,
+    load_project_events,
+)
+from agent_control.jobs.state import process_state_reduction
 from agent_control.model_router import ping_role, resolve_role_primary
-from agent_control.queue import QUEUE_NAMES, STATE_WORKER_MAX_CONCURRENCY, run_worker
+from agent_control.queue import QUEUE_NAMES, STATE_WORKER_MAX_CONCURRENCY, enqueue_state_reduction, run_worker
 from agent_control.repo_snapshot import snapshot_repo
 from agent_control.state_reducer import ReductionMode, reduce_event_only
 from agent_control.webhook_server import create_app, verify_hmac
@@ -84,8 +90,8 @@ def events_append(project: str, event_type: str, delivery_id: str, payload: str)
         payload=json.loads(payload),
         source="cli",
     )
-    path = append_event(settings.agent_state_root, event)
-    click.echo(str(path))
+    path, created = append_event(settings.agent_state_root, event)
+    click.echo(json.dumps({"path": str(path), "created": created}))
 
 
 @main.group()
@@ -94,6 +100,7 @@ def state() -> None:
 
 
 @state.command("reduce")
+@click.option("--project", default=None, help="owner/repo — load events from agent-state ledger")
 @click.option("--repo", type=click.Path(exists=True, path_type=Path))
 @click.option(
     "--mode",
@@ -101,16 +108,82 @@ def state() -> None:
     default=ReductionMode.EVENT_ONLY.value,
 )
 @click.option("--events-json", type=click.Path(exists=True, path_type=Path))
-def state_reduce(repo: Path | None, mode: str, events_json: Path | None) -> None:
+@click.option("--write", is_flag=True, help="Persist verification_state.json (requires --project)")
+def state_reduce(
+    project: str | None,
+    repo: Path | None,
+    mode: str,
+    events_json: Path | None,
+    write: bool,
+) -> None:
     """Reduce logical state. event-only mode needs no local checkout."""
-    project = "unknown/unknown"
-    if repo:
-        project = f"{repo.parent.name}/{repo.name}" if repo.name != ".agent" else "local/repo"
+    if mode != ReductionMode.EVENT_ONLY.value:
+        raise click.ClickException("only event-only mode is implemented at MVP")
+
+    resolved_project = project or "unknown/unknown"
+    if repo and not project:
+        resolved_project = (
+            f"{repo.parent.name}/{repo.name}" if repo.name != ".agent" else "local/repo"
+        )
+
     events_data: list[dict] = []
     if events_json:
         events_data = json.loads(events_json.read_text(encoding="utf-8"))
-    logical = reduce_event_only(events_data, project)
+    elif project:
+        settings = get_settings()
+        events_data = load_project_events(settings.agent_state_root, project)
+
+    if write:
+        if not project:
+            raise click.ClickException("--write requires --project")
+        result = process_state_reduction(
+            str(get_settings().agent_state_root),
+            events_data[-1].get("event_id", "manual") if events_data else "manual",
+            project,
+        )
+        click.echo(json.dumps(result, indent=2))
+        return
+
+    logical = reduce_event_only(events_data, resolved_project)
     click.echo(logical.model_dump_json(indent=2))
+
+
+@state.command("reconcile")
+@click.option("--project", required=True, help="owner/repo")
+@click.option("--enqueue", is_flag=True, help="Enqueue missing jobs via Redis instead of running inline")
+def state_reconcile(project: str, enqueue: bool) -> None:
+    """Process pending outbox markers and refresh verification state."""
+    settings = get_settings()
+    markers = list_reduction_outbox(settings.agent_state_root, project=project)
+    if not markers:
+        result = process_state_reduction(
+            str(settings.agent_state_root),
+            "reconcile",
+            project,
+        )
+        click.echo(json.dumps({"reconciled": [result]}, indent=2))
+        return
+
+    results: list[dict] = []
+    for marker in markers:
+        event_id = marker["event_id"]
+        if enqueue:
+            job_id = enqueue_state_reduction(
+                settings.redis_url,
+                event_id,
+                project,
+                str(settings.agent_state_root),
+            )
+            results.append({"event_id": event_id, "job_id": job_id, "status": "enqueued"})
+        else:
+            results.append(
+                process_state_reduction(
+                    str(settings.agent_state_root),
+                    event_id,
+                    project,
+                )
+            )
+    click.echo(json.dumps({"reconciled": results}, indent=2))
 
 
 @state.command("validate")
@@ -177,8 +250,20 @@ def queue() -> None:
 
 @queue.command("enqueue-test")
 @click.option("--queue", "queue_name", type=click.Choice(list(QUEUE_NAMES)), required=True)
-def queue_enqueue_test(queue_name: str) -> None:
-    click.echo(json.dumps({"queue": queue_name, "status": "stub"}))
+@click.option("--project", default="ai-sdlc-lab/demo-app")
+@click.option("--event-id", default="test-event-id")
+def queue_enqueue_test(queue_name: str, project: str, event_id: str) -> None:
+    settings = get_settings()
+    if queue_name != "state":
+        click.echo(json.dumps({"queue": queue_name, "status": "stub"}))
+        return
+    job_id = enqueue_state_reduction(
+        settings.redis_url,
+        event_id,
+        project,
+        str(settings.agent_state_root),
+    )
+    click.echo(json.dumps({"queue": queue_name, "job_id": job_id, "status": "enqueued"}))
 
 
 @main.group()

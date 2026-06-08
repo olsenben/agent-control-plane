@@ -28,3 +28,20 @@ def test_pr_sync_requires_snapshot() -> None:
     events = [{"type": "gitea.pr_synchronized", "payload": {}}]
     state = reduce_event_only(events, "ai-sdlc-lab/demo-app")
     assert state.snapshot_required is True
+
+
+def test_issue_opened_populates_issue_state() -> None:
+    events = [
+        {
+            "type": "gitea.issue_opened",
+            "payload": {"issue": {"number": 1, "title": "bug", "state": "open"}},
+        }
+    ]
+    state = reduce_event_only(events, "ai-sdlc-lab/demo-app")
+    assert state.issue_state["number"] == 1
+
+
+def test_workflow_failed_sets_pipeline_status() -> None:
+    events = [{"type": "gitea.workflow_failed", "payload": {}}]
+    state = reduce_event_only(events, "ai-sdlc-lab/demo-app")
+    assert state.pipeline_status == "failed"

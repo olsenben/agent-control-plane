@@ -5,18 +5,25 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 
 from agent_control.config import Settings
-from agent_control.events import AgentEvent, append_event, deterministic_event_id
+from agent_control.event_types import canonical_gitea_event_type
+from agent_control.events import AgentEvent, append_event, deterministic_event_id, write_reduction_outbox
+from agent_control.queue import enqueue_state_reduction
 from agent_control.readiness import build_readiness_report
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_EVENTS = {
     "issues",
     "issue_comment",
+    "issue_label",
     "pull_request",
+    "pull_request_sync",
     "pull_request_comment",
     "push",
     "workflow_run",
@@ -79,16 +86,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         full_name = repo.get("full_name", "")
         if not settings.is_repo_allowed(full_name):
             raise HTTPException(status_code=403, detail="repo not allowed")
-        event_type = f"gitea.{x_gitea_event.replace('.', '_')}"
-        event_id = deterministic_event_id("gitea", x_gitea_delivery, event_type)
+
+        canonical_type, raw_action = canonical_gitea_event_type(x_gitea_event, payload)
+        event_id = deterministic_event_id("gitea", x_gitea_delivery, canonical_type)
         event = AgentEvent(
             event_id=event_id,
-            type=event_type,
+            type=canonical_type,
+            raw_event_type=x_gitea_event,
+            raw_action=raw_action,
             delivery_id=x_gitea_delivery,
             project=full_name,
             payload=payload,
         )
-        path = append_event(settings.agent_state_root, event)
+        path, created = append_event(settings.agent_state_root, event)
+        if created:
+            try:
+                enqueue_state_reduction(
+                    settings.redis_url,
+                    event.event_id,
+                    event.project,
+                    str(settings.agent_state_root),
+                )
+            except Exception:
+                logger.exception(
+                    "failed to enqueue state reduction for %s", event.event_id
+                )
+                write_reduction_outbox(
+                    settings.agent_state_root,
+                    event.event_id,
+                    event.project,
+                )
+
         return {"status": "accepted", "event_id": event_id, "path": str(path)}
 
     return app

@@ -7,6 +7,8 @@
     "schema": { "const": "agent.event.v1" },
     "event_id": { "type": "string" },
     "type": { "type": "string" },
+    "raw_event_type": { "type": "string" },
+    "raw_action": { "type": ["string", "null"] },
     "source": { "type": "string" },
     "delivery_id": { "type": ["string", "null"] },
     "project": { "type": "string" },
