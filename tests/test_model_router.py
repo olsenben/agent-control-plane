@@ -15,7 +15,7 @@ from agent_control.model_router import (
 
 
 def _settings(**kwargs: object) -> Settings:
-    return Settings(**kwargs)
+    return Settings(_env_file=None, **kwargs)
 
 
 def test_resolve_role_primary_3080_gpu() -> None:

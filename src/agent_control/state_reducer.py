@@ -2,32 +2,14 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from enum import Enum
 
-
-class ReductionMode(str, Enum):
-    EVENT_ONLY = "event_only"
-    SNAPSHOT_AWARE = "snapshot_aware"
-
-
-class LogicalState(BaseModel):
-    project: str
-    ref: str | None = None
-    head_sha: str | None = None
-    issue_state: dict[str, Any] = Field(default_factory=dict)
-    pr_state: dict[str, Any] = Field(default_factory=dict)
-    labels: list[str] = Field(default_factory=list)
-    pipeline_status: str | None = None
-    command_intent: str | None = None
-    snapshot_required: bool = False
-    reduction_mode: ReductionMode = ReductionMode.EVENT_ONLY
-    last_event_id: str | None = None
-    last_event_type: str | None = None
-    last_reduced_at: str | None = None
-    event_count: int = 0
+from agent_control.intent_parser import parse_command_intent
+from agent_shared.constants import INTENT_KIND_TO_FLOW, RiskClass
+from agent_shared.models.intent import CommandIntent
+from agent_shared.models.state import SafetyState, VerificationState
 
 
 def _label_names(payload: dict[str, Any]) -> list[str]:
@@ -42,9 +24,26 @@ def _label_names(payload: dict[str, Any]) -> list[str]:
     return labels
 
 
-def reduce_event_only(events: list[dict[str, Any]], project: str) -> LogicalState:
+def _comment_body(payload: dict[str, Any]) -> str:
+    return payload.get("comment", {}).get("body", "")
+
+
+def _should_dispatch(intent: CommandIntent) -> tuple[bool, str | None]:
+    if not intent.activated or not intent.kind:
+        return False, None
+    if intent.kind in ("approve", "reject", "run"):
+        return False, None
+    if intent.kind not in INTENT_KIND_TO_FLOW:
+        return False, None
+    flow, _agent, risk = INTENT_KIND_TO_FLOW[intent.kind]
+    if risk in (RiskClass.WRITE_PATCH, RiskClass.EXECUTES_UNTRUSTED_CODE):
+        return False, None
+    return True, flow
+
+
+def reduce_event_only(events: list[dict[str, Any]], project: str) -> VerificationState:
     """Update logical state from normalized events without a local checkout."""
-    state = LogicalState(project=project, reduction_mode=ReductionMode.EVENT_ONLY)
+    state = VerificationState(project=project, reduction_mode="event_only")
     for event in events:
         etype = event.get("type", "")
         payload = event.get("payload", {})
@@ -65,11 +64,14 @@ def reduce_event_only(events: list[dict[str, Any]], project: str) -> LogicalStat
             state.labels = _label_names(payload)
 
         elif etype in ("gitea.issue_comment", "gitea.pr_comment"):
-            body = payload.get("comment", {}).get("body", "")
-            if "/agent review" in body:
-                state.command_intent = "review"
-            elif "/agent fix" in body:
-                state.command_intent = "fix"
+            body = _comment_body(payload)
+            intent = parse_command_intent(body)
+            state.command_intent = intent
+            dispatch, kind = _should_dispatch(intent)
+            state.dispatch_recommended = dispatch
+            state.dispatch_kind = kind
+            if intent.kind in ("fix", "review", "plan", "inspect", "explain", "verify"):
+                state.safety = SafetyState(requires_manual_approval=intent.kind in ("fix", "plan"))
 
         elif etype == "gitea.pr_opened":
             pr = payload.get("pull_request") or {}
@@ -91,3 +93,12 @@ def reduce_event_only(events: list[dict[str, Any]], project: str) -> LogicalStat
             state.pipeline_status = etype.replace("gitea.workflow_", "")
 
     return state
+
+
+# Backward compatibility alias
+LogicalState = VerificationState
+
+
+class ReductionMode(str, Enum):
+    EVENT_ONLY = "event_only"
+    SNAPSHOT_AWARE = "snapshot_aware"

@@ -165,6 +165,33 @@ OLLAMA_HOST=<tailscale-ip>:11434
 1. Porkbun: `control.ham-sup-lo.com` -> home IP.
 2. NPM proxy -> `http://192.168.4.62:8080`, Let's Encrypt, rate limit ~10 req/s burst 20.
 
+**Preferred:** point Gitea webhooks at LAN `http://192.168.4.62:8080/webhooks/gitea` and restrict public NPM.
+
+Set `ENFORCE_PUBLIC_SURFACE_RESTRICTION=true` on CT103 if the public proxy remains — only `/webhooks/gitea`, `/healthz`, `/readyz` are served.
+
+## CT104 workers (steelleg)
+
+After CT103 webhooks + state worker are live:
+
+1. Re-apply UFW on CT103 so Redis is Tailscale-only: `sudo bash scripts/ct103-ufw.sh`
+2. Update Tailscale ACL (`docs/tailscale-acl.example.json`) — `tag:agent-worker` → `agentcontrol:6379`
+3. Provision CT104 — see [ct104.md](ct104.md)
+
+On **CT104** (not CT103):
+
+```bash
+sudo CT103_TAILSCALE_IP=<ct103-ts-ip> bash scripts/ct104-host-bootstrap.sh
+sudo bash scripts/ct104-ufw.sh
+cd /opt/ai-sdlc-lab/agent-control-plane
+docker compose -f docker-compose.ct104.yml up -d --build
+```
+
+Mount `/mnt/agent-runs`, `/mnt/agent-cache`, and NFS-mount `/mnt/agent-state` from CT103. CT104 connects to CT103 Redis over Tailscale (`REDIS_URL` in `.env`).
+
+Quick CT103 checks: `bash scripts/verify-ct103.sh`
+
+See [ct104.md](ct104.md).
+
 ## Defer until section 1.3+
 
 - `GITEA_WEBHOOK_SECRET` and Gitea webhook registration

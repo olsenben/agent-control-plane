@@ -18,6 +18,8 @@ from agent_control.readiness import build_readiness_report
 
 logger = logging.getLogger(__name__)
 
+PUBLIC_ALLOWED_PATHS = {"/healthz", "/readyz", "/webhooks/gitea"}
+
 ALLOWED_EVENTS = {
     "issues",
     "issue_comment",
@@ -47,6 +49,14 @@ def verify_hmac(secret: str, body: bytes, signature: str) -> bool:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     app = FastAPI(title="agent-control-plane")
+
+    @app.middleware("http")
+    async def restrict_public_surface(request: Request, call_next):
+        if settings.enforce_public_surface_restriction:
+            path = request.url.path
+            if path not in PUBLIC_ALLOWED_PATHS:
+                return Response(status_code=404)
+        return await call_next(request)
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:

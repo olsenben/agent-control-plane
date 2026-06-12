@@ -21,10 +21,20 @@ from agent_control.events import (
 )
 from agent_control.jobs.state import process_state_reduction
 from agent_control.model_router import ping_role, resolve_role_primary
-from agent_control.queue import QUEUE_NAMES, STATE_WORKER_MAX_CONCURRENCY, enqueue_state_reduction, run_worker
+from agent_control.queue import (
+    QUEUE_NAMES,
+    STATE_WORKER_MAX_CONCURRENCY,
+    enqueue_rlm_root,
+    enqueue_state_reduction,
+    queue_info,
+    run_worker,
+)
+from agent_control.results_ingest import ingest_inbox, ingest_result_file
 from agent_control.repo_snapshot import snapshot_repo
 from agent_control.state_reducer import ReductionMode, reduce_event_only
 from agent_control.webhook_server import create_app, verify_hmac
+from agent_control.workflows.dispatch import build_rlm_job
+from agent_shared.models.state import VerificationState
 from agent_control.workflows import dispatch as dispatch_wf
 from agent_control.workflows import fix as fix_wf
 from agent_control.workflows import review as review_wf
@@ -248,6 +258,48 @@ def queue() -> None:
     """Queue commands."""
 
 
+@queue.command("info")
+def queue_info_cmd() -> None:
+    settings = get_settings()
+    click.echo(json.dumps(queue_info(settings.redis_url), indent=2))
+
+
+@queue.command("enqueue-rlm-test")
+@click.option("--project", default="ai-sdlc-lab/demo-app")
+@click.option("--flow", default="inspect")
+@click.option("--intent", default="inspect")
+@click.option("--task", default="why worker-state is idle")
+@click.option("--event-id", default="test-inspect-event")
+def queue_enqueue_rlm_test(project: str, flow: str, intent: str, task: str, event_id: str) -> None:
+    from agent_shared.models.intent import CommandIntent
+
+    settings = get_settings()
+    state = VerificationState(
+        project=project,
+        command_intent=CommandIntent(
+            activated=True,
+            activation="/agent",
+            kind=intent,
+            natural_language_task=task,
+            confidence=1.0,
+        ),
+        dispatch_recommended=True,
+        dispatch_kind=flow,
+    )
+    trigger = {
+        "event_id": event_id,
+        "delivery_id": "test-delivery",
+        "type": "gitea.issue_comment",
+        "project": project,
+        "payload": {"comment": {"body": f"/agent {intent} {task}", "id": 1}, "issue": {"number": 1}},
+    }
+    job = build_rlm_job(state, trigger, settings=settings)
+    if job is None:
+        raise click.ClickException("failed to build RLM job")
+    job_id = enqueue_rlm_root(settings.redis_url, job.model_dump(mode="json"))
+    click.echo(json.dumps({"job_id": job_id, "run_id": job.run_id, "status": "enqueued"}))
+
+
 @queue.command("enqueue-test")
 @click.option("--queue", "queue_name", type=click.Choice(list(QUEUE_NAMES)), required=True)
 @click.option("--project", default="ai-sdlc-lab/demo-app")
@@ -255,7 +307,7 @@ def queue() -> None:
 def queue_enqueue_test(queue_name: str, project: str, event_id: str) -> None:
     settings = get_settings()
     if queue_name != "state":
-        click.echo(json.dumps({"queue": queue_name, "status": "stub"}))
+        click.echo(json.dumps({"queue": queue_name, "status": "stub_unless_rlm_root"}))
         return
     job_id = enqueue_state_reduction(
         settings.redis_url,
@@ -269,6 +321,30 @@ def queue_enqueue_test(queue_name: str, project: str, event_id: str) -> None:
 @main.group()
 def worker() -> None:
     """RQ worker commands."""
+
+
+@worker.command("doctor")
+def worker_doctor() -> None:
+    settings = get_settings()
+    runs = settings.agent_runs_dir
+    checks = {
+        "redis_url": settings.redis_url,
+        "agent_runs_writable": False,
+        "agent_state_root": str(settings.agent_state_root),
+    }
+    try:
+        runs.mkdir(parents=True, exist_ok=True)
+        probe = runs / ".doctor_probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        checks["agent_runs_writable"] = True
+    except OSError as exc:
+        checks["error"] = str(exc)
+    try:
+        checks["queues"] = queue_info(settings.redis_url)
+    except Exception as exc:
+        checks["redis_error"] = str(exc)
+    click.echo(json.dumps(checks, indent=2))
 
 
 @worker.command("run")
@@ -400,7 +476,129 @@ def gitea() -> None:
 
 @gitea.command("post-comment")
 def gitea_post_comment() -> None:
-    click.echo("stub")
+    click.echo("stub — use worker-report for agent comments")
+
+
+@main.group()
+def results() -> None:
+    """CT104 result ingest commands."""
+
+
+@results.command("ingest")
+@click.option("--path", type=click.Path(exists=True, path_type=Path))
+@click.option("--inbox", is_flag=True, help="Process all pending inbox files")
+def results_ingest(path: Path | None, inbox: bool) -> None:
+    settings = get_settings()
+    if inbox:
+        click.echo(json.dumps(ingest_inbox(settings.agent_state_root), indent=2))
+        return
+    if path is None:
+        raise click.ClickException("--path or --inbox required")
+    stored, created = ingest_result_file(settings.agent_state_root, path)
+    click.echo(json.dumps({"stored": str(stored), "created": created}))
+
+
+@main.group()
+def runs() -> None:
+    """Inspect CT104 run artifacts."""
+
+
+def _run_path(run_id: str, project: str | None) -> Path:
+    settings = get_settings()
+    if project:
+        owner, repo = project.split("/", 1)
+        return settings.agent_runs_dir / owner / repo / "runs" / run_id
+    for path in settings.agent_runs_dir.rglob(f"runs/{run_id}"):
+        return path
+    raise click.ClickException(f"run not found: {run_id}")
+
+
+@runs.command("list")
+@click.option("--project")
+def runs_list(project: str | None) -> None:
+    settings = get_settings()
+    base = settings.agent_runs_dir
+    if project:
+        owner, repo = project.split("/", 1)
+        base = base / owner / repo / "runs"
+    items = []
+    if base.exists():
+        for meta in base.rglob("metadata.json"):
+            items.append({"run_id": meta.parent.name, "path": str(meta.parent)})
+    click.echo(json.dumps(items, indent=2))
+
+
+@runs.command("show")
+@click.argument("run_id")
+@click.option("--project")
+def runs_show(run_id: str, project: str | None) -> None:
+    path = _run_path(run_id, project) / "metadata.json"
+    click.echo(path.read_text(encoding="utf-8"))
+
+
+@runs.command("report")
+@click.argument("run_id")
+@click.option("--project")
+def runs_report(run_id: str, project: str | None) -> None:
+    path = _run_path(run_id, project) / "final_report.md"
+    click.echo(path.read_text(encoding="utf-8"))
+
+
+@runs.command("logs")
+@click.argument("run_id")
+@click.option("--project")
+def runs_logs(run_id: str, project: str | None) -> None:
+    path = _run_path(run_id, project) / "agent.log"
+    if path.exists():
+        click.echo(path.read_text(encoding="utf-8"))
+    else:
+        click.echo("(no agent.log)")
+
+
+@runs.command("events")
+@click.argument("run_id")
+@click.option("--project")
+def runs_events(run_id: str, project: str | None) -> None:
+    path = _run_path(run_id, project) / "session_events.jsonl"
+    click.echo(path.read_text(encoding="utf-8"))
+
+
+@runs.command("context")
+@click.argument("run_id")
+@click.option("--project")
+def runs_context(run_id: str, project: str | None) -> None:
+    path = _run_path(run_id, project) / "context_receipt.json"
+    click.echo(path.read_text(encoding="utf-8"))
+
+
+@runs.command("redactions")
+@click.argument("run_id")
+@click.option("--project")
+def runs_redactions(run_id: str, project: str | None) -> None:
+    path = _run_path(run_id, project) / "redaction_report.json"
+    click.echo(path.read_text(encoding="utf-8"))
+
+
+@main.group()
+def policy() -> None:
+    """Policy loader commands."""
+
+
+@policy.command("load-test")
+@click.argument("project")
+def policy_load_test(project: str) -> None:
+    from agent_workers.repo.policy_loader import load_platform_default_policy
+
+    click.echo(json.dumps({"project": project, "platform_default": load_platform_default_policy()}, indent=2))
+
+
+@repo.command("can-clone")
+@click.argument("project")
+def repo_can_clone(project: str) -> None:
+    from agent_control.project_registry import resolve_project
+
+    cfg = resolve_project(project)
+    click.echo(json.dumps({"project": project, "repo_url": cfg.repo_url, "ref": cfg.protected_policy_ref}))
 
 
 @gitea.command("open-pr")

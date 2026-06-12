@@ -1,0 +1,19 @@
+schema_version: platform_default_inspect.v1
+
+agents:
+  explainer:
+    description: Read-only inspect/explain agent for bootstrap repos.
+    tools:
+      - read_repo
+      - read_context
+      - search_code
+    write_policy: readonly
+
+tests:
+  allowed_commands: []
+
+paths:
+  protected:
+    - ".agent/**"
+    - ".gitea/workflows/**"
+    - ".env*"

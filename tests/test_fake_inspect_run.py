@@ -1,0 +1,87 @@
+"""Integration test for fake inspect run."""
+
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+from agent_shared.models.intent import CommandIntent
+from agent_shared.models.state import VerificationState
+from agent_control.workflows.dispatch import build_rlm_job
+from agent_workers.jobs.rlm_root import process_rlm_root
+from agent_workers.jobs.report import process_report
+
+
+@pytest.fixture
+def runs_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    runs = tmp_path / "agent-runs"
+    state = tmp_path / "agent-state"
+    runs.mkdir()
+    state.mkdir()
+    monkeypatch.setenv("AGENT_RUNS_DIR", str(runs))
+    monkeypatch.setenv("AGENT_STATE_ROOT", str(state))
+    monkeypatch.setenv("AGENT_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    return runs
+
+
+def test_fake_inspect_end_to_end(runs_env: Path) -> None:
+    state = VerificationState(
+        project="ai-sdlc-lab/demo-app",
+        command_intent=CommandIntent(
+            activated=True,
+            activation="/agent",
+            kind="inspect",
+            natural_language_task="why idle",
+            confidence=1.0,
+        ),
+        dispatch_recommended=True,
+    )
+    trigger = {
+        "event_id": "inspect1",
+        "delivery_id": "d1",
+        "type": "gitea.issue_comment",
+        "project": "ai-sdlc-lab/demo-app",
+        "payload": {"comment": {"body": "/agent inspect why idle", "id": 1}, "issue": {"number": 3}},
+    }
+    job = build_rlm_job(state, trigger)
+    assert job is not None
+
+    root_result = process_rlm_root(job.model_dump(mode="json"))
+    assert root_result["status"] == "completed"
+    run_path = Path(root_result["artifact_root"])
+    required = [
+        "bootstrap.json",
+        "system_context.json",
+        "capabilities.json",
+        "metadata.json",
+        "policy_source.json",
+        "effective_policy.json",
+        "context_receipt.json",
+        "session_events.jsonl",
+        "rlm_trace.jsonl",
+        "redaction_report.json",
+        "result.json",
+    ]
+    for name in required:
+        assert (run_path / name).exists(), name
+
+    metadata = json.loads((run_path / "metadata.json").read_text(encoding="utf-8"))
+    result_data = json.loads((run_path / "result.json").read_text(encoding="utf-8"))
+    assert metadata.get("engine") == "fake_rlm"
+    assert result_data.get("engine") == "fake_rlm"
+
+    report_result = process_report(
+        {
+            "run_id": job.run_id,
+            "project": job.project,
+            "artifact_root": str(run_path),
+            "job": job.model_dump(mode="json"),
+            "result": json.loads((run_path / "result.json").read_text(encoding="utf-8")),
+        }
+    )
+    assert report_result["status"] == "reported"
+    assert (run_path / "final_report.md").exists()
+    inbox = Path(os.environ["AGENT_STATE_ROOT"]) / "inbox" / "ct104-results" / f"{job.run_id}.json"
+    assert inbox.exists()

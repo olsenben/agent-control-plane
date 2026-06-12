@@ -24,12 +24,12 @@ def _append_comment(tmp_path: Path, body: str, event_id: str, recorded_at: str) 
 
 
 def test_process_state_reduction_writes_verification_state(tmp_path: Path) -> None:
-    _append_comment(tmp_path, "please /agent review", "evt-1", "2026-06-05T23:42:07+00:00")
+    _append_comment(tmp_path, "/agent review the change", "evt-1", "2026-06-05T23:42:07+00:00")
     result = process_state_reduction(str(tmp_path), "evt-1", "ai-sdlc-lab/agent-control-plane")
     state_path = Path(result["state_path"])
     assert state_path.exists()
     data = json.loads(state_path.read_text(encoding="utf-8"))
-    assert data["command_intent"] == "review"
+    assert data["command_intent"]["kind"] == "review"
     assert data["event_count"] == 1
     assert data["last_event_id"] == "evt-1"
     assert result["events_loaded"] == 1

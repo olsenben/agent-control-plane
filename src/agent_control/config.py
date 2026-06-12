@@ -23,6 +23,11 @@ class Settings(BaseSettings):
         default=Path("../agent-state"),
         alias="AGENT_STATE_ROOT",
     )
+    agent_runs_dir: Path = Field(default=Path("/mnt/agent-runs"), alias="AGENT_RUNS_DIR")
+    agent_cache_dir: Path = Field(default=Path("/mnt/agent-cache"), alias="AGENT_CACHE_DIR")
+    gitea_agent_token: str = Field(default="", alias="GITEA_AGENT_TOKEN")
+    gitea_agent_comment_enabled: bool = Field(default=False, alias="GITEA_AGENT_COMMENT_ENABLED")
+    queue_prefix: str = Field(default="", alias="QUEUE_PREFIX")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     model_3080_base_url: str = Field(default="", alias="MODEL_3080_BASE_URL")
     model_3080_name: str = Field(default="", alias="MODEL_3080_NAME")
@@ -53,6 +58,16 @@ class Settings(BaseSettings):
         default=False,
         alias="MODEL_HEALTH_REQUIRED_FOR_READYZ",
         description="If true, unreachable GPUs make /readyz return 503 (same as strict=true)",
+    )
+    enforce_public_surface_restriction: bool = Field(
+        default=False,
+        alias="ENFORCE_PUBLIC_SURFACE_RESTRICTION",
+        description="If true, only /healthz, /readyz, /webhooks/gitea are served",
+    )
+    model_routing_policy: str = Field(
+        default="fake",
+        alias="MODEL_ROUTING_POLICY",
+        description="Platform-owned engine selection passed to CT104 jobs (fake, official, local, ...)",
     )
 
     def allowed_repos_set(self) -> set[str]:

@@ -5,6 +5,9 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    ports:
+      # Tailscale-only access for CT104; LAN blocked by scripts/ct103-ufw.sh
+      - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -49,6 +52,46 @@ services:
     environment:
       REDIS_URL: redis://redis:6379/0
     volumes:
+      - ${AGENT_STATE_HOST_PATH:-../agent-state}:/data/agent-state
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-rlm-root:
+    profiles: [workers-ct104]
+    build: .
+    restart: unless-stopped
+    command:
+      ["agentctl", "worker", "run", "--queues", "rlm-root", "--concurrency", "1"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      AGENT_RUNS_DIR: /mnt/agent-runs
+      AGENT_CACHE_DIR: /mnt/agent-cache
+      AGENT_STATE_ROOT: /data/agent-state
+    volumes:
+      - ${AGENT_RUNS_HOST_PATH:-../agent-runs}:/mnt/agent-runs
+      - ${AGENT_CACHE_HOST_PATH:-../agent-cache}:/mnt/agent-cache
+      - ${AGENT_STATE_HOST_PATH:-../agent-state}:/data/agent-state
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-report:
+    profiles: [workers-ct104]
+    build: .
+    restart: unless-stopped
+    command:
+      ["agentctl", "worker", "run", "--queues", "report", "--concurrency", "1"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      AGENT_RUNS_DIR: /mnt/agent-runs
+      AGENT_STATE_ROOT: /data/agent-state
+    volumes:
+      - ${AGENT_RUNS_HOST_PATH:-../agent-runs}:/mnt/agent-runs
       - ${AGENT_STATE_HOST_PATH:-../agent-state}:/data/agent-state
     depends_on:
       redis:

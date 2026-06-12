@@ -1,0 +1,36 @@
+# CT104 worker host only (steelleg). Redis and control-plane live on CT103.
+# Usage: docker compose -f docker-compose.ct104.yml up -d --build
+# Requires REDIS_URL in .env pointing at CT103 Tailscale IP (see docs/ct104.md).
+
+services:
+  worker-rlm-root:
+    build: .
+    restart: unless-stopped
+    command:
+      ["agentctl", "worker", "run", "--queues", "rlm-root", "--concurrency", "1"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${REDIS_URL}
+      AGENT_RUNS_DIR: /mnt/agent-runs
+      AGENT_CACHE_DIR: /mnt/agent-cache
+      AGENT_STATE_ROOT: /data/agent-state
+    volumes:
+      - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
+      - ${AGENT_CACHE_HOST_PATH:-/mnt/agent-cache}:/mnt/agent-cache
+      - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
+
+  worker-report:
+    build: .
+    restart: unless-stopped
+    command:
+      ["agentctl", "worker", "run", "--queues", "report", "--concurrency", "1"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${REDIS_URL}
+      AGENT_RUNS_DIR: /mnt/agent-runs
+      AGENT_STATE_ROOT: /data/agent-state
+    volumes:
+      - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
+      - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state

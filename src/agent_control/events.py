@@ -11,7 +11,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from agent_control.state_reducer import LogicalState
+from agent_shared.models.state import VerificationState
+
+LogicalState = VerificationState
 
 
 def deterministic_event_id(source: str, delivery_id: str, event_type: str) -> str:

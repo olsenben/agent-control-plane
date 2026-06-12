@@ -3,7 +3,8 @@
 Separate from **CT102 `docker-ci`**. Runs autonomous loops including **RLM**, Aider, and OpenHands. CT102 remains the **authoritative CI verifier** only.
 
 **Rollout:** final four-tier stack only — [deploy.md](deploy.md#rollout-no-hybrid).  
-**RLM detail:** [rlm-runtime.md](rlm-runtime.md).
+**RLM detail:** [rlm-runtime.md](rlm-runtime.md).  
+**RLM-first adapters:** [ct104-rlm-first-adapter-plan.md](ct104-rlm-first-adapter-plan.md) — RLM orchestrates; Aider/OpenHands are bounded tools, not CT104 replacements.
 
 ## Role in the stack
 
