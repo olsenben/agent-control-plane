@@ -190,7 +190,9 @@ Mount `/mnt/agent-runs`, `/mnt/agent-cache`, and NFS-mount `/mnt/agent-state` fr
 
 Quick CT103 checks: `bash scripts/verify-ct103.sh`
 
-See [ct104.md](ct104.md).
+CT104 CI deploy: `.gitea/workflows/deploy-ct104.yaml` (SSH from CT102, same `agent-control-plane` repo). Quick checks: `bash scripts/verify-ct104.sh`
+
+See [ct104.md](ct104.md) and [cicd-setup.md](cicd-setup.md).
 
 ## Defer until section 1.3+
 

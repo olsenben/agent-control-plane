@@ -58,9 +58,12 @@ Next steps (manual):
        echo "192.168.4.62:${STATE_DIR} ${STATE_DIR} nfs defaults,_netdev 0 0" >> /etc/fstab
        mount -a
      Or export from CT103 and mount by Tailscale IP if preferred.
-  3. sudo bash scripts/ct104-ufw.sh
-  4. Verify Redis from CT103:
+  3. Configure HTTPS git creds for $DEPLOY_USER (see docs/cicd-setup.md)
+  4. Add CT102 deploy public key to /home/$DEPLOY_USER/.ssh/authorized_keys
+  5. sudo bash scripts/ct104-ufw.sh
+  6. Verify Redis from CT103:
        redis-cli -h ${CT103_TAILSCALE_IP} ping
-  5. cd ${DEPLOY_DIR} && docker compose -f docker-compose.ct104.yml up -d --build
-  6. docker compose -f docker-compose.ct104.yml exec worker-rlm-root agentctl worker doctor
+  7. cd ${DEPLOY_DIR} && docker compose -f docker-compose.ct104.yml up -d --build
+  8. bash scripts/verify-ct104.sh
+  9. Set Gitea secrets DEPLOY_CT104_* for deploy-ct104 workflow
 EOF
