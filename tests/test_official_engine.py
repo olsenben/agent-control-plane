@@ -7,7 +7,7 @@ import pytest
 
 from agent_control.model_router import ResolvedEndpoint
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
-from agent_workers.rlm.engine import get_engine, resolve_engine_name
+from agent_workers.rlm.engine import get_engine
 from agent_workers.rlm.official_engine import OfficialRLMEngine, gather_read_only_context
 
 
