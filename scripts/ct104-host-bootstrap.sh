@@ -27,10 +27,14 @@ usermod -aG docker "$DEPLOY_USER"
 mkdir -p "$(dirname "$DEPLOY_DIR")" "$RUNS_DIR" "$CACHE_DIR"
 chown -R "$DEPLOY_USER:docker" "$(dirname "$DEPLOY_DIR")" "$RUNS_DIR" "$CACHE_DIR"
 
+sudo -u "$DEPLOY_USER" git config --global url."${REPO_URL%/*}/".insteadOf "git@git.ham-sup-lo.com:"
+sudo -u "$DEPLOY_USER" git config --global url."${REPO_URL%/*}/".insteadOf "ssh://git@git.ham-sup-lo.com/"
+
 if [ ! -d "$DEPLOY_DIR/.git" ]; then
   sudo -u "$DEPLOY_USER" git clone "$REPO_URL" "$DEPLOY_DIR"
 else
   echo "Deploy dir already cloned: $DEPLOY_DIR"
+  sudo -u "$DEPLOY_USER" git -C "$DEPLOY_DIR" remote set-url origin "$REPO_URL"
 fi
 
 if [ ! -f "$DEPLOY_DIR/.env" ]; then
@@ -58,7 +62,11 @@ Next steps (manual):
        echo "192.168.4.62:${STATE_DIR} ${STATE_DIR} nfs defaults,_netdev 0 0" >> /etc/fstab
        mount -a
      Or export from CT103 and mount by Tailscale IP if preferred.
-  3. Configure HTTPS git creds for $DEPLOY_USER (see docs/cicd-setup.md)
+  3. Configure HTTP(S) git token for $DEPLOY_USER (no SSH :22):
+       sudo GITEA_DEPLOY_TOKEN=<token> bash scripts/configure-deploy-git-https.sh
+     Or HTTPS public URL:
+       sudo GITEA_GIT_BASE=https://git.ham-sup-lo.com GITEA_DEPLOY_TOKEN=<token> \\
+         bash scripts/configure-deploy-git-https.sh
   4. Add CT102 deploy public key to /home/$DEPLOY_USER/.ssh/authorized_keys
   5. sudo bash scripts/ct104-ufw.sh
   6. Verify Redis from CT103:

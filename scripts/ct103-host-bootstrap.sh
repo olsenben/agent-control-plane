@@ -24,10 +24,14 @@ usermod -aG docker "$DEPLOY_USER"
 mkdir -p "$(dirname "$DEPLOY_DIR")" "$STATE_DIR"
 chown -R "$DEPLOY_USER:docker" "$(dirname "$DEPLOY_DIR")"
 
+sudo -u "$DEPLOY_USER" git config --global url."${REPO_URL%/*}/".insteadOf "git@git.ham-sup-lo.com:"
+sudo -u "$DEPLOY_USER" git config --global url."${REPO_URL%/*}/".insteadOf "ssh://git@git.ham-sup-lo.com/"
+
 if [ ! -d "$DEPLOY_DIR/.git" ]; then
   sudo -u "$DEPLOY_USER" git clone "$REPO_URL" "$DEPLOY_DIR"
 else
   echo "Deploy dir already cloned: $DEPLOY_DIR"
+  sudo -u "$DEPLOY_USER" git -C "$DEPLOY_DIR" remote set-url origin "$REPO_URL"
 fi
 
 if [ ! -d "$STATE_DIR/.git" ]; then
@@ -48,7 +52,8 @@ chown -R "$DEPLOY_USER:docker" "$DEPLOY_DIR"
 cat >&2 <<EOF
 Next steps (manual):
   1. Edit $DEPLOY_DIR/.env with runtime secrets
-  2. Configure HTTPS git creds for $DEPLOY_USER (see docs/cicd-setup.md)
+  2. Configure HTTP(S) git token for $DEPLOY_USER (no SSH :22):
+       sudo GITEA_DEPLOY_TOKEN=<token> bash scripts/configure-deploy-git-https.sh
   3. Add CT102 deploy public key to /home/$DEPLOY_USER/.ssh/authorized_keys
   4. sudo bash scripts/ct103-ufw.sh
 EOF

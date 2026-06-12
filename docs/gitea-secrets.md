@@ -9,6 +9,13 @@ Add under **Settings → Actions → Secrets** for this repo only.
 | `DEPLOY_SSH_KEY` | Full private key (OpenSSH format, including BEGIN/END lines) |
 | `DEPLOY_HOST` | `192.168.4.62` |
 | `DEPLOY_USER` | `deploy` |
+| `DEPLOY_GIT_TOKEN` | Gitea personal access token for `git pull` (HTTP/S, not SSH :22) |
+
+Optional:
+
+| Secret | Value |
+|--------|-------|
+| `DEPLOY_GIT_ORIGIN_URL` | Default `http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git`; or `https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane.git` |
 
 ## Required for deploy-ct104 workflow (CT104)
 
@@ -17,6 +24,8 @@ Add under **Settings → Actions → Secrets** for this repo only.
 | `DEPLOY_CT104_SSH_KEY` | Full private key (may reuse CT103 keypair) |
 | `DEPLOY_CT104_HOST` | CT104 LAN IP (e.g. `192.168.4.63`) |
 | `DEPLOY_CT104_USER` | `deploy` |
+
+`DEPLOY_GIT_TOKEN` and optional `DEPLOY_GIT_ORIGIN_URL` are shared with CT103 deploy (same repo).
 
 ## Not in Gitea
 

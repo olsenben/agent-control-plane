@@ -51,16 +51,29 @@ sudo nano /opt/ai-sdlc-lab/agent-control-plane/.env
 2. Private key → Gitea `DEPLOY_SSH_KEY` (and `DEPLOY_CT104_SSH_KEY` if reusing one key)
 3. Public key → `/home/deploy/.ssh/authorized_keys` on CT103 and CT104
 
-### Git pull (HTTPS — SSH git not exposed on :22)
+### Git pull (HTTP/S + token — no Gitea SSH :22)
+
+Port 22 is not used for git. Use LAN HTTP or public HTTPS with a token.
+
+**On each deploy host (CT103 / CT104):**
 
 ```bash
-sudo -u deploy git -C /opt/ai-sdlc-lab/agent-control-plane remote set-url origin \
-  http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git
+# LAN (recommended on homelab)
+sudo GITEA_DEPLOY_TOKEN=<token> bash scripts/configure-deploy-git-https.sh
 
-sudo -u deploy git config --global credential.helper store
-# echo "http://deploy:TOKEN@192.168.4.60:3000" > /home/deploy/.git-credentials
+# Or public HTTPS
+sudo GITEA_GIT_BASE=https://git.ham-sup-lo.com GITEA_DEPLOY_TOKEN=<token> \
+  bash scripts/configure-deploy-git-https.sh
+
 sudo -u deploy git -C /opt/ai-sdlc-lab/agent-control-plane pull --ff-only origin main
 ```
+
+**In Gitea repo secrets** (for CI deploy without relying on host creds):
+
+- `DEPLOY_GIT_TOKEN` — same token; workflows call `scripts/deploy-git-pull.sh`
+- `DEPLOY_GIT_ORIGIN_URL` (optional) — override clone URL
+
+CT102 → CT103/CT104 **deploy SSH** (runner to host) is separate from Gitea git; it uses LAN SSH on the container/host IP, not Gitea :22.
 
 ## CT102 runner labels
 

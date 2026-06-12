@@ -40,6 +40,8 @@ jobs:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_GIT_TOKEN: ${{ secrets.DEPLOY_GIT_TOKEN }}
+          GIT_ORIGIN_URL: ${{ secrets.DEPLOY_GIT_ORIGIN_URL }}
         run: |
           set -euo pipefail
           install -m 700 -d ~/.ssh
@@ -50,12 +52,12 @@ jobs:
           ssh -i ~/.ssh/deploy_key \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=accept-new \
-            "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<'REMOTE'
+            "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<REMOTE
           set -euo pipefail
+          export DEPLOY_GIT_TOKEN='$(printf '%s' "$DEPLOY_GIT_TOKEN" | sed "s/'/'\\\\''/g")'
+          export GIT_ORIGIN_URL='$(printf '%s' "${GIT_ORIGIN_URL:-http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git}" | sed "s/'/'\\\\''/g")'
           cd /opt/ai-sdlc-lab/agent-control-plane
-          git fetch origin main
-          git checkout main
-          git pull --ff-only origin main
+          bash scripts/deploy-git-pull.sh
           test -f .env || { echo ".env missing on host; bootstrap manually on CT103"; exit 1; }
           # Do not run "docker compose config" here — it prints resolved .env values to logs.
           # Rebuild both app images explicitly; worker-state is behind the workers profile.
