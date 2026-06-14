@@ -9,6 +9,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.ct104.example
 ct103_deploy
 ct103_deploy.pub
 ct104_deploy
