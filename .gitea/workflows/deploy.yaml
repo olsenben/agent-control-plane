@@ -54,13 +54,16 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           trap 'rm -f ~/.ssh/deploy_key' EXIT
 
+          GIT_TOKEN_ESC=$(printf '%s' "$DEPLOY_GIT_TOKEN" | sed "s/'/'\\\\''/g")
+          GIT_ORIGIN_ESC=$(printf '%s' "${GIT_ORIGIN_URL:-http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git}" | sed "s/'/'\\\\''/g")
+
           ssh -i ~/.ssh/deploy_key \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=accept-new \
             "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<REMOTE
           set -euo pipefail
-          export DEPLOY_GIT_TOKEN='$(printf '%s' "$DEPLOY_GIT_TOKEN" | sed "s/'/'\\\\''/g")'
-          export GIT_ORIGIN_URL='$(printf '%s' "${GIT_ORIGIN_URL:-http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git}" | sed "s/'/'\\\\''/g")'
+          export DEPLOY_GIT_TOKEN='${GIT_TOKEN_ESC}'
+          export GIT_ORIGIN_URL='${GIT_ORIGIN_ESC}'
           cd /opt/ai-sdlc-lab/agent-control-plane
           bash scripts/deploy-git-pull.sh
           test -f .env || { echo ".env missing on host; bootstrap manually on CT103"; exit 1; }
@@ -70,21 +73,21 @@ jobs:
           docker compose --profile workers up -d
           status=""
           for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-            http_code="$(curl -s -o /tmp/readyz.json -w '%{http_code}' --connect-timeout 3 \
+            http_code="\$(curl -s -o /tmp/readyz.json -w '%{http_code}' --connect-timeout 3 \
               http://127.0.0.1:8080/readyz 2>/dev/null || echo 000)"
             if [ -f /tmp/readyz.json ] && [ -s /tmp/readyz.json ]; then
-              status="$(python3 -c "import json; print(json.load(open('/tmp/readyz.json'))['status'])" 2>/dev/null || true)"
-              if [ "$status" = "ready" ] || [ "$status" = "degraded" ]; then
-                echo "readyz: ${status} (http ${http_code})"
+              status="\$(python3 -c "import json; print(json.load(open('/tmp/readyz.json'))['status'])" 2>/dev/null || true)"
+              if [ "\$status" = "ready" ] || [ "\$status" = "degraded" ]; then
+                echo "readyz: \${status} (http \${http_code})"
                 break
               fi
-              echo "readyz attempt ${i}: http=${http_code} status=${status:-unknown}"
+              echo "readyz attempt \${i}: http=\${http_code} status=\${status:-unknown}"
             else
-              echo "readyz attempt ${i}: http=${http_code} (no response body)"
+              echo "readyz attempt \${i}: http=\${http_code} (no response body)"
             fi
             sleep 3
           done
-          if [ "$status" != "ready" ] && [ "$status" != "degraded" ]; then
+          if [ "\$status" != "ready" ] && [ "\$status" != "degraded" ]; then
             echo "readyz did not reach ready/degraded in time" >&2
             cat /tmp/readyz.json 2>/dev/null || echo "(no readyz response file)" >&2
             docker compose --profile workers ps >&2 || true
@@ -92,7 +95,7 @@ jobs:
             exit 1
           fi
           sleep 5
-          if [ -z "$(docker compose --profile workers ps --status running -q worker-state)" ]; then
+          if [ -z "\$(docker compose --profile workers ps --status running -q worker-state)" ]; then
             echo "worker-state is not running after deploy" >&2
             docker compose --profile workers ps worker-state >&2 || true
             docker compose --profile workers logs --tail=80 worker-state >&2 || true

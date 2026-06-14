@@ -46,19 +46,23 @@ jobs:
           test -n "${DEPLOY_HOST:-}" || { echo "DEPLOY_CT104_HOST secret missing" >&2; exit 1; }
           test -n "${DEPLOY_USER:-}" || { echo "DEPLOY_CT104_USER secret missing" >&2; exit 1; }
           test -n "${DEPLOY_SSH_KEY:-}" || { echo "DEPLOY_CT104_SSH_KEY secret missing" >&2; exit 1; }
+          test -n "${DEPLOY_GIT_TOKEN:-}" || { echo "DEPLOY_GIT_TOKEN secret missing" >&2; exit 1; }
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           trap 'rm -f ~/.ssh/deploy_key' EXIT
 
+          GIT_TOKEN_ESC=$(printf '%s' "$DEPLOY_GIT_TOKEN" | sed "s/'/'\\\\''/g")
+          GIT_ORIGIN_ESC=$(printf '%s' "${GIT_ORIGIN_URL:-http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git}" | sed "s/'/'\\\\''/g")
+
           ssh -i ~/.ssh/deploy_key \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=accept-new \
             "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<REMOTE
           set -euo pipefail
-          export DEPLOY_GIT_TOKEN='$(printf '%s' "$DEPLOY_GIT_TOKEN" | sed "s/'/'\\\\''/g")'
-          export GIT_ORIGIN_URL='$(printf '%s' "${GIT_ORIGIN_URL:-http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git}" | sed "s/'/'\\\\''/g")'
+          export DEPLOY_GIT_TOKEN='${GIT_TOKEN_ESC}'
+          export GIT_ORIGIN_URL='${GIT_ORIGIN_ESC}'
           cd /opt/ai-sdlc-lab/agent-control-plane
           bash scripts/deploy-git-pull.sh
           test -f .env || { echo ".env missing on host; bootstrap manually on CT104" >&2; exit 1; }
@@ -66,13 +70,13 @@ jobs:
           docker compose -f docker-compose.ct104.yml up -d
           sleep 5
           for svc in worker-rlm-root worker-report; do
-            if [ -z "$(docker compose -f docker-compose.ct104.yml ps --status running -q "$svc")" ]; then
-              echo "${svc} is not running after deploy" >&2
-              docker compose -f docker-compose.ct104.yml ps "$svc" >&2 || true
-              docker compose -f docker-compose.ct104.yml logs --tail=80 "$svc" >&2 || true
+            if [ -z "\$(docker compose -f docker-compose.ct104.yml ps --status running -q "\$svc")" ]; then
+              echo "\${svc} is not running after deploy" >&2
+              docker compose -f docker-compose.ct104.yml ps "\$svc" >&2 || true
+              docker compose -f docker-compose.ct104.yml logs --tail=80 "\$svc" >&2 || true
               exit 1
             fi
-            echo "${svc}: running"
+            echo "\${svc}: running"
           done
           docker compose -f docker-compose.ct104.yml exec -T worker-rlm-root agentctl worker doctor
           REMOTE
