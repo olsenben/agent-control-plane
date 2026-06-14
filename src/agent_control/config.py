@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     gitea_bot_token: str = Field(default="", alias="GITEA_BOT_TOKEN")
     gitea_webhook_secret: str = Field(default="", alias="GITEA_WEBHOOK_SECRET")
     gitea_allowed_repos: str = Field(
-        default="ai-sdlc-lab/demo-app",
+        default="ai-sdlc-lab/*",
         alias="GITEA_ALLOWED_REPOS",
         description="Comma-separated owner/repo allowlist; owner/* or * wildcards supported",
     )

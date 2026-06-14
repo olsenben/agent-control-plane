@@ -10,7 +10,11 @@ Repo-local agent policy loaded from the **protected base branch** only.
 
 ## Inspect bootstrap (allowlisted repos)
 
-Missing `.agent/agent-config.yml` on allowlisted repos uses `platform_default` inspect policy with warnings in artifacts.
+Any repo under an owner listed in `config/projects.yaml` → `platform.allowed_owners` (default: all `ai-sdlc-lab/*`) may use platform-default inspect policy when `.agent/agent-config.yml` is missing.
+
+Explicit per-repo entries in `projects.projects` override URLs only; bootstrap still inherits platform defaults unless overridden.
+
+CT103 webhooks use `GITEA_ALLOWED_REPOS` in `.env` (set `ai-sdlc-lab/*` for the whole org).
 
 ## Flow risk classes
 

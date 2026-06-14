@@ -1,16 +1,18 @@
+# Worker project registry. Explicit entries override platform defaults.
+platform:
+  repo_url_base: http://192.168.4.60:3000
+  allowed_owners:
+    - ai-sdlc-lab
+  bootstrap_default_policy: true
+  default_branch: main
+  protected_policy_ref: main
+
 projects:
   ai-sdlc-lab/agent-control-plane:
     repo_url: http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git
-    default_branch: main
-    protected_policy_ref: main
-    bootstrap_default_policy: true
   ai-sdlc-lab/demo-app:
     repo_url: http://192.168.4.60:3000/ai-sdlc-lab/demo-app.git
-    default_branch: main
-    protected_policy_ref: main
-    bootstrap_default_policy: true
   ai-sdlc-lab/agent-template:
     repo_url: http://192.168.4.60:3000/ai-sdlc-lab/agent-template.git
-    default_branch: main
-    protected_policy_ref: main
-    bootstrap_default_policy: true
+  ai-sdlc-lab/agent-state:
+    repo_url: http://192.168.4.60:3000/ai-sdlc-lab/agent-state.git

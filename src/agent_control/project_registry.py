@@ -45,19 +45,62 @@ def _load_registry_file(path: str) -> dict[str, Any]:
     return data
 
 
+def _platform_defaults(raw: dict[str, Any]) -> dict[str, Any]:
+    platform = raw.get("platform") or {}
+    if not isinstance(platform, dict):
+        return {}
+    return platform
+
+
+def _project_from_platform(
+    project: str,
+    platform: dict[str, Any],
+    *,
+    fallback_repo_base: str,
+) -> ProjectConfig | None:
+    if "/" not in project:
+        return None
+    owner, _repo = project.split("/", 1)
+    allowed = platform.get("allowed_owners") or []
+    if owner not in allowed:
+        return None
+    repo_base = str(platform.get("repo_url_base", fallback_repo_base)).rstrip("/")
+    return ProjectConfig(
+        project=project,
+        repo_url=f"{repo_base}/{project}.git",
+        default_branch=str(platform.get("default_branch", "main")),
+        protected_policy_ref=str(platform.get("protected_policy_ref", "main")),
+        bootstrap_default_policy=bool(platform.get("bootstrap_default_policy", False)),
+    )
+
+
 def load_project_registry(registry_path: Path | None = None) -> dict[str, ProjectConfig]:
     path = registry_path or _default_registry_path()
     raw = _load_registry_file(str(path))
+    platform = _platform_defaults(raw)
     projects: dict[str, ProjectConfig] = {}
     for name, cfg in (raw.get("projects") or {}).items():
         if not isinstance(cfg, dict):
             continue
+        repo_url = str(cfg.get("repo_url", "")).strip()
+        if not repo_url:
+            resolved = _project_from_platform(name, platform, fallback_repo_base="")
+            if resolved is None:
+                continue
+            repo_url = resolved.repo_url
         projects[name] = ProjectConfig(
             project=name,
-            repo_url=str(cfg.get("repo_url", "")),
-            default_branch=str(cfg.get("default_branch", "main")),
-            protected_policy_ref=str(cfg.get("protected_policy_ref", "main")),
-            bootstrap_default_policy=bool(cfg.get("bootstrap_default_policy", False)),
+            repo_url=repo_url,
+            default_branch=str(cfg.get("default_branch", platform.get("default_branch", "main"))),
+            protected_policy_ref=str(
+                cfg.get("protected_policy_ref", platform.get("protected_policy_ref", "main"))
+            ),
+            bootstrap_default_policy=bool(
+                cfg.get(
+                    "bootstrap_default_policy",
+                    platform.get("bootstrap_default_policy", False),
+                )
+            ),
         )
     return projects
 
@@ -68,13 +111,19 @@ def resolve_project(
     registry_path: Path | None = None,
 ) -> ProjectConfig:
     settings = settings or get_settings()
+    path = registry_path or _default_registry_path()
+    raw = _load_registry_file(str(path))
     registry = load_project_registry(registry_path)
     if project in registry:
         return registry[project]
-    base = settings.gitea_base_url.rstrip("/")
+    platform = _platform_defaults(raw)
+    fallback_repo_base = settings.gitea_base_url.rstrip("/")
+    platform_cfg = _project_from_platform(project, platform, fallback_repo_base=fallback_repo_base)
+    if platform_cfg is not None:
+        return platform_cfg
     return ProjectConfig(
         project=project,
-        repo_url=f"{base}/{project}.git",
+        repo_url=f"{fallback_repo_base}/{project}.git",
         default_branch="main",
         protected_policy_ref="main",
         bootstrap_default_policy=False,
