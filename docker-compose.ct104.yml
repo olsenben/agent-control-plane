@@ -15,10 +15,13 @@ services:
       AGENT_RUNS_DIR: /mnt/agent-runs
       AGENT_CACHE_DIR: /mnt/agent-cache
       AGENT_STATE_ROOT: /data/agent-state
+      GIT_TERMINAL_PROMPT: "0"
     volumes:
       - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
       - ${AGENT_CACHE_HOST_PATH:-/mnt/agent-cache}:/mnt/agent-cache
       - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
+      - ${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}:/root/.git-credentials:ro
+      - ./config/git-worker.gitconfig:/root/.gitconfig:ro
 
   worker-report:
     build: .

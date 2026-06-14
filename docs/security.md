@@ -24,7 +24,7 @@ Regression tests: `tests/test_prompt_injection.py`.
 
 | Worker | Has | Does not have |
 |--------|-----|---------------|
-| worker-rlm-root | Redis, git_ro_key, agent-runs | Gitea token, model keys |
+| worker-rlm-root | Redis, HTTP git credentials (read-only), agent-runs | Gitea API token, model keys |
 | worker-report | optional GITEA_AGENT_TOKEN | repo write key, model keys |
 
 - ADR mandatory constraints fail closed on prompt budget overflow.

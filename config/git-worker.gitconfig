@@ -1,0 +1,4 @@
+# Mounted into worker-rlm-root as /root/.gitconfig for non-interactive HTTP(S) git clone.
+# Requires host file at GIT_CREDENTIALS_HOST_PATH (default /home/deploy/.git-credentials).
+[credential]
+	helper = store --file=/root/.git-credentials

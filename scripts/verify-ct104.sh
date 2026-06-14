@@ -13,4 +13,14 @@ docker compose -f "$COMPOSE_FILE" ps
 echo "== worker doctor =="
 docker compose -f "$COMPOSE_FILE" exec -T worker-rlm-root agentctl worker doctor
 
+if [ -f "${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}" ]; then
+  echo "== git clone smoke (worker-rlm-root) =="
+  docker compose -f "$COMPOSE_FILE" exec -T worker-rlm-root sh -c \
+    'rm -rf /tmp/verify-clone-test && git clone --depth 1 --branch main \
+      http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git /tmp/verify-clone-test \
+      && test -f /tmp/verify-clone-test/README.md'
+else
+  echo "skip git clone smoke — no ${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}"
+fi
+
 echo "CT104 checks complete."
