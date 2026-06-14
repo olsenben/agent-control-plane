@@ -17,7 +17,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 apt-get update
-apt-get install -y git curl python3 docker-compose-plugin nfs-common
+apt-get install -y git curl python3 docker-compose-plugin
 
 if ! id -u "$DEPLOY_USER" >/dev/null 2>&1; then
   useradd -m -s /bin/bash "$DEPLOY_USER"
@@ -38,19 +38,27 @@ else
 fi
 
 if [ ! -f "$DEPLOY_DIR/.env" ]; then
-  cp "$DEPLOY_DIR/.env.example" "$DEPLOY_DIR/.env"
-  {
-    echo ""
-    echo "# CT104 overrides (edit CT103_TAILSCALE_IP if needed)"
-    echo "REDIS_URL=redis://${CT103_TAILSCALE_IP}:6379/0"
-    echo "AGENT_RUNS_HOST_PATH=${RUNS_DIR}"
-    echo "AGENT_CACHE_HOST_PATH=${CACHE_DIR}"
-    echo "AGENT_STATE_HOST_PATH=${STATE_DIR}"
-    echo "MODEL_ROUTING_POLICY=fake"
-  } >> "$DEPLOY_DIR/.env"
+  if [ -f "$DEPLOY_DIR/.env.ct104.example" ]; then
+    cp "$DEPLOY_DIR/.env.ct104.example" "$DEPLOY_DIR/.env"
+    sed -i "s|^REDIS_URL=.*|REDIS_URL=redis://${CT103_TAILSCALE_IP}:6379/0|" "$DEPLOY_DIR/.env"
+    sed -i "s|^AGENT_RUNS_HOST_PATH=.*|AGENT_RUNS_HOST_PATH=${RUNS_DIR}|" "$DEPLOY_DIR/.env"
+    sed -i "s|^AGENT_CACHE_HOST_PATH=.*|AGENT_CACHE_HOST_PATH=${CACHE_DIR}|" "$DEPLOY_DIR/.env"
+    sed -i "s|^AGENT_STATE_HOST_PATH=.*|AGENT_STATE_HOST_PATH=${STATE_DIR}|" "$DEPLOY_DIR/.env"
+  else
+    cp "$DEPLOY_DIR/.env.example" "$DEPLOY_DIR/.env"
+    {
+      echo ""
+      echo "# CT104 overrides (edit CT103_TAILSCALE_IP if needed)"
+      echo "REDIS_URL=redis://${CT103_TAILSCALE_IP}:6379/0"
+      echo "AGENT_RUNS_HOST_PATH=${RUNS_DIR}"
+      echo "AGENT_CACHE_HOST_PATH=${CACHE_DIR}"
+      echo "AGENT_STATE_HOST_PATH=${STATE_DIR}"
+      echo "MODEL_ROUTING_POLICY=fake"
+    } >> "$DEPLOY_DIR/.env"
+  fi
   chown "$DEPLOY_USER:$DEPLOY_USER" "$DEPLOY_DIR/.env"
   chmod 600 "$DEPLOY_DIR/.env"
-  echo "Created $DEPLOY_DIR/.env — verify REDIS_URL and NFS mount for agent-state."
+  echo "Created $DEPLOY_DIR/.env — verify REDIS_URL and agent-state storage (docs/agent-state-storage.md)."
 fi
 
 chown -R "$DEPLOY_USER:docker" "$DEPLOY_DIR"
@@ -58,10 +66,8 @@ chown -R "$DEPLOY_USER:docker" "$DEPLOY_DIR"
 cat >&2 <<EOF
 Next steps (manual):
   1. Install Tailscale; assign tag:agent-worker in admin console
-  2. Mount shared agent-state from CT103 (NFS example):
-       echo "192.168.4.62:${STATE_DIR} ${STATE_DIR} nfs defaults,_netdev 0 0" >> /etc/fstab
-       mount -a
-     Or export from CT103 and mount by Tailscale IP if preferred.
+  2. Configure shared agent-state (goldenleg /srv/agent-state -> steelleg NFS + mp0 bind):
+       see docs/agent-state-storage.md — do NOT nfs-mount inside this container.
   3. Configure HTTP(S) git token for $DEPLOY_USER (no SSH :22):
        sudo GITEA_DEPLOY_TOKEN=<token> bash scripts/configure-deploy-git-https.sh
      Or HTTPS public URL:

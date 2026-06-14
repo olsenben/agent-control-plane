@@ -51,6 +51,7 @@ chown -R "$DEPLOY_USER:docker" "$DEPLOY_DIR"
 
 cat >&2 <<EOF
 Next steps (manual):
+  0. Ensure $STATE_DIR is the goldenleg host bind mount (docs/agent-state-storage.md) — not a local rootfs-only path
   1. Edit $DEPLOY_DIR/.env with runtime secrets
   2. Configure HTTP(S) git token for $DEPLOY_USER (no SSH :22):
        sudo GITEA_DEPLOY_TOKEN=<token> bash scripts/configure-deploy-git-https.sh

@@ -69,9 +69,11 @@ sudo ufw deny 6379/tcp
 sudo ufw enable
 ```
 
-5. Create `/mnt/agent-state` and clone `agent-state` repo.
+5. On **goldenleg Proxmox host**, create `/srv/agent-state` and bind into CT103 (`mp0`). See [agent-state-storage.md](agent-state-storage.md). Inside CT103, `/mnt/agent-state` is the mount target — clone `agent-state` repo there (bootstrap script does this).
 6. Clone `agent-control-plane` to `/opt/ai-sdlc-lab/agent-control-plane`.
 7. `cp .env.example .env` and edit secrets (never commit `.env`).
+
+Do **not** install `nfs-kernel-server` on CT103.
 
 ## First deploy
 
@@ -186,7 +188,7 @@ cd /opt/ai-sdlc-lab/agent-control-plane
 docker compose -f docker-compose.ct104.yml up -d --build
 ```
 
-Mount `/mnt/agent-runs`, `/mnt/agent-cache`, and NFS-mount `/mnt/agent-state` from CT103. CT104 connects to CT103 Redis over Tailscale (`REDIS_URL` in `.env`).
+Share `/mnt/agent-state` with CT103 via host NFS + bind mounts — [agent-state-storage.md](agent-state-storage.md). Keep `/mnt/agent-runs` and `/mnt/agent-cache` local on CT104. CT104 connects to CT103 Redis over Tailscale (`REDIS_URL` in `.env`).
 
 Quick CT103 checks: `bash scripts/verify-ct103.sh`
 
