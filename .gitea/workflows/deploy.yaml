@@ -44,6 +44,11 @@ jobs:
           GIT_ORIGIN_URL: ${{ secrets.DEPLOY_GIT_ORIGIN_URL }}
         run: |
           set -euo pipefail
+          test -n "${DEPLOY_HOST:-}" || { echo "DEPLOY_HOST secret missing" >&2; exit 1; }
+          test -n "${DEPLOY_USER:-}" || { echo "DEPLOY_USER secret missing" >&2; exit 1; }
+          test -n "${DEPLOY_SSH_KEY:-}" || { echo "DEPLOY_SSH_KEY secret missing" >&2; exit 1; }
+          test -n "${DEPLOY_GIT_TOKEN:-}" || { echo "DEPLOY_GIT_TOKEN secret missing" >&2; exit 1; }
+
           install -m 700 -d ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
@@ -63,19 +68,27 @@ jobs:
           # Rebuild both app images explicitly; worker-state is behind the workers profile.
           docker compose --profile workers build control-plane worker-state
           docker compose --profile workers up -d
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            if curl -sf http://127.0.0.1:8080/readyz -o /tmp/readyz.json; then
-              status=$(python3 -c "import json; print(json.load(open('/tmp/readyz.json'))['status'])")
+          status=""
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+            http_code="$(curl -s -o /tmp/readyz.json -w '%{http_code}' --connect-timeout 3 \
+              http://127.0.0.1:8080/readyz 2>/dev/null || echo 000)"
+            if [ -f /tmp/readyz.json ] && [ -s /tmp/readyz.json ]; then
+              status="$(python3 -c "import json; print(json.load(open('/tmp/readyz.json'))['status'])" 2>/dev/null || true)"
               if [ "$status" = "ready" ] || [ "$status" = "degraded" ]; then
-                echo "readyz: ${status}"
+                echo "readyz: ${status} (http ${http_code})"
                 break
               fi
+              echo "readyz attempt ${i}: http=${http_code} status=${status:-unknown}"
+            else
+              echo "readyz attempt ${i}: http=${http_code} (no response body)"
             fi
             sleep 3
           done
-          if [ "${status:-}" != "ready" ] && [ "${status:-}" != "degraded" ]; then
+          if [ "$status" != "ready" ] && [ "$status" != "degraded" ]; then
             echo "readyz did not reach ready/degraded in time" >&2
-            cat /tmp/readyz.json >&2 || true
+            cat /tmp/readyz.json 2>/dev/null || echo "(no readyz response file)" >&2
+            docker compose --profile workers ps >&2 || true
+            docker compose --profile workers logs --tail=80 control-plane >&2 || true
             exit 1
           fi
           sleep 5
