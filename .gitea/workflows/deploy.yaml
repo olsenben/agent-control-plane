@@ -65,7 +65,24 @@ jobs:
           export DEPLOY_GIT_TOKEN='${GIT_TOKEN_ESC}'
           export GIT_ORIGIN_URL='${GIT_ORIGIN_ESC}'
           cd /opt/ai-sdlc-lab/agent-control-plane
-          bash scripts/deploy-git-pull.sh
+          if [ -f scripts/deploy-git-pull.sh ]; then
+            bash scripts/deploy-git-pull.sh
+          else
+            echo "deploy-git-pull.sh missing — inline pull (bootstrap once, then script exists on next deploy)"
+            git remote set-url origin "\$GIT_ORIGIN_URL"
+            ASKPASS="\$(mktemp)"
+            printf '%s\n' '#!/bin/sh' \
+              'case "\$1" in' \
+              '  *Username*) printf "%s\\n" "deploy" ;;' \
+              '  *Password*) printf "%s\\n" "\$DEPLOY_GIT_TOKEN" ;;' \
+              'esac' > "\$ASKPASS"
+            chmod 700 "\$ASKPASS"
+            export GIT_ASKPASS="\$ASKPASS" GIT_TERMINAL_PROMPT=0
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
+            rm -f "\$ASKPASS"
+          fi
           test -f .env || { echo ".env missing on host; bootstrap manually on CT103"; exit 1; }
           # Do not run "docker compose config" here — it prints resolved .env values to logs.
           # Rebuild both app images explicitly; worker-state is behind the workers profile.
