@@ -28,5 +28,15 @@ elif [ ! -f "${HOME}/.git-credentials" ]; then
 fi
 
 git fetch origin main
+
+# Deploy hosts may have manual bootstrap copies of tracked files; drop untracked
+# paths that exist on origin/main so ff-only pull succeeds (.env stays gitignored).
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  if [ -e "$path" ] && ! git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+    rm -rf "$path"
+  fi
+done < <(git ls-tree -r --name-only origin/main)
+
 git checkout main
 git pull --ff-only origin main
