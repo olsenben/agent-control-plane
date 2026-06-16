@@ -37,6 +37,9 @@ LEGACY_GPU_QUEUES: tuple[str, ...] = (
 
 ALL_QUEUE_NAMES: tuple[str, ...] = FLOW_QUEUE_NAMES + LEGACY_GPU_QUEUES
 
+# Max chars of run summary posted to Gitea issue comments and stored on completion events.
+GITEA_COMMENT_SUMMARY_MAX_CHARS = 4000
+
 
 def prefixed_queue(name: str) -> str:
     if QUEUE_PREFIX:

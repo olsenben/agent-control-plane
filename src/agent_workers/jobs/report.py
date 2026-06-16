@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from agent_shared.constants import RunStatus, SessionEventType
+from agent_shared.constants import GITEA_COMMENT_SUMMARY_MAX_CHARS, RunStatus, SessionEventType
 from agent_shared.models.events import AgentRunCompletedEvent
 from agent_workers.artifacts.session_events import SessionEventWriter
 from agent_workers.artifacts.writer import update_metadata_status, write_json
@@ -56,7 +56,7 @@ def process_report(job_payload: dict[str, Any]) -> dict[str, Any]:
         agent=result.get("agent", job.get("agent", "explainer")),
         risk_class=str(result.get("risk_class", job.get("risk_class", "read_only"))),
         status=result.get("status", "completed"),
-        summary=summary[:500],
+        summary=summary[:GITEA_COMMENT_SUMMARY_MAX_CHARS],
         artifact_root=str(artifact_root),
     )
 

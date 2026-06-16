@@ -628,21 +628,22 @@ External tools must not call Gitea directly. Return structured results to CT104;
 
 ## Known gaps (intentional future work)
 
-- `OfficialRLMEngine` and adapter tool modules do not exist yet — Spikes 1–5
-- `execution_strategy` YAML is documented first; full platform wiring in Spike 0/1
+- Adapter tool modules (Aider/OpenHands as RLM tools) — Spikes 2–5
+- `GITEA_BOT_TOKEN` Gitea API client on CT103 — stub only (PR/label automation)
 - [rlm-runtime.md](rlm-runtime.md) mentions "RLM OR Aider/OpenHands" at worker level — this plan clarifies Aider/OpenHands are **tools under RLM**, not alternate top-level runtimes
 
 ## Next implementation task
 
-**Spike 1 (completed):** `OfficialRLMEngine` candidate for read-only inspect/explain. See [decisions/spike1-official-rlm-library.md](decisions/spike1-official-rlm-library.md).
+**Spike 1 (completed, homelab verified 2026-06-14):** `OfficialRLMEngine` for read-only inspect/explain with repo clone, Ollama, and Gitea comment-back. See [decisions/spike1-official-rlm-library.md](decisions/spike1-official-rlm-library.md).
 
 **Spike 2 (next):** Harden `MinimalLocalRLMEngine` as first-class fallback — bounded recursion (max_depth 0–1), structured output validation, real model calls without `rlms` REPL when official library is awkward.
 
-To try Spike 1 on steelleg:
+Homelab settings for official inspect:
 
-1. Prebuild worker image with `pip install '.[rlm]'` (optional; single-shot fallback works without it)
-2. Set `MODEL_3080_BASE_URL` and `MODEL_3080_NAME` on CT103/CT104
-3. Set `MODEL_ROUTING_POLICY=official` for candidate runs (default remains `fake` for Step C)
+1. `MODEL_ROUTING_POLICY=official` on **CT103** (dispatch policy)
+2. `MODEL_3080_BASE_URL` / `MODEL_3080_NAME` on **CT104**
+3. `GITEA_AGENT_TOKEN` + `GITEA_AGENT_COMMENT_ENABLED=true` on CT104
+4. HTTP git credentials mounted into `worker-rlm-root` (see [ct104.md](ct104.md))
 
 ## Related docs
 

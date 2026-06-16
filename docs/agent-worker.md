@@ -86,12 +86,14 @@ Worker may run targeted smoke tests before push; **CT102** runs full project CI.
 
 ## Implementation status
 
-Not deployed. Requires:
+**CT104 deployed (2026-06-14).** Inspect MVP verified: webhook dispatch, official RLM, HTTP git clone, Gitea comments.
 
-1. CT103 live (API + Redis + state)
-2. Real RQ dispatch + job limits
-3. Section 1.3 webhooks + bot token
-4. Sandbox + runtime choice (RLM spike vs Aider first)
-5. OpenAI-compatible URLs to Ollama phase 1; vLLM phase 2 if needed
+Still requires for full V4 MVP:
+
+1. [x] CT103 live (API + Redis + state)
+2. [x] Real RQ dispatch + job limits
+3. [x] Section 1.3 webhooks (bot token API client still stub)
+4. [ ] Sandbox + runtime choice beyond read-only inspect
+5. [x] OpenAI-compatible URLs to Ollama phase 1
 
 Queue lanes (`planner-3080`, `rlm-3080`, `worker-2070`, …) select **which GPU endpoint** the worker calls — not where repo code runs.

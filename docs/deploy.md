@@ -196,9 +196,23 @@ CT104 CI deploy: `.gitea/workflows/deploy-ct104.yaml` (SSH from CT102, same `age
 
 See [ct104.md](ct104.md) and [cicd-setup.md](cicd-setup.md).
 
+## Homelab status (2026-06-14)
+
+| Component | Host | Status |
+|-----------|------|--------|
+| Control plane + Redis + worker-state | CT103 `192.168.4.62` | Live |
+| worker-rlm-root + worker-report | CT104 `192.168.4.63` | Live |
+| CI deploy (`deploy.yaml`, `deploy-ct104.yaml`) | CT102 | Live |
+| Webhook → state → dispatch → workers → ingest | CT103 ↔ CT104 | Verified |
+| Official inspect + repo clone + Gitea comment | CT104 + Ollama | Verified |
+| Public NPM `control.ham-sup-lo.com` | CT101 | Optional / deferred |
+
+**Inspect MVP complete.** Next: review workflow, snapshot jobs, HITL/fix flows (V4 §29).
+
 ## Defer until section 1.3+
 
-- `GITEA_WEBHOOK_SECRET` and Gitea webhook registration
-- CI deploy keeps **worker-state** (state queue) in sync via `--profile workers`; **agent-worker** CT is separate
-- **agent-worker CT** provision (see [agent-worker.md](agent-worker.md))
+- [x] `GITEA_WEBHOOK_SECRET` and Gitea webhook registration (LAN `http://192.168.4.62:8080/webhooks/gitea`)
+- [x] CI deploy keeps **worker-state** (state queue) in sync via `--profile workers`
+- [x] **CT104 agent-worker** provision — see [ct104.md](ct104.md)
+- [ ] Scheduled `agentctl results ingest --inbox` on CT103 (optional cron)
 - Do **not** run agent sandboxes or RQ repo workers on GPU Windows hosts
