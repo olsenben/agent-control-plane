@@ -110,7 +110,7 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 | Prompt injection guards | `tests/test_prompt_injection.py` | Passing |
 | Public surface restriction | `tests/test_webhook_*` | Passing |
 | Dispatch payload validation | `tests/test_dispatch_payload.py` | Passing |
-| Structured output validation | engine layer | Partial |
+| Structured output validation | `tests/test_fake_review_run.py`, engine layer | Slice 1 passing |
 | Policy gate unit tests | target | Not yet |
 | Graph blast-radius smoke | target | Not yet |
 
@@ -132,6 +132,7 @@ Model self-review is **not** an acceptance gate.
 | Milestone | Date | Evidence |
 |-----------|------|----------|
 | Inspect MVP end-to-end | 2026-06-14 | Homelab runbook + ingest |
-| Review MVP | Pending | [RUNBOOK_REVIEW_MVP.md](RUNBOOK_REVIEW_MVP.md) |
+| Review Slice 1 (structured comment) | 2026-06-17 | `agent-control-plane` issue #3; run `run-d91435838f457716cb443736c4cc3c6b`; README in files inspected, blast-radius stub |
+| Review MVP (full) | Pending | Graph + memory + [RUNBOOK_REVIEW_MVP.md](RUNBOOK_REVIEW_MVP.md) |
 
 Update this table when milestones are verified on CT103+CT104.
