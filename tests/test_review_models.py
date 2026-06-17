@@ -1,7 +1,6 @@
 """Tests for review Pydantic models."""
 
 from agent_shared.models.review import (
-    BlastRadiusContext,
     ReviewFinding,
     ReviewResult,
     stub_blast_radius,
