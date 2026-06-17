@@ -23,3 +23,18 @@ def truncate_text(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 20] + "\n...[truncated]"
+
+
+def fit_summary_for_comment(text: str, max_chars: int) -> str:
+    """Clamp model summary to the Gitea comment budget with a clear truncation marker."""
+    stripped = text.strip()
+    if len(stripped) <= max_chars:
+        return stripped
+    marker = "\n\n[Summary truncated to fit Gitea comment limit.]"
+    keep = max(0, max_chars - len(marker))
+    clipped = stripped[:keep].rstrip()
+    if clipped and clipped[-1] not in ".!?)":
+        last_break = max(clipped.rfind("\n"), clipped.rfind(". "), clipped.rfind("! "), clipped.rfind("? "))
+        if last_break > keep // 2:
+            clipped = clipped[:last_break].rstrip()
+    return clipped + marker

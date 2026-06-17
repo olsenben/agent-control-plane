@@ -24,6 +24,8 @@ _MENTION_TO_KIND: dict[str, str] = {
     "explainer": "explain",
 }
 
+_BARE_COMMAND_KINDS = frozenset({"inspect", "explain", "review", "plan"})
+
 _WI_PATTERN = re.compile(r"^WI-\d{4,}$", re.IGNORECASE)
 
 
@@ -49,15 +51,15 @@ def parse_command_intent(body: str) -> CommandIntent:
                 work_item_id=wi_id.upper(),
                 confidence=1.0,
             )
-        if verb == "inspect" and not rest:
+        if not rest and verb in _BARE_COMMAND_KINDS:
             return CommandIntent(
                 activated=True,
                 activation="/agent",
-                kind="inspect",
+                kind=verb,
                 natural_language_task="",
-                confidence=0.8,
+                confidence=0.8 if verb == "inspect" else 1.0,
             )
-        if not rest and verb not in ("inspect",):
+        if not rest:
             return CommandIntent(activated=False, confidence=0.0)
         return CommandIntent(
             activated=True,

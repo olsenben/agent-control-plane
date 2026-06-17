@@ -93,3 +93,32 @@ def test_gather_read_only_context_respects_broker(tmp_path: Path) -> None:
     text, sources = gather_read_only_context(broker, max_files=3, max_chars=1000)
     assert "hello" in text
     assert sources == ["README.md"]
+
+
+def test_official_engine_clamps_long_summary(tmp_path: Path) -> None:
+    engine = OfficialRLMEngine()
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("# Demo", encoding="utf-8")
+
+    endpoint = ResolvedEndpoint(
+        role="rlm",
+        tier="3080",
+        provider="gpu",
+        base_url="http://127.0.0.1:11434",
+        model="llama3",
+        api_key="",
+        primary_provider="gpu",
+    )
+    long_summary = "x" * 5000
+
+    with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
+        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+            with patch(
+                "agent_workers.rlm.official_engine.chat_completion",
+                return_value={"content": long_summary, "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+            ):
+                result = engine.run(_inspect_job(), workspace, {}, artifact_dir=str(tmp_path))
+
+    assert len(result.summary) <= 3500
+    assert "truncated to fit Gitea comment limit" in result.summary

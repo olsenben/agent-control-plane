@@ -8,7 +8,8 @@ from typing import Any
 from agent_control.model_router import resolve_role_primary
 from agent_shared.models.runs import RLMResult
 from agent_workers.config.execution_strategy import ExecutionStrategy, get_execution_strategy
-from agent_workers.rlm.budget import capped_depth, capped_iterations, truncate_text
+from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS
+from agent_workers.rlm.budget import capped_depth, capped_iterations, fit_summary_for_comment, truncate_text
 from agent_workers.rlm.completion import chat_completion
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
 from agent_workers.rlm.prompts import build_system_preamble
@@ -223,6 +224,8 @@ class OfficialRLMEngine:
 
         if not summary:
             summary = f"Read-only {kind} completed for '{task}' via {mode_note}; model returned empty content."
+        else:
+            summary = fit_summary_for_comment(summary, GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS)
 
         warnings = list(policy.get("warnings") or [])
         if mode_note == "single_shot_openai_compatible":

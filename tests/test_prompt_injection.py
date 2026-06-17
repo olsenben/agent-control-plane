@@ -27,6 +27,22 @@ def test_inspect_dispatch_recommended() -> None:
     assert state.command_intent.kind == "inspect"
 
 
+def test_bare_review_dispatches() -> None:
+    intent = parse_command_intent("/agent review")
+    assert intent.activated is True
+    assert intent.kind == "review"
+    events = [{"type": "gitea.issue_comment", "payload": {"comment": {"body": "/agent review"}}}]
+    state = reduce_event_only(events, "ai-sdlc-lab/agent-control-plane")
+    assert state.dispatch_recommended is True
+    assert state.dispatch_kind == "review"
+
+
+def test_bare_explain_dispatches() -> None:
+    intent = parse_command_intent("/agent explain")
+    assert intent.activated is True
+    assert intent.kind == "explain"
+
+
 def test_tool_registry_rejects_unknown_tool() -> None:
     rejects: list[str] = []
 

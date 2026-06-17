@@ -39,6 +39,8 @@ ALL_QUEUE_NAMES: tuple[str, ...] = FLOW_QUEUE_NAMES + LEGACY_GPU_QUEUES
 
 # Max chars of run summary posted to Gitea issue comments and stored on completion events.
 GITEA_COMMENT_SUMMARY_MAX_CHARS = 4000
+# Target budget for model-generated summaries (room below hard cap for comment wrapper text).
+GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS = 3500
 
 
 def prefixed_queue(name: str) -> str:
