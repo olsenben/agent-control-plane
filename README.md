@@ -1,8 +1,23 @@
 # agent-control-plane
 
-Reusable platform for the Gitea agentic SDLC homelab.
+Reusable platform for the Gitea agentic SDLC homelab — a **persistent, auditable coding-agent control plane** where trajectory-rich memory and governance improve repeated engineering work.
 
-Owns canonical JSON schemas, the `agentctl` CLI, FastAPI webhook guard, event-only state reducer, ADR compiler, Redis/RQ job queues, Gitea integration, model routing, and ACI tools.
+Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, result ingest, ADR compiler, Redis/RQ, Gitea integration, model routing, and CT103 memory (SQLite + FTS5 target). CT104 executes bounded workflows.
+
+**Status:** Inspect MVP done. **Next:** Review MVP (graph + selective memory + policy gates). See `docs/AGENT_CARD.md`, `docs/architecture.md`, V4 §0.5.
+
+## Documentation index
+
+| Doc | Topic |
+|-----|-------|
+| [AGENT_CARD.md](docs/AGENT_CARD.md) | Agent transparency card |
+| [POLICY_GATES.md](docs/POLICY_GATES.md) | Risk 0–3 governance |
+| [MEMORY_SCHEMA.md](docs/MEMORY_SCHEMA.md) | Trajectory memory schema |
+| [graph-indexer.md](docs/graph-indexer.md) | Cross-repo graph (OSS borrow, CT103-owned) |
+| [graph-oss-borrowing.md](docs/research/tool-spikes/graph-oss-borrowing.md) | Tree-sitter, Codebase-Memory, Backstage, Semgrep, … |
+| [THREAT_MODEL.md](docs/THREAT_MODEL.md) | Risk tag taxonomy |
+| [EVALS.md](docs/EVALS.md) | Evaluation criteria |
+| [RUNBOOK_REVIEW_MVP.md](docs/RUNBOOK_REVIEW_MVP.md) | Review MVP verification |
 
 Target repos are thin clients; they declare contract versions via `.agent/contract.yaml` and must not copy schema files from this package.
 

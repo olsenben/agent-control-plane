@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import traceback
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from agent_control.queue import enqueue_report
@@ -29,6 +30,22 @@ from agent_workers.runtime.capabilities import detect_capabilities, python_versi
 from agent_workers.security.redactor import SecretRedactor
 from agent_workers.settings import WorkerSettings, get_worker_settings
 from agent_workers.tools.registry import make_registry
+
+
+def _context_sources_from_trace(trace_path: Path) -> list[str]:
+    if not trace_path.exists():
+        return []
+    for line in reversed(trace_path.read_text(encoding="utf-8").splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("event") == "context_gathered" and event.get("sources"):
+            return list(event["sources"])
+    return []
 
 
 def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | None = None) -> dict[str, Any]:
@@ -122,6 +139,12 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         )
         session.emit(SessionEventType.FAKE_ENGINE_COMPLETED if job.model_policy == "fake" else SessionEventType.MODEL_CALL_COMPLETED)
 
+        context_sources = _context_sources_from_trace(run_path / "rlm_trace.jsonl")
+        if context_sources:
+            context_receipt["sources"] = context_sources
+            context_receipt["budget"]["used_context_bytes"] = sum(len(s) for s in context_sources)
+            write_json(run_path / "context_receipt.json", context_receipt)
+
         trace_lines = [
             json.dumps(
                 {
@@ -136,6 +159,8 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         result.engine = engine.name
         result.trace_path = str(run_path / "rlm_trace.jsonl")
         result.context_receipt_path = str(run_path / "context_receipt.json")
+        if result.review_result is not None:
+            write_json(run_path / "review_result.json", result.review_result.model_dump(mode="json"))
         write_json(run_path / "result.json", result.model_dump(mode="json"))
         update_metadata_status(meta_path, RunStatus.COMPLETED)
 

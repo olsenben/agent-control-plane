@@ -29,12 +29,19 @@ def maybe_post_comment(
     owner, repo = completed.project.split("/", 1)
     url = f"{settings.gitea_base_url.rstrip('/')}/api/v1/repos/{owner}/{repo}/issues/{issue_number}/comments"
     mention = trigger.get("author", "")
-    body = (
-        f"@{mention} Agent run `{completed.run_id}` **{completed.status}** "
-        f"({completed.flow}/{completed.agent}, risk={completed.risk_class}).\n\n"
-        f"{completed.summary}\n\n"
-        f"Artifacts: `{artifact_root}`"
-    )
+    if completed.agent == "reviewer" or completed.flow == "code_review":
+        body = (
+            f"@{mention} Agent run `{completed.run_id}` **{completed.status}** "
+            f"({completed.flow}/{completed.agent}, risk={completed.risk_class}).\n\n"
+            f"{completed.summary}"
+        )
+    else:
+        body = (
+            f"@{mention} Agent run `{completed.run_id}` **{completed.status}** "
+            f"({completed.flow}/{completed.agent}, risk={completed.risk_class}).\n\n"
+            f"{completed.summary}\n\n"
+            f"Artifacts: `{artifact_root}`"
+        )
     body, _ = SecretRedactor().redact_text(body)
 
     try:

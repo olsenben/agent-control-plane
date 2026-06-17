@@ -1,0 +1,24 @@
+apiVersion: homelab.ai/v1
+kind: Component
+metadata:
+  name: ct103-control-plane
+  owner: ben
+  repo: ai-sdlc-lab/agent-control-plane
+  description: Gitea webhook guard, state reducer, dispatch, memory, graph-indexer
+spec:
+  type: service
+  lifecycle: experimental
+  providesApis:
+    - agent-webhook
+    - result-ingest
+  dependsOn:
+    - redis-worker-state
+    - shared-agent-state
+    - gitea
+  verifiedBy:
+    - .gitea/workflows/ci.yaml
+    - tests/test_dispatch.py
+    - tests/test_intent_parser.py
+  adrRefs:
+    - ADR-003-agent-state
+    - ADR-007-command-risk-classes

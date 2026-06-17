@@ -1,4 +1,4 @@
-"""Official RLM engine candidate — read-only inspect/explain with local model endpoints."""
+"""Official RLM engine candidate — read-only inspect/explain/review with local model endpoints."""
 
 from __future__ import annotations
 
@@ -12,11 +12,14 @@ from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS
 from agent_workers.rlm.budget import capped_depth, capped_iterations, fit_summary_for_comment, truncate_text
 from agent_workers.rlm.completion import chat_completion
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
-from agent_workers.rlm.prompts import build_system_preamble
+from agent_workers.rlm.prompts import build_review_system_preamble, build_system_preamble
+from agent_workers.rlm.review_finalize import finalize_review_result
+from agent_workers.rlm.review_parser import ReviewParseError, parse_review_output
 from agent_workers.rlm.trace import append_trace_event
 
-READ_ONLY_KINDS = frozenset({"inspect", "explain"})
-READ_ONLY_RISKS = frozenset({"read_only"})
+INSPECT_KINDS = frozenset({"inspect", "explain"})
+REVIEW_KINDS = frozenset({"review"})
+READ_ONLY_RISKS = frozenset({"read_only", "read_only_with_repo_context"})
 
 
 def _rlms_available() -> bool:
@@ -68,6 +71,25 @@ def gather_read_only_context(
                 sources.append(rel)
 
     return truncate_text("\n\n".join(parts), max_chars), sources
+
+
+def _validate_kind_and_risk(kind: str, risk_class: str) -> None:
+    if kind in INSPECT_KINDS:
+        if risk_class != "read_only":
+            raise ValueError(
+                f"OfficialRLMEngine supports risk_class read_only for inspect/explain, got {risk_class!r}"
+            )
+        return
+    if kind in REVIEW_KINDS:
+        if risk_class != "read_only_with_repo_context":
+            raise ValueError(
+                "OfficialRLMEngine supports risk_class read_only_with_repo_context for review, "
+                f"got {risk_class!r}"
+            )
+        return
+    raise ValueError(
+        f"OfficialRLMEngine supports read-only inspect/explain/review only, got kind={kind!r}"
+    )
 
 
 def _run_rlms(
@@ -142,7 +164,7 @@ def _run_single_shot(
 
 
 class OfficialRLMEngine:
-    """Candidate engine for read-only inspect/explain using rlms or OpenAI-compatible chat."""
+    """Candidate engine for read-only inspect/explain/review using rlms or OpenAI-compatible chat."""
 
     name = ENGINE_OFFICIAL
 
@@ -159,21 +181,23 @@ class OfficialRLMEngine:
     ) -> RLMResult:
         strategy = strategy or get_execution_strategy()
         kind = job.get("command_intent", {}).get("kind", "inspect")
-        if kind not in READ_ONLY_KINDS:
-            raise ValueError(f"OfficialRLMEngine supports read-only inspect/explain only, got kind={kind!r}")
-        if str(job.get("risk_class", "read_only")) not in READ_ONLY_RISKS:
-            raise ValueError(
-                f"OfficialRLMEngine supports risk_class read_only only, got {job.get('risk_class')!r}"
-            )
+        risk_class = str(job.get("risk_class", "read_only"))
+        _validate_kind_and_risk(kind, risk_class)
 
         endpoint = resolve_role_primary("rlm")
         if not endpoint.base_url:
             raise ValueError("OfficialRLMEngine requires configured MODEL_3080_BASE_URL (rlm role endpoint)")
 
-        preamble = build_system_preamble(
-            command_scope=job.get("safety", {}).get("command_scope", kind),
-            risk_class=str(job.get("risk_class", "read_only")),
-        )
+        if kind in REVIEW_KINDS:
+            preamble = build_review_system_preamble(
+                command_scope=job.get("safety", {}).get("command_scope", kind),
+                risk_class=risk_class,
+            )
+        else:
+            preamble = build_system_preamble(
+                command_scope=job.get("safety", {}).get("command_scope", kind),
+                risk_class=risk_class,
+            )
         task = job.get("command_intent", {}).get("natural_language_task", "")
         if context_broker is None:
             from agent_workers.context.broker import ContextBroker
@@ -200,7 +224,7 @@ class OfficialRLMEngine:
         max_depth = capped_depth(job, strategy.rlms_max_depth_cap)
 
         if _rlms_available():
-            summary, _trace = _run_rlms(
+            raw_response, _trace = _run_rlms(
                 preamble=preamble,
                 task=task,
                 context_text=context_text,
@@ -212,7 +236,7 @@ class OfficialRLMEngine:
             )
             mode_note = "rlms"
         else:
-            summary, _trace = _run_single_shot(
+            raw_response, _trace = _run_single_shot(
                 preamble=preamble,
                 task=task,
                 context_text=context_text,
@@ -222,14 +246,29 @@ class OfficialRLMEngine:
             )
             mode_note = "single_shot_openai_compatible"
 
-        if not summary:
-            summary = f"Read-only {kind} completed for '{task}' via {mode_note}; model returned empty content."
-        else:
-            summary = fit_summary_for_comment(summary, GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS)
-
         warnings = list(policy.get("warnings") or [])
         if mode_note == "single_shot_openai_compatible":
             warnings.append("rlms package not installed; used OpenAI-compatible single-shot completion")
+
+        review_result = None
+        if kind in REVIEW_KINDS:
+            try:
+                parsed = parse_review_output(raw_response)
+            except ReviewParseError as exc:
+                raise ValueError(f"Failed to parse review output: {exc}") from exc
+            summary, review_result, review_warnings = finalize_review_result(
+                parsed,
+                known_sources=sources,
+                job=job,
+                engine=self.name,
+            )
+            warnings.extend(review_warnings)
+        else:
+            summary = raw_response
+            if not summary:
+                summary = f"Read-only {kind} completed for '{task}' via {mode_note}; model returned empty content."
+            else:
+                summary = fit_summary_for_comment(summary, GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS)
 
         return RLMResult(
             run_id=job["run_id"],
@@ -247,4 +286,5 @@ class OfficialRLMEngine:
             trace_path="rlm_trace.jsonl",
             context_receipt_path="context_receipt.json",
             warnings=warnings,
+            review_result=review_result,
         )

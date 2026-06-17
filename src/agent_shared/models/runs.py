@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from agent_shared.constants import RiskClass, RunStatus
+from agent_shared.models.review import ReviewResult
 
 
 class AgentRunMetadata(BaseModel):
@@ -50,6 +51,7 @@ class RLMResult(BaseModel):
     verification_path: str | None = None
     requires_owner_approval: bool = False
     warnings: list[str] = Field(default_factory=list)
+    review_result: ReviewResult | None = None
 
 
 class AgentError(BaseModel):

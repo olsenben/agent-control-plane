@@ -37,8 +37,78 @@ def test_get_engine_official_returns_official_engine() -> None:
 def test_official_engine_rejects_non_read_only_kind(tmp_path: Path) -> None:
     engine = OfficialRLMEngine()
     job = _inspect_job()
-    job["command_intent"]["kind"] = "review"
-    with pytest.raises(ValueError, match="inspect/explain"):
+    job["command_intent"]["kind"] = "fix"
+    with pytest.raises(ValueError, match="inspect/explain/review"):
+        engine.run(job, tmp_path, {})
+
+
+def _review_job() -> dict:
+    return {
+        "run_id": "run-review1",
+        "session_id": "run-review1",
+        "project": "ai-sdlc-lab/demo-app",
+        "flow": "review",
+        "agent": "reviewer",
+        "risk_class": "read_only_with_repo_context",
+        "workflow_definition": "code_review/v1",
+        "flow_config_id": "code_review",
+        "flow_version": "v1",
+        "command_intent": {"kind": "review", "natural_language_task": "review this change"},
+        "safety": {"command_scope": "review"},
+        "limits": {"max_iterations": 3, "max_depth": 0},
+    }
+
+
+def test_official_engine_review_mock(tmp_path: Path) -> None:
+    engine = OfficialRLMEngine()
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("# Demo\nAuth module needs review.", encoding="utf-8")
+
+    review_json = (
+        '{"findings":[{"id":"F-001","severity":"info","summary":"Auth looks ok","file":"README.md",'
+        '"confidence":0.8,"risk_tags":[]}],'
+        '"files_inspected":["README.md"],'
+        '"blast_radius":{"missing_graph_edges":["not implemented"]},'
+        '"confidence":"medium","recommended_next_command":"/agent plan","risk_tags":[]}'
+    )
+
+    endpoint = ResolvedEndpoint(
+        role="rlm",
+        tier="3080",
+        provider="gpu",
+        base_url="http://127.0.0.1:11434",
+        model="llama3",
+        api_key="",
+        primary_provider="gpu",
+    )
+
+    with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
+        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+            with patch(
+                "agent_workers.rlm.official_engine.chat_completion",
+                return_value={"content": review_json, "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+            ):
+                result = engine.run(
+                    _review_job(),
+                    workspace,
+                    {},
+                    artifact_dir=str(tmp_path),
+                )
+
+    assert result.engine == ENGINE_OFFICIAL
+    assert result.review_result is not None
+    assert result.review_result.findings[0].id == "F-001"
+    assert "## Agent Review" in result.summary
+    assert "### Finding" in result.summary
+    assert "missing_graph_edges: not implemented" in result.summary
+
+
+def test_official_engine_rejects_review_wrong_risk_class(tmp_path: Path) -> None:
+    engine = OfficialRLMEngine()
+    job = _review_job()
+    job["risk_class"] = "read_only"
+    with pytest.raises(ValueError, match="read_only_with_repo_context"):
         engine.run(job, tmp_path, {})
 
 

@@ -1,0 +1,91 @@
+{
+  "schema_version": "agent_card.v1",
+  "name": "ai-sdlc-lab-control-plane",
+  "description": "Persistent auditable coding-agent control plane for Gitea SDLC homelab",
+  "control_surface": "gitea_comments",
+  "governance_host": "CT103",
+  "execution_host": "CT104",
+  "ci_truth_host": "CT102",
+  "commands": [
+    {
+      "name": "inspect",
+      "risk_class": 0,
+      "autonomy": "auto_run",
+      "repo_access": "read_only",
+      "memory_writeback": false,
+      "human_approval_required": false
+    },
+    {
+      "name": "explain",
+      "risk_class": 0,
+      "autonomy": "auto_run",
+      "repo_access": "read_only",
+      "memory_writeback": false,
+      "human_approval_required": false
+    },
+    {
+      "name": "review",
+      "risk_class": 1,
+      "autonomy": "auto_run",
+      "repo_access": "read_only",
+      "memory_writeback": "selective",
+      "structured_output_required": true,
+      "human_approval_required": false
+    },
+    {
+      "name": "plan",
+      "risk_class": 1,
+      "autonomy": "auto_run",
+      "repo_access": "read_only",
+      "memory_writeback": "selective",
+      "structured_output_required": true,
+      "human_approval_required": false
+    },
+    {
+      "name": "fix",
+      "risk_class": 2,
+      "autonomy": "gated",
+      "repo_access": "branch_write_only",
+      "memory_writeback": true,
+      "human_approval_required": true,
+      "main_push_allowed": false
+    }
+  ],
+  "blocked_commands": ["deploy", "migrate", "secrets"],
+  "model_endpoints": {
+    "primary": {
+      "tier": "3080",
+      "default_model": "qwen2.5-coder:14b",
+      "role": "review_plan_patch"
+    },
+    "memory": {
+      "tier": "2070",
+      "default_model": "qwen2.5-coder:7b",
+      "role": "compression_retrieval"
+    }
+  },
+  "memory_sources": [
+    "agent-state_event_ledger",
+    "sqlite_trajectory_memory",
+    "cross_repo_intelligence_graph",
+    "adr_compiler",
+    "tree_sitter_fts5"
+  ],
+  "verification_invariant": [
+    "deterministic_checks",
+    "tests",
+    "ct102_ci",
+    "human_approval_where_required"
+  ],
+  "documentation": {
+    "agent_card_md": "docs/AGENT_CARD.md",
+    "policy_gates": "docs/POLICY_GATES.md",
+    "memory_schema": "docs/MEMORY_SCHEMA.md",
+    "threat_model": "docs/THREAT_MODEL.md",
+    "evals": "docs/EVALS.md"
+  },
+  "last_verified": {
+    "inspect_mvp": "2026-06-14",
+    "review_mvp": null
+  }
+}

@@ -207,7 +207,21 @@ See [ct104.md](ct104.md) and [cicd-setup.md](cicd-setup.md).
 | Official inspect + repo clone + Gitea comment | CT104 + Ollama | Verified |
 | Public NPM `control.ham-sup-lo.com` | CT101 | Optional / deferred |
 
-**Inspect MVP complete.** Next: review workflow, snapshot jobs, HITL/fix flows (V4 §29).
+**Inspect MVP complete (2026-06-14).** Sharpen memory retrieval, traceability, and policy gates before expanding writes.
+
+## Current targets (2026-06)
+
+See [architecture.md](architecture.md), [AGENT_CARD.md](AGENT_CARD.md), V4 §0.5.
+
+| Priority | Target |
+|----------|--------|
+| 1 | Smoke-test `/agent explain` |
+| 2 | `agentctl graph snapshot` + blast-radius (minimal) |
+| 3 | **Review MVP** — review + graph section + selective memory + risk_tags |
+| 4 | `/agent plan` (graph-informed CI hints) |
+| 5 | Risk 2 `/agent fix` (approval + graph-gated CI matrix) |
+| 6 | Branch push + CT102 CI |
+| 7+ | AgentFacts-lite, replay console, drift detector |
 
 ## Defer until section 1.3+
 
