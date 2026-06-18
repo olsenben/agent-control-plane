@@ -7,10 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from git import Repo
+from git import GitCommandError, Repo
 
 from agent_control.adr_compiler import compile_adrs
 from agent_control.config import Settings, get_settings
+from agent_control.git_auth import authenticated_repo_url, git_non_interactive_env
 from agent_control.graph.catalog import ingest_catalog
 from agent_control.graph.extractors.python_imports import extract_file_import_edges
 from agent_control.graph.store import GraphStore
@@ -20,16 +21,33 @@ from agent_control.project_registry import load_project_registry, resolve_projec
 def _clone_or_update(project: str, dest: Path, settings: Settings) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     cfg = resolve_project(project, settings=settings)
-    if dest.exists() and (dest / ".git").exists():
-        repo = Repo(dest)
-        repo.remotes.origin.fetch(depth=1)
-        repo.git.checkout(cfg.default_branch)
-        repo.remotes.origin.pull()
+    clone_url = authenticated_repo_url(cfg.repo_url, settings)
+    git_env = git_non_interactive_env()
+    try:
+        if dest.exists() and (dest / ".git").exists():
+            repo = Repo(dest)
+            if clone_url != cfg.repo_url:
+                repo.remotes.origin.set_url(clone_url)
+            repo.remotes.origin.fetch(depth=1, env=git_env)
+            repo.git.checkout(cfg.default_branch)
+            repo.remotes.origin.pull(env=git_env)
+            return dest
+        if dest.exists():
+            shutil.rmtree(dest)
+        Repo.clone_from(
+            clone_url,
+            dest,
+            depth=1,
+            branch=cfg.default_branch,
+            env=git_env,
+        )
         return dest
-    if dest.exists():
-        shutil.rmtree(dest)
-    Repo.clone_from(cfg.repo_url, dest, depth=1, branch=cfg.default_branch)
-    return dest
+    except GitCommandError as exc:
+        hint = (
+            "Set GITEA_BOT_TOKEN in .env, mount deploy ~/.git-credentials on control-plane "
+            "(see docker-compose.yml), or pass --local-path to index a checkout on disk."
+        )
+        raise RuntimeError(f"git clone/fetch failed for {project}: {exc.stderr or exc}. {hint}") from exc
 
 
 def ingest_repo_path(

@@ -230,9 +230,18 @@ def graph() -> None:
 
 @graph.command("snapshot")
 @click.option("--repo", "project", default=None, help="owner/repo — default: all registered projects")
-def graph_snapshot(project: str | None) -> None:
+@click.option(
+    "--local-path",
+    type=click.Path(path_type=Path, exists=True, file_okay=False),
+    default=None,
+    help="Use an existing checkout instead of cloning (requires --repo)",
+)
+def graph_snapshot(project: str | None, local_path: Path | None) -> None:
+    if local_path is not None and not project:
+        raise click.UsageError("--local-path requires --repo")
     settings = get_settings()
-    result = snapshot_all(settings=settings, repo=project)
+    local_paths = {project: local_path} if project and local_path else None
+    result = snapshot_all(settings=settings, repo=project, local_paths=local_paths)
     click.echo(json.dumps(result, indent=2))
 
 
