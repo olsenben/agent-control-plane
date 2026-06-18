@@ -1,6 +1,10 @@
 """Tests for git HTTP credential helpers."""
 
-from agent_control.git_auth import authenticated_repo_url, embed_http_credentials
+from agent_control.git_auth import (
+    authenticated_repo_url,
+    authenticated_repo_url_from_credentials,
+    embed_http_credentials,
+)
 from agent_control.config import Settings
 
 
@@ -13,6 +17,24 @@ def test_embed_http_credentials_adds_oauth2_token() -> None:
 def test_embed_http_credentials_skips_when_already_authenticated() -> None:
     url = "http://deploy:tok@192.168.4.60:3000/owner/repo.git"
     assert embed_http_credentials(url, "other") == url
+
+
+def test_authenticated_repo_url_from_credentials(tmp_path) -> None:
+    creds = tmp_path / "creds"
+    creds.write_text("http://deploy:tok@192.168.4.60:3000\n", encoding="utf-8")
+    url = authenticated_repo_url_from_credentials(
+        "http://192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git",
+        creds_path=creds,
+    )
+    assert "deploy:tok@192.168.4.60:3000" in url
+
+
+def test_git_non_interactive_env_disables_credential_helper_for_authed_url() -> None:
+    from agent_control.git_auth import git_non_interactive_env
+
+    url = "http://deploy:tok@192.168.4.60:3000/ai-sdlc-lab/agent-control-plane.git"
+    env = git_non_interactive_env(repo_url=url)
+    assert env["GIT_CONFIG_VALUE_0"] == ""
 
 
 def test_git_non_interactive_env_disables_credential_helper_when_token_set() -> None:

@@ -11,27 +11,35 @@ from git import GitCommandError, Repo
 
 from agent_control.adr_compiler import compile_adrs
 from agent_control.config import Settings, get_settings
-from agent_control.git_auth import authenticated_repo_url, git_non_interactive_env
+from agent_control.git_auth import git_non_interactive_env, resolve_authenticated_repo_url
 from agent_control.graph.catalog import ingest_catalog
 from agent_control.graph.extractors.python_imports import extract_file_import_edges
 from agent_control.graph.store import GraphStore
 from agent_control.project_registry import load_project_registry, resolve_project
 
 
+def _sync_cached_repo(repo: Repo, branch: str, git_env: dict[str, str]) -> None:
+    """Refresh shallow cache to match origin without merge/rebase prompts."""
+    repo.remotes.origin.fetch(depth=1, env=git_env)
+    repo.git.checkout(branch)
+    repo.git.reset("--hard", f"origin/{branch}")
+
+
 def _clone_or_update(project: str, dest: Path, settings: Settings) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     cfg = resolve_project(project, settings=settings)
-    clone_url = authenticated_repo_url(cfg.repo_url, settings)
-    git_env = git_non_interactive_env(settings)
+    clone_url = resolve_authenticated_repo_url(cfg.repo_url, settings)
+    git_env = git_non_interactive_env(settings, repo_url=clone_url)
     try:
         if dest.exists() and (dest / ".git").exists():
-            repo = Repo(dest)
-            if clone_url != cfg.repo_url:
-                repo.remotes.origin.set_url(clone_url)
-            repo.remotes.origin.fetch(depth=1, env=git_env)
-            repo.git.checkout(cfg.default_branch)
-            repo.remotes.origin.pull(env=git_env)
-            return dest
+            try:
+                repo = Repo(dest)
+                if clone_url != repo.remotes.origin.url:
+                    repo.remotes.origin.set_url(clone_url)
+                _sync_cached_repo(repo, cfg.default_branch, git_env)
+                return dest
+            except (GitCommandError, OSError, ValueError):
+                shutil.rmtree(dest, ignore_errors=True)
         if dest.exists():
             shutil.rmtree(dest)
         try:
@@ -56,11 +64,15 @@ def _clone_or_update(project: str, dest: Path, settings: Settings) -> Path:
                 ) from branch_exc
         return dest
     except GitCommandError as exc:
+        shutil.rmtree(dest, ignore_errors=True)
         hint = (
             "Set GITEA_BOT_TOKEN in .env, mount deploy ~/.git-credentials on control-plane "
             "(see docker-compose.yml), or pass --local-path to index a checkout on disk."
         )
         raise RuntimeError(f"git clone/fetch failed for {project}: {exc.stderr or exc}. {hint}") from exc
+    except RuntimeError:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
 
 
 def ingest_repo_path(

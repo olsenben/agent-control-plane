@@ -9,6 +9,10 @@ from pathlib import Path
 
 import yaml
 
+from agent_control.git_auth import (
+    authenticated_repo_url_from_credentials,
+    git_non_interactive_env,
+)
 from agent_control.project_registry import resolve_project
 from agent_shared.models.jobs import JobSafety
 from agent_shared.models.policy import EffectivePolicy, PolicySource
@@ -24,14 +28,25 @@ def clone_repo(
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         shutil.rmtree(dest)
-    env = {}
+    authed_url = authenticated_repo_url_from_credentials(repo_url)
+    git_env = git_non_interactive_env(repo_url=authed_url)
+    env = {**os.environ, **git_env}
     if settings.git_ro_key_path and settings.git_ro_key_path.exists():
         env["GIT_SSH_COMMAND"] = f"ssh -i {settings.git_ro_key_path} -o StrictHostKeyChecking=no"
     subprocess.run(
-        ["git", "clone", "--depth", "1", "--branch", ref.replace("refs/heads/", ""), repo_url, str(dest)],
+        [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            ref.replace("refs/heads/", ""),
+            authed_url,
+            str(dest),
+        ],
         check=True,
         capture_output=True,
-        env={**os.environ, **env},
+        env=env,
     )
     return dest
 
