@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import networkx as nx
@@ -140,8 +139,6 @@ def compute_blast_radius(
     for rel in normalized:
         if f"file:{rel}" not in g:
             missing.append(f"file not in graph: {rel}")
-
-    confidence = "high" if services and not missing else "medium" if services else "low"
 
     return BlastRadiusContext(
         affected_repos=[repo] if affected_files or services else [],

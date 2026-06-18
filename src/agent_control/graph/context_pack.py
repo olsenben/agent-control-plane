@@ -13,11 +13,9 @@ from agent_control.adr_compiler import list_related_adrs
 from agent_control.config import Settings, get_settings
 from agent_control.gitea_client import GiteaClient
 from agent_control.graph.blast_radius import compute_blast_radius
-from agent_control.graph.store import GraphStore
 from agent_control.project_registry import RefResolution
 from agent_shared.models.context_pack import ContextPack
 from agent_shared.models.jobs import TriggerContext
-from agent_shared.models.review import BlastRadiusContext
 from agent_workers.rlm.budget import truncate_text
 
 ISSUE_BUDGET = 4000
@@ -212,7 +210,7 @@ def render_context_pack_text(pack: ContextPack) -> str:
         f"--- blast_radius ---\n{json.dumps(pack.blast_radius.model_dump(mode='json'), indent=2)}"
     )
     if pack.search_hits:
-        sections.append(f"--- search_hits ---\n" + "\n".join(pack.search_hits))
+        sections.append("--- search_hits ---\n" + "\n".join(pack.search_hits))
     return "\n\n".join(sections)
 
 
