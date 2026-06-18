@@ -31,8 +31,23 @@ def build_review_system_preamble(
     risk_class: str,
     *,
     max_summary_chars: int = GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+    has_graph_blast: bool = False,
 ) -> str:
     base = build_system_preamble(command_scope, risk_class, max_summary_chars=max_summary_chars)
+    if has_graph_blast:
+        blast_rules = (
+            "- Graph blast-radius is provided in context_pack: echo the supplied blast_radius "
+            "fields in your JSON output and preserve missing_graph_edges from the pack; "
+            "do not invent services, tests, or ADRs not listed.\n"
+        )
+        default_missing = '[]'
+    else:
+        blast_rules = (
+            "- Graph blast-radius is not available: leave blast_radius lists empty and set "
+            'missing_graph_edges to ["not implemented"].\n'
+        )
+        default_missing = '["not implemented"]'
+
     schema_hint = (
         "\n\nYou are performing a code review. Respond with a single JSON object only "
         "(no markdown fences, no prose before or after) matching this schema:\n"
@@ -42,7 +57,7 @@ def build_review_system_preamble(
         '  "files_inspected": ["path/in/repo"],\n'
         '  "blast_radius": {\n'
         '    "affected_repos": [], "affected_services": [], "affected_tests": [],\n'
-        '    "related_adrs": [], "missing_graph_edges": ["not implemented"]\n'
+        f'    "related_adrs": [], "missing_graph_edges": {default_missing}\n'
         "  },\n"
         '  "confidence": "low|medium|high",\n'
         '  "recommended_next_command": "/agent plan",\n'
@@ -51,8 +66,7 @@ def build_review_system_preamble(
         "Rules:\n"
         "- Cite only file paths present in the provided repository context.\n"
         "- Use risk_tags from the project threat model when applicable; otherwise [].\n"
-        "- Graph blast-radius is not available: leave blast_radius lists empty and set "
-        'missing_graph_edges to ["not implemented"].\n'
+        f"{blast_rules}"
         "- Include at least one finding when issues or observations exist; otherwise one info finding.\n"
         "- Default recommended_next_command to /agent plan unless a different command is clearly better."
     )

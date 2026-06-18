@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from agent_control.config import Settings, get_settings
+from agent_control.graph.context_pack import compile_context_pack
 from agent_control.project_registry import (
     build_trigger_context,
     resolve_project,
@@ -95,6 +96,15 @@ def build_rlm_job(
     summaries = settings.agent_state_root / "projects" / owner / repo / "summaries"
     state_path = str(summaries / "verification_state.json")
 
+    context_pack = None
+    if kind in ("review", "plan"):
+        context_pack = compile_context_pack(
+            project,
+            trigger_context,
+            refs=refs,
+            settings=settings,
+        )
+
     return RLMJob(
         run_id=run_id,
         job_id=job_id,
@@ -128,6 +138,7 @@ def build_rlm_job(
         safety=_safety_for_risk(risk, kind),
         model_policy=settings.model_routing_policy,
         state_path=state_path,
+        context_pack=context_pack,
     )
 
 

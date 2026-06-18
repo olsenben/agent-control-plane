@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from agent_shared.constants import RiskClass
+from agent_shared.models.context_pack import ContextPack
 from agent_shared.models.intent import CommandIntent
 
 
@@ -93,3 +94,4 @@ class RLMJob(BaseModel):
     safety: JobSafety = Field(default_factory=JobSafety)
     model_policy: str = "fake"
     state_path: str | None = None
+    context_pack: ContextPack | None = None

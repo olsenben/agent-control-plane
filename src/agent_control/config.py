@@ -69,6 +69,27 @@ class Settings(BaseSettings):
         alias="MODEL_ROUTING_POLICY",
         description="Platform-owned engine selection passed to CT104 jobs (fake, official, local, ...)",
     )
+    graph_snapshot_repos: str = Field(
+        default="",
+        alias="GRAPH_SNAPSHOT_REPOS",
+        description="Optional comma-separated owner/repo override for graph snapshot (tests)",
+    )
+
+    @property
+    def graph_db_path(self) -> Path:
+        return self.agent_state_root / "graph" / "graph.sqlite"
+
+    @property
+    def graph_export_dir(self) -> Path:
+        return self.agent_state_root / "graph" / "exports"
+
+    @property
+    def graph_snapshot_cache(self) -> Path:
+        return self.agent_cache_dir / "graph-snapshots"
+
+    def graph_snapshot_repos_list(self) -> list[str] | None:
+        items = [r.strip() for r in self.graph_snapshot_repos.split(",") if r.strip()]
+        return items or None
 
     def allowed_repos_set(self) -> set[str]:
         return {r.strip() for r in self.gitea_allowed_repos.split(",") if r.strip()}

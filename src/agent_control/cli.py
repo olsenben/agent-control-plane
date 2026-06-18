@@ -40,6 +40,9 @@ from agent_control.workflows import fix as fix_wf
 from agent_control.workflows import review as review_wf
 from agent_control.workflows import reward as reward_wf
 from agent_control.workflows import tournament as tournament_wf
+from agent_control.graph.blast_radius import export_blast_radius_json
+from agent_control.graph.context_pack import compile_context_pack, write_context_pack_export
+from agent_control.graph.snapshot import snapshot_all
 
 
 @click.group()
@@ -218,6 +221,57 @@ def repo() -> None:
 def repo_snapshot_cmd(owner: str, repo_name: str, ref: str, workdir: Path) -> None:
     result = snapshot_repo(owner, repo_name, ref, workdir)
     click.echo(json.dumps(result, indent=2))
+
+
+@main.group()
+def graph() -> None:
+    """Cross-repo intelligence graph commands."""
+
+
+@graph.command("snapshot")
+@click.option("--repo", "project", default=None, help="owner/repo — default: all registered projects")
+def graph_snapshot(project: str | None) -> None:
+    settings = get_settings()
+    result = snapshot_all(settings=settings, repo=project)
+    click.echo(json.dumps(result, indent=2))
+
+
+@graph.command("blast-radius")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--files", multiple=True, required=True, help="Changed file paths")
+def graph_blast_radius(project: str, files: tuple[str, ...]) -> None:
+    settings = get_settings()
+    payload = export_blast_radius_json(project, list(files), settings=settings)
+    click.echo(json.dumps(payload, indent=2))
+
+
+@graph.command("context-pack")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--issue", "issue_number", type=int, required=True)
+@click.option("--pr", "pr_number", type=int, default=None)
+@click.option("--files", multiple=True, default=(), help="Changed file paths override")
+def graph_context_pack(
+    project: str,
+    issue_number: int,
+    pr_number: int | None,
+    files: tuple[str, ...],
+) -> None:
+    settings = get_settings()
+    from agent_shared.models.jobs import TriggerContext
+
+    trigger = TriggerContext(
+        event_type="cli",
+        issue_number=issue_number,
+        pr_number=pr_number,
+    )
+    pack = compile_context_pack(
+        project,
+        trigger,
+        settings=settings,
+        changed_files=list(files) if files else None,
+    )
+    write_context_pack_export(pack, settings=settings)
+    click.echo(pack.model_dump_json(indent=2))
 
 
 @main.group()

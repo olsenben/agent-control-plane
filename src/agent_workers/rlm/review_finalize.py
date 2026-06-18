@@ -18,8 +18,45 @@ def finalize_review_result(
     job: dict[str, Any],
     engine: str,
 ) -> tuple[str, ReviewResult, list[str]]:
-    del job, engine
+    del engine
     known = set(known_sources)
+
+    pack = job.get("context_pack")
+    if pack:
+        from agent_shared.models.context_pack import ContextPack
+
+        if isinstance(pack, dict):
+            pack = ContextPack.model_validate(pack)
+        pack_blast = pack.blast_radius
+        has_pack_data = any(
+            [
+                pack_blast.affected_repos,
+                pack_blast.affected_services,
+                pack_blast.affected_tests,
+                pack_blast.related_adrs,
+            ]
+        )
+        if has_pack_data:
+            merged_missing = list(
+                set(review.blast_radius.missing_graph_edges or pack_blast.missing_graph_edges)
+            )
+            review = review.model_copy(
+                update={
+                    "blast_radius": pack_blast.model_copy(
+                        update={"missing_graph_edges": merged_missing}
+                    )
+                    if not any(
+                        [
+                            review.blast_radius.affected_repos,
+                            review.blast_radius.affected_services,
+                            review.blast_radius.affected_tests,
+                            review.blast_radius.related_adrs,
+                        ]
+                    )
+                    else review.blast_radius
+                }
+            )
+
     if not any(
         [
             review.blast_radius.affected_repos,

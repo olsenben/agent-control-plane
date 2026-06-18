@@ -113,11 +113,13 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
             "run_id": job.run_id,
             "flow": job.flow,
             "agent": job.agent,
-            "sources": [],
+            "sources": list(job.context_pack.context_sources) if job.context_pack else [],
             "excluded": [],
             "budget": {"used_context_bytes": 0},
         }
         write_json(run_path / "context_receipt.json", context_receipt)
+        if job.context_pack is not None:
+            write_json(run_path / "context_pack.json", job.context_pack.model_dump(mode="json"))
 
         policy_dict = effective.model_dump(mode="json")
         policy_dict["warnings"] = warnings

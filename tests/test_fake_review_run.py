@@ -59,6 +59,8 @@ def test_fake_review_end_to_end(runs_env: Path) -> None:
     assert job.flow == "code_review"
     assert job.agent == "reviewer"
     assert job.risk_class == "read_only_with_repo_context"
+    assert job.context_pack is not None
+    assert "graph_blast_radius" in job.context_pack.context_sources
 
     root_result = process_rlm_root(job.model_dump(mode="json"))
     assert root_result["status"] == "completed"
@@ -84,7 +86,8 @@ def test_fake_review_end_to_end(runs_env: Path) -> None:
     assert result_data.get("engine") == "fake_rlm"
     assert result_data.get("review_result") is not None
     assert "## Agent Review" in result_data.get("summary", "")
-    assert "missing_graph_edges: not implemented" in result_data.get("summary", "")
+    assert "missing_graph_edges:" in result_data.get("summary", "")
+    assert (run_path / "context_pack.json").exists()
 
     review_data = json.loads((run_path / "review_result.json").read_text(encoding="utf-8"))
     assert review_data.get("schema_version") == "review_result.v1"

@@ -23,6 +23,14 @@ def runs_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("AGENT_STATE_ROOT", str(state))
     monkeypatch.setenv("AGENT_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setenv("MODEL_ROUTING_POLICY", "fake")
+
+    def _fake_clone(_settings: object, _repo_url: str, _ref: str, dest: Path) -> Path:
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "README.md").write_text("# Demo\nInspect target repo.\n", encoding="utf-8")
+        return dest
+
+    monkeypatch.setattr("agent_workers.flows.runner.clone_repo", _fake_clone)
     return runs
 
 

@@ -13,11 +13,20 @@ from agent_workers.rlm.review_finalize import finalize_review_result
 from agent_workers.rlm.trace import append_trace_event
 
 
+def _has_graph_blast_from_pack(pack) -> bool:
+    br = pack.blast_radius
+    return bool(
+        br.affected_repos or br.affected_services or br.affected_tests or br.related_adrs
+    )
+
+
 def _build_fake_review_result(
     job: dict[str, Any],
     workspace: Path,
     context_broker: Any | None,
 ) -> tuple[ReviewResult, list[str]]:
+    from agent_shared.models.context_pack import ContextPack
+
     task = job.get("command_intent", {}).get("natural_language_task", "")
     sources: list[str] = []
     if context_broker is not None:
@@ -29,8 +38,18 @@ def _build_fake_review_result(
                 if len(sources) >= 3:
                     break
 
+    pack_raw = job.get("context_pack")
+    pack = None
+    if pack_raw:
+        pack = pack_raw if isinstance(pack_raw, ContextPack) else ContextPack.model_validate(pack_raw)
+        sources = list(pack.context_sources) + sources
+
     files_inspected = sources[:2] if sources else []
     finding_file = files_inspected[0] if files_inspected else None
+    blast = stub_blast_radius()
+    if pack is not None and _has_graph_blast_from_pack(pack):
+        blast = pack.blast_radius
+
     review = ReviewResult(
         findings=[
             ReviewFinding(
@@ -46,7 +65,7 @@ def _build_fake_review_result(
             )
         ],
         files_inspected=files_inspected,
-        blast_radius=stub_blast_radius(),
+        blast_radius=blast,
         confidence="medium",
         recommended_next_command="/agent plan",
         risk_tags=[],

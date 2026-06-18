@@ -22,6 +22,26 @@ REVIEW_KINDS = frozenset({"review"})
 READ_ONLY_RISKS = frozenset({"read_only", "read_only_with_repo_context"})
 
 
+def _context_pack_from_job(job: dict[str, Any]):
+    raw = job.get("context_pack")
+    if not raw:
+        return None
+    from agent_shared.models.context_pack import ContextPack
+
+    if isinstance(raw, ContextPack):
+        return raw
+    return ContextPack.model_validate(raw)
+
+
+def _has_graph_blast(pack) -> bool:
+    if pack is None:
+        return False
+    br = pack.blast_radius
+    return bool(
+        br.affected_repos or br.affected_services or br.affected_tests or br.related_adrs
+    )
+
+
 def _rlms_available() -> bool:
     try:
         import rlm  # noqa: F401
@@ -189,9 +209,11 @@ class OfficialRLMEngine:
             raise ValueError("OfficialRLMEngine requires configured MODEL_3080_BASE_URL (rlm role endpoint)")
 
         if kind in REVIEW_KINDS:
+            pack = _context_pack_from_job(job)
             preamble = build_review_system_preamble(
                 command_scope=job.get("safety", {}).get("command_scope", kind),
                 risk_class=risk_class,
+                has_graph_blast=_has_graph_blast(pack),
             )
         else:
             preamble = build_system_preamble(
@@ -209,6 +231,13 @@ class OfficialRLMEngine:
             max_files=strategy.read_only_max_context_files,
             max_chars=strategy.read_only_max_prompt_chars,
         )
+        pack = _context_pack_from_job(job)
+        if pack is not None:
+            from agent_control.graph.context_pack import render_context_pack_text
+
+            pack_text = render_context_pack_text(pack)
+            context_text = f"{pack_text}\n\n{context_text}"
+            sources = list(pack.context_sources) + sources
         append_trace_event(
             artifact_dir,
             {

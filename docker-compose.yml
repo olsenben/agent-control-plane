@@ -26,8 +26,11 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379/0
+      AGENT_STATE_ROOT: /data/agent-state
+      AGENT_CACHE_DIR: /data/agent-cache
     volumes:
       - ${AGENT_STATE_HOST_PATH:-../agent-state}:/data/agent-state
+      - ${AGENT_CACHE_HOST_PATH:-../agent-cache}:/data/agent-cache
     depends_on:
       redis:
         condition: service_healthy
