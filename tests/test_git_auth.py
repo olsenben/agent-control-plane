@@ -15,6 +15,16 @@ def test_embed_http_credentials_skips_when_already_authenticated() -> None:
     assert embed_http_credentials(url, "other") == url
 
 
+def test_git_non_interactive_env_disables_credential_helper_when_token_set() -> None:
+    from agent_control.git_auth import git_non_interactive_env
+
+    settings = Settings(GITEA_BOT_TOKEN="abc123")
+    env = git_non_interactive_env(settings)
+    assert env["GIT_TERMINAL_PROMPT"] == "0"
+    assert env["GIT_CONFIG_KEY_0"] == "credential.helper"
+    assert env["GIT_CONFIG_VALUE_0"] == ""
+
+
 def test_authenticated_repo_url_uses_settings_token(monkeypatch) -> None:
     monkeypatch.delenv("GITEA_GIT_USER", raising=False)
     settings = Settings(GITEA_BOT_TOKEN="abc123")

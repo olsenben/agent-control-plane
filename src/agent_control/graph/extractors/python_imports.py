@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
+
+_STDLIB_MODULES = sys.stdlib_module_names
 
 IMPORT_RE = re.compile(r"^\s*(?:from|import)\s+([a-zA-Z_][\w.]*)", re.MULTILINE)
 
@@ -127,6 +130,8 @@ def extract_file_import_edges(
                     resolved = True
                     break
             if not resolved and "." in module:
-                warnings.append(f"unresolved import {module} in {rel}")
+                root = module.split(".", 1)[0]
+                if root not in _STDLIB_MODULES:
+                    warnings.append(f"unresolved import {module} in {rel}")
 
     return files, edges, warnings

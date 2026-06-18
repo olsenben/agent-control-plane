@@ -8,8 +8,16 @@ from urllib.parse import quote, urlparse, urlunparse
 from agent_control.config import Settings
 
 
-def git_non_interactive_env() -> dict[str, str]:
-    return {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+def git_non_interactive_env(settings: Settings | None = None) -> dict[str, str]:
+    """Git subprocess env: no prompts; skip credential store when URL auth is used."""
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    token = settings.gitea_bot_token if settings is not None else ""
+    if token:
+        # Mounted ~/.git-credentials is read-only; store helper cannot write back.
+        env["GIT_CONFIG_COUNT"] = "1"
+        env["GIT_CONFIG_KEY_0"] = "credential.helper"
+        env["GIT_CONFIG_VALUE_0"] = ""
+    return env
 
 
 def embed_http_credentials(

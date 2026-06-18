@@ -22,7 +22,7 @@ def _clone_or_update(project: str, dest: Path, settings: Settings) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     cfg = resolve_project(project, settings=settings)
     clone_url = authenticated_repo_url(cfg.repo_url, settings)
-    git_env = git_non_interactive_env()
+    git_env = git_non_interactive_env(settings)
     try:
         if dest.exists() and (dest / ".git").exists():
             repo = Repo(dest)
@@ -34,13 +34,26 @@ def _clone_or_update(project: str, dest: Path, settings: Settings) -> Path:
             return dest
         if dest.exists():
             shutil.rmtree(dest)
-        Repo.clone_from(
-            clone_url,
-            dest,
-            depth=1,
-            branch=cfg.default_branch,
-            env=git_env,
-        )
+        try:
+            Repo.clone_from(
+                clone_url,
+                dest,
+                depth=1,
+                branch=cfg.default_branch,
+                env=git_env,
+            )
+        except GitCommandError as branch_exc:
+            stderr = (branch_exc.stderr or str(branch_exc)).lower()
+            if "remote branch" not in stderr and "not found in upstream origin" not in stderr:
+                raise
+            if dest.exists():
+                shutil.rmtree(dest)
+            Repo.clone_from(clone_url, dest, depth=1, env=git_env)
+            repo = Repo(dest)
+            if not repo.heads:
+                raise RuntimeError(
+                    f"repository has no commits or no branch {cfg.default_branch!r}: {project}"
+                ) from branch_exc
         return dest
     except GitCommandError as exc:
         hint = (
