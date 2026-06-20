@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from agent_control.config import Settings, get_settings
 from agent_control.memory.mapper import memory_record_from_completed
 from agent_control.memory.store import MemoryStore

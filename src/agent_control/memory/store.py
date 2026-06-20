@@ -6,7 +6,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Iterator
 
 from agent_control.memory.schema import DDL
 from agent_shared.models.memory import MemoryRecord

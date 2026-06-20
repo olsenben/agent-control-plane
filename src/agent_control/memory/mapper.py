@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 from agent_shared.models.events import AgentRunCompletedEvent
 from agent_shared.models.memory import (
