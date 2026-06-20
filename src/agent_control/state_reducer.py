@@ -71,7 +71,7 @@ def reduce_event_only(events: list[dict[str, Any]], project: str) -> Verificatio
             state.dispatch_recommended = dispatch
             state.dispatch_kind = kind
             if intent.kind in ("fix", "review", "plan", "inspect", "explain", "verify"):
-                state.safety = SafetyState(requires_manual_approval=intent.kind in ("fix", "plan"))
+                state.safety = SafetyState(requires_manual_approval=intent.kind == "fix")
 
         elif etype == "gitea.pr_opened":
             pr = payload.get("pull_request") or {}

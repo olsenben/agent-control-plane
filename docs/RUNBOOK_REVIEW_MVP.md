@@ -17,7 +17,7 @@ agentctl graph snapshot
 # Blast-radius + context pack for issue
 agentctl graph blast-radius --repo ai-sdlc-lab/agent-control-plane \
   --files src/agent_control/workflows/dispatch.py
-agentctl graph context-pack --repo ai-sdlc-lab/agent-control-plane --issue 29
+agentctl graph context-pack --repo ai-sdlc-lab/agent-control-plane --issue 2
 ```
 
 ## Steps
@@ -102,7 +102,9 @@ On same issue:
 /agent plan
 ```
 
-Verify dispatch context includes prior review memory (check run artifacts or memory CLI).
+Verify dispatch context includes prior review memory (check run artifacts: `context_pack.json`, `plan_result.json`). Plan posts a structured comment with scope, steps, CI hints, and blast-radius.
+
+**Plan MVP:** `OfficialRLMEngine` and `FakeRLMEngine` support `/agent plan` with `plan_result.v1`. `/agent fix` remains blocked at dispatch (Risk 2).
 
 ### 8. Policy check
 

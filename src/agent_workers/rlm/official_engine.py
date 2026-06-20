@@ -1,4 +1,4 @@
-"""Official RLM engine candidate — read-only inspect/explain/review with local model endpoints."""
+"""Official RLM engine candidate — read-only inspect/explain/review/plan with local model endpoints."""
 
 from __future__ import annotations
 
@@ -12,13 +12,16 @@ from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS
 from agent_workers.rlm.budget import capped_depth, capped_iterations, fit_summary_for_comment, truncate_text
 from agent_workers.rlm.completion import chat_completion
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
-from agent_workers.rlm.prompts import build_review_system_preamble, build_system_preamble
+from agent_workers.rlm.plan_finalize import finalize_plan_result
+from agent_workers.rlm.plan_parser import PlanParseError, parse_plan_output
+from agent_workers.rlm.prompts import build_plan_system_preamble, build_review_system_preamble, build_system_preamble
 from agent_workers.rlm.review_finalize import finalize_review_result
 from agent_workers.rlm.review_parser import ReviewParseError, parse_review_output
 from agent_workers.rlm.trace import append_trace_event
 
 INSPECT_KINDS = frozenset({"inspect", "explain"})
 REVIEW_KINDS = frozenset({"review"})
+PLAN_KINDS = frozenset({"plan"})
 READ_ONLY_RISKS = frozenset({"read_only", "read_only_with_repo_context"})
 
 
@@ -107,8 +110,14 @@ def _validate_kind_and_risk(kind: str, risk_class: str) -> None:
                 f"got {risk_class!r}"
             )
         return
+    if kind in PLAN_KINDS:
+        if risk_class != "planning_only":
+            raise ValueError(
+                f"OfficialRLMEngine supports risk_class planning_only for plan, got {risk_class!r}"
+            )
+        return
     raise ValueError(
-        f"OfficialRLMEngine supports read-only inspect/explain/review only, got kind={kind!r}"
+        f"OfficialRLMEngine supports read-only inspect/explain/review/plan only, got kind={kind!r}"
     )
 
 
@@ -184,7 +193,7 @@ def _run_single_shot(
 
 
 class OfficialRLMEngine:
-    """Candidate engine for read-only inspect/explain/review using rlms or OpenAI-compatible chat."""
+    """Candidate engine for read-only inspect/explain/review/plan using rlms or OpenAI-compatible chat."""
 
     name = ENGINE_OFFICIAL
 
@@ -211,6 +220,13 @@ class OfficialRLMEngine:
         if kind in REVIEW_KINDS:
             pack = _context_pack_from_job(job)
             preamble = build_review_system_preamble(
+                command_scope=job.get("safety", {}).get("command_scope", kind),
+                risk_class=risk_class,
+                has_graph_blast=_has_graph_blast(pack),
+            )
+        elif kind in PLAN_KINDS:
+            pack = _context_pack_from_job(job)
+            preamble = build_plan_system_preamble(
                 command_scope=job.get("safety", {}).get("command_scope", kind),
                 risk_class=risk_class,
                 has_graph_blast=_has_graph_blast(pack),
@@ -280,6 +296,7 @@ class OfficialRLMEngine:
             warnings.append("rlms package not installed; used OpenAI-compatible single-shot completion")
 
         review_result = None
+        plan_result = None
         if kind in REVIEW_KINDS:
             try:
                 parsed = parse_review_output(raw_response)
@@ -292,6 +309,18 @@ class OfficialRLMEngine:
                 engine=self.name,
             )
             warnings.extend(review_warnings)
+        elif kind in PLAN_KINDS:
+            try:
+                parsed = parse_plan_output(raw_response)
+            except PlanParseError as exc:
+                raise ValueError(f"Failed to parse plan output: {exc}") from exc
+            summary, plan_result, plan_warnings = finalize_plan_result(
+                parsed,
+                known_sources=sources,
+                job=job,
+                engine=self.name,
+            )
+            warnings.extend(plan_warnings)
         else:
             summary = raw_response
             if not summary:
@@ -316,4 +345,5 @@ class OfficialRLMEngine:
             context_receipt_path="context_receipt.json",
             warnings=warnings,
             review_result=review_result,
+            plan_result=plan_result,
         )

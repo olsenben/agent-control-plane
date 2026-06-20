@@ -117,7 +117,7 @@ agentctl graph blast-radius \
 ### `agentctl graph context-pack`
 
 ```bash
-agentctl graph context-pack --repo ai-sdlc-lab/agent-control-plane --issue 29
+agentctl graph context-pack --repo ai-sdlc-lab/agent-control-plane --issue 2
 ```
 
 Bounded JSON for dispatch — wired into `RLMJob` context profile.

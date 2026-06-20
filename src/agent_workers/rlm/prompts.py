@@ -71,3 +71,53 @@ def build_review_system_preamble(
         "- Default recommended_next_command to /agent plan unless a different command is clearly better."
     )
     return base + schema_hint
+
+
+def build_plan_system_preamble(
+    command_scope: str,
+    risk_class: str,
+    *,
+    max_summary_chars: int = GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+    has_graph_blast: bool = False,
+) -> str:
+    base = build_system_preamble(command_scope, risk_class, max_summary_chars=max_summary_chars)
+    if has_graph_blast:
+        blast_rules = (
+            "- Graph blast-radius is provided in context_pack: echo the supplied blast_radius "
+            "fields in your JSON output and preserve missing_graph_edges from the pack; "
+            "do not invent services, tests, or ADRs not listed.\n"
+            "- Use affected_tests and related ADRs to propose ci_hints (workflows, test paths).\n"
+        )
+        default_missing = "[]"
+    else:
+        blast_rules = (
+            "- Graph blast-radius is not available: leave blast_radius lists empty and set "
+            'missing_graph_edges to ["not implemented"].\n'
+        )
+        default_missing = '["not implemented"]'
+
+    schema_hint = (
+        "\n\nYou are producing an implementation plan after review context. Respond with a single "
+        "JSON object only (no markdown fences, no prose before or after) matching this schema:\n"
+        "{\n"
+        '  "scope_summary": "one paragraph scope",\n'
+        '  "steps": [{"id": "S-001", "summary": "...", "files": ["path/in/repo"]}],\n'
+        '  "ci_hints": ["pytest tests/test_foo.py", ".gitea/workflows/ci.yaml"],\n'
+        '  "blast_radius": {\n'
+        '    "affected_repos": [], "affected_services": [], "affected_tests": [],\n'
+        f'    "related_adrs": [], "missing_graph_edges": {default_missing}\n'
+        "  },\n"
+        '  "assumptions": ["..."],\n'
+        '  "open_questions": ["..."],\n'
+        '  "confidence": "low|medium|high",\n'
+        '  "recommended_next_command": "/agent fix",\n'
+        '  "risk_tags": []\n'
+        "}\n\n"
+        "Rules:\n"
+        "- Ground steps in issue text, prior review findings, and repository context.\n"
+        "- Cite only file paths present in the provided repository context.\n"
+        f"{blast_rules}"
+        "- Default recommended_next_command to /agent fix unless human approval is clearly needed first.\n"
+        "- ci_hints should name concrete tests or CI workflows when inferrable from blast_radius."
+    )
+    return base + schema_hint

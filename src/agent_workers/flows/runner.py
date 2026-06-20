@@ -163,6 +163,8 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         result.context_receipt_path = str(run_path / "context_receipt.json")
         if result.review_result is not None:
             write_json(run_path / "review_result.json", result.review_result.model_dump(mode="json"))
+        if result.plan_result is not None:
+            write_json(run_path / "plan_result.json", result.plan_result.model_dump(mode="json"))
         write_json(run_path / "result.json", result.model_dump(mode="json"))
         update_metadata_status(meta_path, RunStatus.COMPLETED)
 

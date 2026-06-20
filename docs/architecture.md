@@ -86,8 +86,8 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 |-------|--------|--------|
 | Inspect MVP | **Done** | End-to-end plumbing |
 | Explain smoke | Next | Second Risk 0 command |
-| **Review MVP** | **In progress** | Review + graph blast-radius + selective memory |
-| Plan MVP | After review | Graph-informed plan + CI matrix hints |
+| **Review MVP** | **In progress** | Review + graph blast-radius + context-pack (memory = Slice 4) |
+| Plan MVP | **In progress** | Graph-informed plan + CI hints + structured comment |
 | Fix MVP | Deferred | Graph-gated approval + branch + CT102 |
 | Later | — | AgentFacts-lite, replay console, drift detector, MCP graph |
 

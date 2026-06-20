@@ -112,7 +112,8 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 | Dispatch payload validation | `tests/test_dispatch_payload.py` | Passing |
 | Structured output validation | `tests/test_fake_review_run.py`, engine layer | Slice 1 passing |
 | Policy gate unit tests | target | Not yet |
-| Graph blast-radius smoke | target | Not yet |
+| Graph blast-radius smoke | `tests/test_graph_blast_radius.py`, CT103 live | Verified 2026-06-18 |
+| Plan structured output | `tests/test_fake_plan_run.py`, engine layer | Plan MVP |
 
 Run: `pytest -q` in `agent-control-plane`.
 
@@ -133,6 +134,7 @@ Model self-review is **not** an acceptance gate.
 |-----------|------|----------|
 | Inspect MVP end-to-end | 2026-06-14 | Homelab runbook + ingest |
 | Review Slice 1 (structured comment) | 2026-06-17 | `agent-control-plane` issue #3; run `run-d91435838f457716cb443736c4cc3c6b`; README in files inspected, blast-radius stub |
-| Review MVP (full) | Pending | Graph + memory + [RUNBOOK_REVIEW_MVP.md](RUNBOOK_REVIEW_MVP.md) |
+| Review MVP (graph + context-pack) | 2026-06-18 | CT103 snapshot + blast-radius; `/agent review` on issue #2/#3 |
+| Plan MVP (structured comment) | Pending deploy | `plan_result.v1` + `/agent plan` on official/fake engine |
 
 Update this table when milestones are verified on CT103+CT104.
