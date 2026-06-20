@@ -9,6 +9,29 @@ def job_limits(job: dict[str, Any]) -> dict[str, Any]:
     return job.get("limits") or {}
 
 
+DEFAULT_COMPLETION_TIMEOUT_SECONDS = 120.0
+MAX_COMPLETION_TIMEOUT_SECONDS = 900.0
+
+
+def completion_timeout_seconds(
+    job: dict[str, Any],
+    *,
+    default: float = DEFAULT_COMPLETION_TIMEOUT_SECONDS,
+    max_timeout: float = MAX_COMPLETION_TIMEOUT_SECONDS,
+) -> float:
+    """HTTP timeout for a single model completion call, derived from job time budget."""
+    budget = job_limits(job).get("time_budget_seconds")
+    if budget is None:
+        return default
+    try:
+        budget_f = float(budget)
+    except (TypeError, ValueError):
+        return default
+    if budget_f <= 0:
+        return default
+    return min(budget_f, max_timeout)
+
+
 def capped_iterations(job: dict[str, Any], strategy_cap: int) -> int:
     requested = int(job_limits(job).get("max_iterations", strategy_cap))
     return max(1, min(requested, strategy_cap))

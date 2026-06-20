@@ -165,6 +165,37 @@ def test_gather_read_only_context_respects_broker(tmp_path: Path) -> None:
     assert sources == ["README.md"]
 
 
+def test_official_engine_single_shot_uses_job_timeout(tmp_path: Path) -> None:
+    engine = OfficialRLMEngine()
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("# Demo", encoding="utf-8")
+
+    job = _inspect_job()
+    job["limits"]["time_budget_seconds"] = 300
+
+    endpoint = ResolvedEndpoint(
+        role="rlm",
+        tier="3080",
+        provider="gpu",
+        base_url="http://127.0.0.1:11434",
+        model="llama3",
+        api_key="",
+        primary_provider="gpu",
+    )
+
+    with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
+        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+            with patch(
+                "agent_workers.rlm.official_engine.chat_completion",
+                return_value={"content": "ok", "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+            ) as mock_chat:
+                engine.run(job, workspace, {}, artifact_dir=str(tmp_path))
+
+    mock_chat.assert_called_once()
+    assert mock_chat.call_args.kwargs["timeout_seconds"] == 300.0
+
+
 def test_official_engine_clamps_long_summary(tmp_path: Path) -> None:
     engine = OfficialRLMEngine()
     workspace = tmp_path / "repo"

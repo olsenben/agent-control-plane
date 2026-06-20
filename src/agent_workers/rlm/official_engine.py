@@ -9,7 +9,13 @@ from agent_control.model_router import resolve_role_primary
 from agent_shared.models.runs import RLMResult
 from agent_workers.config.execution_strategy import ExecutionStrategy, get_execution_strategy
 from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS
-from agent_workers.rlm.budget import capped_depth, capped_iterations, fit_summary_for_comment, truncate_text
+from agent_workers.rlm.budget import (
+    capped_depth,
+    capped_iterations,
+    completion_timeout_seconds,
+    fit_summary_for_comment,
+    truncate_text,
+)
 from agent_workers.rlm.completion import chat_completion
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
 from agent_workers.rlm.plan_finalize import finalize_plan_result
@@ -176,9 +182,16 @@ def _run_single_shot(
     endpoint: Any,
     artifact_dir: str | None,
     run_id: str,
+    timeout_seconds: float,
 ) -> tuple[str, dict[str, Any]]:
     user_prompt = f"Repository context:\n{context_text}\n\nTask: {task}"
-    result = chat_completion(endpoint, system_prompt=preamble, user_prompt=user_prompt, max_tokens=1024)
+    result = chat_completion(
+        endpoint,
+        system_prompt=preamble,
+        user_prompt=user_prompt,
+        max_tokens=1024,
+        timeout_seconds=timeout_seconds,
+    )
     trace = {
         "run_id": run_id,
         "engine": ENGINE_OFFICIAL,
@@ -187,6 +200,7 @@ def _run_single_shot(
         "base_url": result.get("base_url"),
         "usage": result.get("usage"),
         "response_chars": len(result.get("content") or ""),
+        "timeout_seconds": timeout_seconds,
     }
     append_trace_event(artifact_dir, trace)
     return str(result.get("content") or "").strip(), trace
@@ -267,6 +281,7 @@ class OfficialRLMEngine:
 
         max_iterations = capped_iterations(job, strategy.rlms_max_iterations_cap)
         max_depth = capped_depth(job, strategy.rlms_max_depth_cap)
+        completion_timeout = completion_timeout_seconds(job)
 
         if _rlms_available():
             raw_response, _trace = _run_rlms(
@@ -288,6 +303,7 @@ class OfficialRLMEngine:
                 endpoint=endpoint,
                 artifact_dir=artifact_dir,
                 run_id=job["run_id"],
+                timeout_seconds=completion_timeout,
             )
             mode_note = "single_shot_openai_compatible"
 
