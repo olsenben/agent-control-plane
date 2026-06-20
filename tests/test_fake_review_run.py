@@ -106,6 +106,10 @@ def test_fake_review_end_to_end(runs_env: Path) -> None:
     assert (run_path / "final_report.md").exists()
     inbox = Path(os.environ["AGENT_STATE_ROOT"]) / "inbox" / "ct104-results" / f"{job.run_id}.json"
     assert inbox.exists()
+    inbox_data = json.loads(inbox.read_text(encoding="utf-8"))
+    assert inbox_data.get("command_kind") == "review"
+    assert inbox_data.get("review_result") is not None
+    assert inbox_data.get("issue_id") == 2
 
     stored, created = ingest_result_file(Path(os.environ["AGENT_STATE_ROOT"]), inbox)
     assert created is True

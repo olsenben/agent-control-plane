@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     )
 
     @property
+    def memory_db_path(self) -> Path:
+        return self.agent_state_root / "memory" / "memory.sqlite"
+
+    @property
     def graph_db_path(self) -> Path:
         return self.agent_state_root / "graph" / "graph.sqlite"
 

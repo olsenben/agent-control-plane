@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from agent_shared.models.plan import PlanResult
+from agent_shared.models.review import ReviewResult
+
+PromptHashSource = Literal["final_prompt", "not_available"]
+
+
+class RiskTagSourceEntry(BaseModel):
+    tag: str
+    source: Literal["model_output", "policy_gate", "semgrep", "human"] = "model_output"
 
 
 class AgentRunCompletedEvent(BaseModel):
@@ -24,6 +34,23 @@ class AgentRunCompletedEvent(BaseModel):
     status: str
     summary: str
     artifact_root: str
+    command_kind: str | None = None
+    repo_full_name: str | None = None
+    issue_id: int | None = None
+    pr_id: int | None = None
+    branch: str | None = None
+    commit_sha: str | None = None
+    review_result: ReviewResult | None = None
+    plan_result: PlanResult | None = None
+    context_sources: list[str] = Field(default_factory=list)
+    prompt_hash: str | None = None
+    prompt_hash_source: PromptHashSource = "not_available"
+    summary_hash: str | None = None
+    engine: str | None = None
+    model_policy: str | None = None
+    risk_tags: list[str] = Field(default_factory=list)
+    risk_tag_sources: list[RiskTagSourceEntry] = Field(default_factory=list)
+    policy_decision: Literal["allow", "deny", "pending_approval"] = "allow"
 
 
 class SessionEvent(BaseModel):

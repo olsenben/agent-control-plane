@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from agent_shared.constants import GITEA_COMMENT_SUMMARY_MAX_CHARS, RunStatus, SessionEventType
-from agent_shared.models.events import AgentRunCompletedEvent
 from agent_workers.artifacts.session_events import SessionEventWriter
 from agent_workers.artifacts.writer import update_metadata_status, write_json
 from agent_workers.gitea_reporter import maybe_post_comment
+from agent_workers.jobs.run_completed_builder import build_run_completed_event
 from agent_workers.security.redactor import SecretRedactor
 from agent_workers.settings import get_worker_settings
 
@@ -30,6 +30,8 @@ def process_report(job_payload: dict[str, Any]) -> dict[str, Any]:
     update_metadata_status(artifact_root / "metadata.json", RunStatus.REPORTING)
 
     summary = result.get("summary", "Run completed.")
+    summary_for_event = summary[:GITEA_COMMENT_SUMMARY_MAX_CHARS]
+
     report_body = (
         f"# Agent run report\n\n"
         f"- run_id: `{run_id}`\n"
@@ -44,20 +46,13 @@ def process_report(job_payload: dict[str, Any]) -> dict[str, Any]:
     report_body, _ = redactor.redact_text(report_body)
     (artifact_root / "final_report.md").write_text(report_body, encoding="utf-8")
 
-    completed = AgentRunCompletedEvent(
+    completed = build_run_completed_event(
         run_id=run_id,
-        job_id=job.get("job_id", f"rlm-root-{job.get('trigger_event_id', run_id)}"),
-        workflow_id=job.get("workflow_id", run_id),
-        session_id=job.get("session_id", run_id),
-        trigger_event_id=job.get("trigger_event_id", run_id.replace("run-", "")),
-        trigger_delivery_id=job.get("trigger_delivery_id"),
         project=project,
-        flow=result.get("flow", job.get("flow", "inspect")),
-        agent=result.get("agent", job.get("agent", "explainer")),
-        risk_class=str(result.get("risk_class", job.get("risk_class", "read_only"))),
-        status=result.get("status", "completed"),
-        summary=summary[:GITEA_COMMENT_SUMMARY_MAX_CHARS],
-        artifact_root=str(artifact_root),
+        artifact_root=artifact_root,
+        job=job,
+        result=result,
+        summary=summary_for_event,
     )
 
     events_dir = artifact_root / "events"

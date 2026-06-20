@@ -29,7 +29,9 @@ from agent_control.queue import (
     queue_info,
     run_worker,
 )
+from agent_control.memory.writeback import get_memory_store
 from agent_control.results_ingest import ingest_inbox, ingest_result_file
+from agent_shared.repo_identity import normalize_repo_full_name
 from agent_control.repo_snapshot import snapshot_repo
 from agent_control.state_reducer import ReductionMode, reduce_event_only
 from agent_control.webhook_server import create_app, verify_hmac
@@ -559,6 +561,33 @@ def results_ingest(path: Path | None, inbox: bool) -> None:
         raise click.ClickException("--path or --inbox required")
     stored, created = ingest_result_file(settings.agent_state_root, path)
     click.echo(json.dumps({"stored": str(stored), "created": created}))
+
+
+@main.group()
+def memory() -> None:
+    """Trajectory memory (CT103 SQLite)."""
+
+
+@memory.command("show")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--issue", "issue_id", type=int, required=True)
+@click.option("--run-id", default=None, help="Show a specific run memory record")
+def memory_show(project: str, issue_id: int, run_id: str | None) -> None:
+    settings = get_settings()
+    repo_full_name = normalize_repo_full_name(project)
+    if repo_full_name is None:
+        raise click.ClickException(f"invalid repo: {project}")
+    store = get_memory_store(settings)
+    if run_id:
+        record = store.get_by_run_id(run_id)
+        if record is None or record.repo_full_name != repo_full_name:
+            raise click.ClickException(f"no memory for run_id={run_id}")
+        click.echo(record.model_dump_json(indent=2, exclude={"review_result", "plan_result"}))
+        return
+    record = store.get_latest(repo_full_name, issue_id)
+    if record is None:
+        raise click.ClickException(f"no memory for {repo_full_name} issue #{issue_id}")
+    click.echo(record.model_dump_json(indent=2, exclude={"review_result", "plan_result"}))
 
 
 @main.group()
