@@ -142,5 +142,15 @@
     "approval_target_id": "WI-0006-d4c92e62",
     "approval_id": "appr-392553853b78457e",
     "proof": "fix blocked without approval; fix authorized dry-run (worker_enqueued=false); repeat fix blocked (consumed); agentctl approvals show status=consumed"
+  },
+  "slice_6a_retest_evidence": {
+    "verified_at_utc": "2026-06-21T21:16:20Z",
+    "project": "ai-sdlc-lab/agent-control-plane",
+    "issue": 7,
+    "review_run_id": "run-102e8bec3981026be73a3f254834004b",
+    "plan_run_id": "run-a3bced773251a365bbd9bf6168922c7f",
+    "approval_target_id": "WI-0007-68922c7f",
+    "approval_id": "appr-a14b1b352bec43f7",
+    "proof": "full Gitea path: fix blocked; /agent approve from olsenben (GITEA_APPROVER_LOGINS); fix authorized dry-run; repeat fix blocked (consumed)"
   }
 }

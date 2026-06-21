@@ -26,6 +26,8 @@ agentctl graph context-pack --repo ai-sdlc-lab/agent-control-plane --issue 2
 
 On a Gitea issue in an allowed repo (e.g. `demo-app`):
 
+**Timing:** Wait a few seconds after creating a new issue before the first `/agent` comment. Posting immediately after issue creation can drop the webhook and fail to enqueue CT104 (re-post once if no bot response within ~30s).
+
 ```text
 /agent review
 ```

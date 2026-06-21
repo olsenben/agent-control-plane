@@ -73,6 +73,8 @@ agentctl approvals grant --repo owner/repo --issue 4 --approval-target WI-0004-d
 
 On `agent-control-plane` after review + plan on an issue:
 
+**Timing:** On a newly opened issue, wait a few seconds before the first `/agent` command. Comments posted immediately after issue creation may not enqueue CT104; re-post once if no response within ~30s.
+
 1. `/agent fix WI-xxxx` without approval → blocked comment + `fix_requested(blocked)`
 2. Owner `/agent approve WI-xxxx` → one `human.approval_granted`
 3. Owner `/agent fix WI-xxxx` → `fix_authorized` (`worker_enqueued=false`); approval consumed
@@ -81,11 +83,13 @@ On `agent-control-plane` after review + plan on an issue:
 6. Replay same approve comment webhook → no duplicate approval event
 7. Ledger chain: `review → plan → fix_requested(blocked) → approval_granted → fix_requested(approved) → fix_authorized`
 
+Homelab sign-off: issue #6 (initial, CLI grant workaround); issue #7 retest (full Gitea approve path after `GITEA_APPROVER_LOGINS`).
+
 Verify with:
 
 ```bash
-agentctl events list --repo ai-sdlc-lab/agent-control-plane
-agentctl approvals list --repo ai-sdlc-lab/agent-control-plane --issue 4
+agentctl approvals list --repo ai-sdlc-lab/agent-control-plane --issue 7
+agentctl approvals show WI-0007-68922c7f --repo ai-sdlc-lab/agent-control-plane
 ```
 
 ## Fix MVP slice map
