@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
-from pydantic import ValidationError
-
+from agent_control.model_router import ResolvedEndpoint
+from agent_shared.models.context_pack import ContextPack
 from agent_shared.models.review import (
     BlastRadiusContext,
     ReviewFinding,
     ReviewResult,
     stub_blast_radius,
 )
+from agent_workers.rlm.json_extract import extract_json_blob
+from agent_workers.rlm.model_output import StructuredParseFailure, validate_or_repair
+from agent_workers.rlm.normalizers import parse_blast_radius_lines
 
 
 class ReviewParseError(ValueError):
@@ -48,26 +50,6 @@ def filter_hallucinated_paths(
     return kept, rejected
 
 
-def extract_json_blob(raw: str) -> dict[str, Any]:
-    text = raw.strip()
-    fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
-    if fence_match:
-        return json.loads(fence_match.group(1))
-    start = text.find("{")
-    if start < 0:
-        raise ReviewParseError("No JSON object found in model output")
-    depth = 0
-    for idx in range(start, len(text)):
-        ch = text[idx]
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                return json.loads(text[start : idx + 1])
-    raise ReviewParseError("Unbalanced JSON object in model output")
-
-
 def _section_text(raw: str, heading: str) -> str:
     pattern = rf"###\s*{re.escape(heading)}\s*\n(.*?)(?=\n###\s|\Z)"
     match = re.search(pattern, raw, re.DOTALL | re.IGNORECASE)
@@ -90,31 +72,7 @@ def _parse_list_section(text: str) -> list[str]:
 
 
 def _parse_blast_radius(text: str) -> BlastRadiusContext:
-    br = BlastRadiusContext()
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or ":" not in stripped:
-            continue
-        key, _, value = stripped.partition(":")
-        key = key.lower().strip()
-        value = value.strip()
-        if value.lower() in {"(none)", "none"}:
-            value_list: list[str] = []
-        elif key == "missing_graph_edges":
-            value_list = [v.strip() for v in value.split(",") if v.strip()]
-        else:
-            value_list = [v.strip() for v in value.split(",") if v.strip()]
-        if key.startswith("potentially affected repos"):
-            br.affected_repos = value_list
-        elif key.startswith("potentially affected services"):
-            br.affected_services = value_list
-        elif key.startswith("potentially affected tests"):
-            br.affected_tests = value_list
-        elif key.startswith("related adrs"):
-            br.related_adrs = value_list
-        elif key == "missing_graph_edges":
-            br.missing_graph_edges = value_list
-    return br
+    return parse_blast_radius_lines(text)
 
 
 def parse_markdown_sections(raw: str) -> dict[str, Any]:
@@ -173,32 +131,38 @@ def parse_markdown_sections(raw: str) -> dict[str, Any]:
     }
 
 
-def parse_review_output(raw: str) -> ReviewResult:
-    if not raw or not raw.strip():
-        raise ReviewParseError("Empty review model output")
+def parse_review_output(
+    raw: str,
+    *,
+    context_pack: ContextPack | None = None,
+    run_id: str = "",
+    repair_endpoint: ResolvedEndpoint | None = None,
+    repair_timeout_seconds: float = 60.0,
+) -> ReviewResult:
+    markdown_data: dict[str, Any] | None = None
+    lowered = raw.lower() if raw else ""
+    if "### finding" in lowered or "### files inspected" in lowered:
+        markdown_data = parse_markdown_sections(raw)
 
-    errors: list[str] = []
     try:
-        data = extract_json_blob(raw)
-        return ReviewResult.model_validate(data)
-    except (ReviewParseError, json.JSONDecodeError, ValidationError) as exc:
-        errors.append(str(exc))
-
-    lowered = raw.lower()
-    if "### finding" not in lowered and "### files inspected" not in lowered:
-        raise ReviewParseError(
-            "Could not parse review output as JSON or markdown sections: " + "; ".join(errors)
+        result = validate_or_repair(
+            "review",
+            raw,
+            context_pack=context_pack,
+            run_id=run_id,
+            repair_endpoint=repair_endpoint,
+            repair_timeout_seconds=repair_timeout_seconds,
+            markdown_fallback=markdown_data,
         )
+    except StructuredParseFailure as exc:
+        raise ReviewParseError(
+            "Could not parse review output as JSON or markdown sections: "
+            + "; ".join(exc.artifact.parse_errors)
+        ) from exc
 
-    try:
-        data = parse_markdown_sections(raw)
-        return ReviewResult.model_validate(data)
-    except ValidationError as exc:
-        errors.append(str(exc))
-
-    raise ReviewParseError(
-        "Could not parse review output as JSON or markdown sections: " + "; ".join(errors)
-    )
+    if not isinstance(result, ReviewResult):
+        raise ReviewParseError("Internal error: expected ReviewResult")
+    return result
 
 
 def apply_path_validation(

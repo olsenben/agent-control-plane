@@ -18,12 +18,14 @@ from agent_workers.rlm.budget import (
 )
 from agent_workers.rlm.completion import chat_completion
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
+from agent_workers.rlm.model_output import StructuredParseFailure
 from agent_workers.rlm.plan_finalize import finalize_plan_result
 from agent_workers.rlm.plan_parser import PlanParseError, parse_plan_output
 from agent_workers.rlm.prompts import build_plan_system_preamble, build_review_system_preamble, build_system_preamble
 from agent_workers.rlm.review_finalize import finalize_review_result
 from agent_workers.rlm.review_parser import ReviewParseError, parse_review_output
 from agent_workers.rlm.trace import append_trace_event
+from agent_workers.artifacts.writer import write_json
 
 INSPECT_KINDS = frozenset({"inspect", "explain"})
 REVIEW_KINDS = frozenset({"review"})
@@ -178,6 +180,17 @@ def _run_rlms(
             close()
 
 
+def _response_format_for_kind(kind: str) -> tuple[dict[str, Any] | str | None, str]:
+    from agent_shared.models.plan import PlanResult
+    from agent_shared.models.review import ReviewResult
+
+    if kind in PLAN_KINDS:
+        return PlanResult.model_json_schema(), "schema"
+    if kind in REVIEW_KINDS:
+        return ReviewResult.model_json_schema(), "schema"
+    return None, "none"
+
+
 def _run_single_shot(
     *,
     preamble: str,
@@ -187,15 +200,52 @@ def _run_single_shot(
     artifact_dir: str | None,
     run_id: str,
     timeout_seconds: float,
+    kind: str = "inspect",
 ) -> tuple[str, dict[str, Any]]:
     user_prompt = f"Repository context:\n{context_text}\n\nTask: {task}"
-    result = chat_completion(
-        endpoint,
-        system_prompt=preamble,
-        user_prompt=user_prompt,
-        max_tokens=1024,
-        timeout_seconds=timeout_seconds,
-    )
+    response_format, format_mode = _response_format_for_kind(kind)
+    result: dict[str, Any] | None = None
+    used_mode = format_mode
+
+    if response_format is not None:
+        try:
+            result = chat_completion(
+                endpoint,
+                system_prompt=preamble,
+                user_prompt=user_prompt,
+                max_tokens=2048,
+                timeout_seconds=timeout_seconds,
+                response_format=response_format,
+                stream=False,
+            )
+            used_mode = "schema"
+        except Exception:
+            try:
+                result = chat_completion(
+                    endpoint,
+                    system_prompt=preamble,
+                    user_prompt=user_prompt,
+                    max_tokens=2048,
+                    timeout_seconds=timeout_seconds,
+                    response_format="json",
+                    stream=False,
+                )
+                used_mode = "json"
+            except Exception:
+                result = None
+                used_mode = "none"
+
+    if result is None:
+        result = chat_completion(
+            endpoint,
+            system_prompt=preamble,
+            user_prompt=user_prompt,
+            max_tokens=2048,
+            timeout_seconds=timeout_seconds,
+            stream=False,
+        )
+        used_mode = "none"
+
     trace = {
         "run_id": run_id,
         "engine": ENGINE_OFFICIAL,
@@ -205,6 +255,7 @@ def _run_single_shot(
         "usage": result.get("usage"),
         "response_chars": len(result.get("content") or ""),
         "timeout_seconds": timeout_seconds,
+        "structured_output_format": used_mode,
     }
     append_trace_event(artifact_dir, trace)
     return str(result.get("content") or "").strip(), trace
@@ -309,6 +360,7 @@ class OfficialRLMEngine:
                 artifact_dir=artifact_dir,
                 run_id=job["run_id"],
                 timeout_seconds=completion_timeout,
+                kind=kind,
             )
             mode_note = "single_shot_openai_compatible"
 
@@ -320,8 +372,21 @@ class OfficialRLMEngine:
         plan_result = None
         if kind in REVIEW_KINDS:
             try:
-                parsed = parse_review_output(raw_response)
+                parsed = parse_review_output(
+                    raw_response,
+                    context_pack=pack,
+                    run_id=job["run_id"],
+                    repair_endpoint=endpoint,
+                    repair_timeout_seconds=min(completion_timeout, 60.0),
+                )
             except ReviewParseError as exc:
+                if isinstance(exc.__cause__, StructuredParseFailure):
+                    failure = exc.__cause__.artifact
+                    if artifact_dir:
+                        write_json(
+                            Path(artifact_dir) / "parse_failure.json",
+                            failure.model_dump(mode="json"),
+                        )
                 raise ValueError(f"Failed to parse review output: {exc}") from exc
             summary, review_result, review_warnings = finalize_review_result(
                 parsed,
@@ -332,8 +397,21 @@ class OfficialRLMEngine:
             warnings.extend(review_warnings)
         elif kind in PLAN_KINDS:
             try:
-                parsed = parse_plan_output(raw_response)
+                parsed = parse_plan_output(
+                    raw_response,
+                    context_pack=pack,
+                    run_id=job["run_id"],
+                    repair_endpoint=endpoint,
+                    repair_timeout_seconds=min(completion_timeout, 60.0),
+                )
             except PlanParseError as exc:
+                if isinstance(exc.__cause__, StructuredParseFailure):
+                    failure = exc.__cause__.artifact
+                    if artifact_dir:
+                        write_json(
+                            Path(artifact_dir) / "parse_failure.json",
+                            failure.model_dump(mode="json"),
+                        )
                 raise ValueError(f"Failed to parse plan output: {exc}") from exc
             summary, plan_result, plan_warnings = finalize_plan_result(
                 parsed,

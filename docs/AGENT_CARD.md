@@ -138,6 +138,7 @@ Model self-review is **not** an acceptance gate.
 | Plan MVP (structured comment) | 2026-06-21 | issue #2; `plan_result.v1` + `/agent plan` on official engine (`run-425a2cbe…`, `run-bde99cf…`) |
 | Memory 4A writeback | 2026-06-20 | issue #2; review run `run-f32dd48059abccc08338352894b886f3`; `agentctl memory show` |
 | Memory 4B retrieval | 2026-06-21 | issue #2; plan run `run-bde99cf06bff485fec153c89a7841150`; `prior_memory_used` + `memory_retrieval` in audit |
+| **Review MVP (full + memory loop)** | **2026-06-21** | **issue #4** clean path: review `run-be063cbd2993bb2496bb038233151849` → plan `run-dc0b71ebebb3379b440471e2caa2b9cc`; `prior_memory[0]` = review; `prior_memory_used` cites review run |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

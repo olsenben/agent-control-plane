@@ -87,10 +87,12 @@
   "last_verified": {
     "inspect_mvp": "2026-06-14",
     "review_slice_1": "2026-06-17",
+    "review_mvp": "2026-06-21",
     "review_mvp_graph": "2026-06-18",
     "plan_mvp": "2026-06-21",
     "memory_4a_writeback": "2026-06-20",
-    "memory_4b_retrieval": "2026-06-21"
+    "memory_4b_retrieval": "2026-06-21",
+    "review_first_retrieval": "2026-06-21"
   },
   "review_slice_1_evidence": {
     "run_id": "run-d91435838f457716cb443736c4cc3c6b",
@@ -109,11 +111,27 @@
     "proof": "agentctl memory show after results ingest"
   },
   "memory_4b_evidence": {
+    "verified_at_utc": "2026-06-21T01:46:02Z",
+    "project": "ai-sdlc-lab/agent-control-plane",
+    "issue": 4,
+    "command": "plan",
+    "run_id": "run-dc0b71ebebb3379b440471e2caa2b9cc",
+    "proof": "prior_memory[0]=review; prior_memory_used cites review; memory_retrieval in audit"
+  },
+  "review_mvp_evidence": {
+    "verified_at_utc": "2026-06-21T01:46:02Z",
+    "project": "ai-sdlc-lab/agent-control-plane",
+    "issue": 4,
+    "review_run_id": "run-be063cbd2993bb2496bb038233151849",
+    "plan_run_id": "run-dc0b71ebebb3379b440471e2caa2b9cc",
+    "proof": "review then plan on clean issue; memory writeback, retrieval, review-first prior_memory"
+  },
+  "memory_4b_evidence_issue_2": {
     "verified_at_utc": "2026-06-21T00:57:16Z",
     "project": "ai-sdlc-lab/agent-control-plane",
     "issue": 2,
     "command": "plan",
     "run_id": "run-bde99cf06bff485fec153c89a7841150",
-    "proof": "context_pack.prior_memory + plan_result.prior_memory_used + audit memory_retrieval"
+    "proof": "initial 4B homelab proof on multi-plan issue"
   }
 }

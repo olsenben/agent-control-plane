@@ -1,11 +1,14 @@
 """Tests for OfficialRLMEngine (Spike 1 candidate)."""
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from agent_control.model_router import ResolvedEndpoint
+from agent_shared.models.context_pack import ContextPack
+from agent_shared.models.review import BlastRadiusContext
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
 from agent_workers.rlm.engine import get_engine
 from agent_workers.rlm.official_engine import OfficialRLMEngine, gather_read_only_context
@@ -55,6 +58,23 @@ def _review_job() -> dict:
         "flow_version": "v1",
         "command_intent": {"kind": "review", "natural_language_task": "review this change"},
         "safety": {"command_scope": "review"},
+        "limits": {"max_iterations": 3, "max_depth": 0},
+    }
+
+
+def _plan_job() -> dict:
+    return {
+        "run_id": "run-plan1",
+        "session_id": "run-plan1",
+        "project": "ai-sdlc-lab/demo-app",
+        "flow": "plan",
+        "agent": "planner",
+        "risk_class": "planning_only",
+        "workflow_definition": "plan/v1",
+        "flow_config_id": "plan",
+        "flow_version": "v1",
+        "command_intent": {"kind": "plan", "natural_language_task": "plan the fix"},
+        "safety": {"command_scope": "plan"},
         "limits": {"max_iterations": 3, "max_depth": 0},
     }
 
@@ -147,6 +167,56 @@ def test_official_engine_single_shot_mock(tmp_path: Path) -> None:
     trace_lines = (tmp_path / "rlm_trace.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(trace_lines) >= 2
     assert any("context_gathered" in line or "single_shot" in line for line in trace_lines)
+
+
+def test_official_engine_plan_parse_failure_writes_artifact(tmp_path: Path) -> None:
+    engine = OfficialRLMEngine()
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("# Demo", encoding="utf-8")
+
+    pack = ContextPack(
+        project="ai-sdlc-lab/demo-app",
+        blast_radius=BlastRadiusContext(
+            affected_repos=["ai-sdlc-lab/agent-control-plane"],
+            affected_tests=["tests/test_plan_parser.py"],
+        ),
+        context_sources=["graph:blast_radius"],
+    )
+    job = _plan_job()
+    job["context_pack"] = pack.model_dump(mode="json")
+
+    endpoint = ResolvedEndpoint(
+        role="rlm",
+        tier="3080",
+        provider="gpu",
+        base_url="http://127.0.0.1:11434",
+        model="llama3",
+        api_key="",
+        primary_provider="gpu",
+    )
+
+    with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
+        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+            with patch(
+                "agent_workers.rlm.official_engine.chat_completion",
+                return_value={"content": '{"scope_summary": 123}', "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+            ):
+                with patch(
+                    "agent_workers.rlm.model_output.attempt_repair",
+                    return_value='{"scope_summary": 456}',
+                ):
+                    with pytest.raises(ValueError, match="Failed to parse plan output"):
+                        engine.run(job, workspace, {}, artifact_dir=str(tmp_path))
+
+    artifact_path = tmp_path / "parse_failure.json"
+    assert artifact_path.exists()
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact["schema_version"] == "parse_failure.v1"
+    assert artifact["command_kind"] == "plan"
+    assert artifact["status"] == "failed_structured_parse"
+    assert artifact["blast_radius"]["affected_repos"] == pack.blast_radius.affected_repos
+    assert artifact["context_sources"] == pack.context_sources
 
 
 def test_gather_read_only_context_respects_broker(tmp_path: Path) -> None:

@@ -36,11 +36,10 @@ def build_review_system_preamble(
     base = build_system_preamble(command_scope, risk_class, max_summary_chars=max_summary_chars)
     if has_graph_blast:
         blast_rules = (
-            "- Graph blast-radius is provided in context_pack: echo the supplied blast_radius "
-            "fields in your JSON output and preserve missing_graph_edges from the pack; "
-            "do not invent services, tests, or ADRs not listed.\n"
+            "- Graph blast-radius is supplied by the control plane in context_pack; "
+            "focus findings on repository context. Do not invent services, tests, or ADRs.\n"
         )
-        default_missing = '[]'
+        default_missing = "[]"
     else:
         blast_rules = (
             "- Graph blast-radius is not available: leave blast_radius lists empty and set "
@@ -84,10 +83,9 @@ def build_plan_system_preamble(
     base = build_system_preamble(command_scope, risk_class, max_summary_chars=max_summary_chars)
     if has_graph_blast:
         blast_rules = (
-            "- Graph blast-radius is provided in context_pack: echo the supplied blast_radius "
-            "fields in your JSON output and preserve missing_graph_edges from the pack; "
-            "do not invent services, tests, or ADRs not listed.\n"
-            "- Use affected_tests and related ADRs to propose ci_hints (workflows, test paths).\n"
+            "- Graph blast-radius is supplied by the control plane in context_pack; "
+            "use affected_tests and related ADRs to propose ci_hints. "
+            "Do not invent services, tests, or ADRs.\n"
         )
         default_missing = "[]"
     else:
@@ -112,8 +110,7 @@ def build_plan_system_preamble(
         '  "open_questions": ["..."],\n'
         '  "confidence": "low|medium|high",\n'
         '  "recommended_next_command": "/agent fix",\n'
-        '  "risk_tags": [],\n'
-        '  "prior_memory_used": [{"run_id": "run-...", "record_id": "mem-run-...", "used_for": "plan_context"}]\n'
+        '  "risk_tags": []\n'
         "}\n\n"
         "Rules:\n"
         "- Ground steps in issue text, prior review findings, and repository context.\n"
@@ -126,6 +123,5 @@ def build_plan_system_preamble(
         schema_hint += (
             "\n- prior_memory is present in context_pack: reference prior run_id values in steps "
             "and scope_summary; respect is_stale flags; treat entries as hypotheses, not verified truth.\n"
-            "- Include prior_memory_used listing each prior run_id you relied on (or leave [] if unused).\n"
         )
     return base + schema_hint

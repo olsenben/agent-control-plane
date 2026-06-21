@@ -86,14 +86,16 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 |-------|--------|--------|
 | Inspect MVP | **Done** | End-to-end plumbing |
 | Explain smoke | Next | Second Risk 0 command |
-| **Review MVP** | **In progress** | Review + graph blast-radius + context-pack (memory = Slice 4) |
-| Plan MVP | **In progress** | Graph-informed plan + CI hints + structured comment |
+| **Review MVP** | **Done** | Review + graph blast-radius + context-pack + memory (4A/4B); homelab issue #4 (2026-06-21 UTC) |
+| Plan MVP | **Done** | Graph-informed plan + CI hints + structured comment + prior memory (issue #4) |
 | Fix MVP | Deferred | Graph-gated approval + branch + CT102 |
-| Later | — | AgentFacts-lite, replay console, drift detector, MCP graph |
+| Later | — | AgentFacts-lite, replay console, drift detector, MCP graph, Slice 5 plan quality hardening |
+
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — review `run-be063cbd…`, plan `run-dc0b71e…` on issue #4.
 
 ### Review MVP acceptance (full)
 
-See [EVALS.md](EVALS.md) and §0.5 in V4 plan. Summary:
+**Status: satisfied on homelab (2026-06-21 UTC, issue #4).** See [EVALS.md](EVALS.md) and §0.5 in V4 plan. Summary:
 
 1. Real Gitea issue; read-only clone; CT103 run record
 2. Audit trail in run artifacts; structured output with risk_tags
