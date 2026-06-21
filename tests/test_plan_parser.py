@@ -57,6 +57,21 @@ medium
     assert result.recommended_next_command == "/agent fix"
 
 
+def test_parse_plan_output_json_coerces_prior_memory_run_ids() -> None:
+    payload = {
+        "scope_summary": "Plan from prior review memory",
+        "steps": [{"id": "S-001", "summary": "Apply review finding", "files": []}],
+        "prior_memory_used": [
+            "run-d91435838f457716cb443736c4cc3c6b",
+            "run-f32dd48059abccc08338352894b886f3",
+        ],
+    }
+    result = parse_plan_output(json.dumps(payload))
+    assert len(result.prior_memory_used) == 2
+    assert result.prior_memory_used[0].run_id == "run-d91435838f457716cb443736c4cc3c6b"
+    assert result.prior_memory_used[0].used_for == "plan_context"
+
+
 def test_parse_plan_output_invalid_raises() -> None:
     with pytest.raises(PlanParseError):
         parse_plan_output("not parseable at all")

@@ -23,6 +23,35 @@ class PlanParseError(ValueError):
     """Raised when plan output cannot be parsed into PlanResult."""
 
 
+def _normalize_prior_memory_used(raw: Any) -> list[dict[str, Any]]:
+    """Coerce model output where prior_memory_used is a list of run_id strings."""
+    if not isinstance(raw, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, str):
+            run_id = item.strip()
+            if run_id:
+                normalized.append({"run_id": run_id, "used_for": "plan_context"})
+            continue
+        if isinstance(item, dict):
+            entry = dict(item)
+            run_id = str(entry.get("run_id") or entry.get("source_run_id") or "").strip()
+            if not run_id:
+                continue
+            entry["run_id"] = run_id
+            entry.setdefault("used_for", "plan_context")
+            normalized.append(entry)
+    return normalized
+
+
+def _normalize_plan_data(data: dict[str, Any]) -> dict[str, Any]:
+    if "prior_memory_used" in data:
+        data = dict(data)
+        data["prior_memory_used"] = _normalize_prior_memory_used(data.get("prior_memory_used"))
+    return data
+
+
 def parse_markdown_sections(raw: str) -> dict[str, Any]:
     scope = _section_text(raw, "Scope") or ""
     steps_text = _section_text(raw, "Steps")
@@ -81,7 +110,7 @@ def parse_plan_output(raw: str) -> PlanResult:
 
     errors: list[str] = []
     try:
-        data = extract_json_blob(raw)
+        data = _normalize_plan_data(extract_json_blob(raw))
         return PlanResult.model_validate(data)
     except (ReviewParseError, json.JSONDecodeError, ValidationError) as exc:
         errors.append(str(exc))
@@ -93,7 +122,7 @@ def parse_plan_output(raw: str) -> PlanResult:
         )
 
     try:
-        data = parse_markdown_sections(raw)
+        data = _normalize_plan_data(parse_markdown_sections(raw))
         return PlanResult.model_validate(data)
     except ValidationError as exc:
         errors.append(str(exc))
