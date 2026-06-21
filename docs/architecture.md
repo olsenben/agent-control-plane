@@ -33,6 +33,7 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [THREAT_MODEL.md](THREAT_MODEL.md) | Searchable `risk_tags` on events |
 | [EVALS.md](EVALS.md) | Review MVP + maintainability metrics |
 | [RUNBOOK_REVIEW_MVP.md](RUNBOOK_REVIEW_MVP.md) | Verification runbook |
+| [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) | Structured output boundary (complete) |
 | [graph-indexer.md](graph-indexer.md) | Graph-lite: Tree-sitter + SQLite + catalog-info |
 | [graph-oss-borrowing.md](research/tool-spikes/graph-oss-borrowing.md) | OSS borrow map and phases |
 
@@ -88,10 +89,12 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | Explain smoke | Next | Second Risk 0 command |
 | **Review MVP** | **Done** | Review + graph blast-radius + context-pack + memory (4A/4B); homelab issue #4 (2026-06-21 UTC) |
 | Plan MVP | **Done** | Graph-informed plan + CI hints + structured comment + prior memory (issue #4) |
-| Fix MVP | Deferred | Graph-gated approval + branch + CT102 |
-| Later | — | AgentFacts-lite, replay console, drift detector, MCP graph, Slice 5 plan quality hardening |
+| **Slice 5 — structured output boundary** | **Done** | Pre-merge, normalizers, repair retry, `parse_failure.json`; homelab review `run-19a15588…` → plan `run-d71996d3…` (2026-06-21 UTC). See [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) |
+| **Slice 6A — approval plumbing** | **Done (CT103)** | Plan-scoped `WI-*` / `PLAN-run-*` handles; `human.approval_granted`, `agent.fix_authorized` (no worker); owner-only approve. See [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md) |
+| **Fix MVP** | **In progress (6B+)** | 6B local patch, 6C diff gate, 6D branch, 6E CT102 (Risk 2) |
+| Later | — | AgentFacts-lite, replay console, drift detector, MCP graph; runner trace preservation |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — review `run-be063cbd…`, plan `run-dc0b71e…` on issue #4.
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — review `run-be063cbd…` / plan `run-dc0b71e…` (issue #4); Slice 5 review `run-19a15588…` / plan `run-d71996d3…`.
 
 ### Review MVP acceptance (full)
 

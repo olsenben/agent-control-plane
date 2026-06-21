@@ -13,3 +13,5 @@ class CommandIntent(BaseModel):
     natural_language_task: str = ""
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     work_item_id: str | None = None
+    approval_target: str | None = None
+    reject_reason: str | None = None

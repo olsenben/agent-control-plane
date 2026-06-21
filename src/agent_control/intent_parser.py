@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from agent_shared.approval_ids import parse_approval_target
 from agent_shared.models.intent import CommandIntent
 
 _SLASH_AGENT = re.compile(
@@ -25,8 +26,53 @@ _MENTION_TO_KIND: dict[str, str] = {
 }
 
 _BARE_COMMAND_KINDS = frozenset({"inspect", "explain", "review", "plan"})
+_APPROVAL_COMMAND_KINDS = frozenset({"approve", "reject", "fix"})
+_FINDING_PATTERN = re.compile(r"^F-\d+$", re.IGNORECASE)
+_REASON_PATTERN = re.compile(r"\breason=(.+)$", re.IGNORECASE | re.DOTALL)
 
-_WI_PATTERN = re.compile(r"^WI-\d{4,}$", re.IGNORECASE)
+
+def _normalize_target(raw: str) -> str | None:
+    parsed = parse_approval_target(raw.strip())
+    if parsed is None:
+        return None
+    kind, issue_id, suffix = parsed
+    if kind == "wi" and issue_id is not None:
+        return f"WI-{issue_id:04d}-{suffix}"
+    return f"PLAN-run-{suffix}"
+
+
+def _parse_approval_rest(rest: str) -> tuple[str | None, str | None]:
+    """Parse approval target and optional reject reason from command remainder."""
+    text = rest.strip()
+    if not text:
+        return None, None
+    reason_match = _REASON_PATTERN.search(text)
+    reject_reason: str | None = None
+    if reason_match:
+        reject_reason = reason_match.group(1).strip() or None
+        text = _REASON_PATTERN.sub("", text).strip()
+    target_token = text.split()[0] if text else ""
+    target = _normalize_target(target_token)
+    return target, reject_reason
+
+
+def _intent_with_target(
+    *,
+    kind: str,
+    activation: str,
+    target: str,
+    reject_reason: str | None = None,
+) -> CommandIntent:
+    return CommandIntent(
+        activated=True,
+        activation=activation,
+        kind=kind,
+        natural_language_task=target,
+        approval_target=target,
+        work_item_id=target,
+        reject_reason=reject_reason,
+        confidence=1.0,
+    )
 
 
 def parse_command_intent(body: str) -> CommandIntent:
@@ -39,18 +85,30 @@ def parse_command_intent(body: str) -> CommandIntent:
     if slash:
         verb = slash.group(1).lower()
         rest = (slash.group(2) or "").strip()
-        if verb in ("approve", "reject", "run"):
-            wi_id = rest.split()[0] if rest else ""
-            if not _WI_PATTERN.match(wi_id):
+
+        if verb in _APPROVAL_COMMAND_KINDS:
+            if not rest:
                 return CommandIntent(activated=False, confidence=0.0)
-            return CommandIntent(
-                activated=True,
-                activation="/agent",
+            first_token = rest.split()[0]
+            if _FINDING_PATTERN.match(first_token):
+                return CommandIntent(activated=False, confidence=0.0)
+            target, reject_reason = _parse_approval_rest(rest)
+            if target is None:
+                return CommandIntent(activated=False, confidence=0.0)
+            return _intent_with_target(
                 kind=verb,
-                natural_language_task=wi_id,
-                work_item_id=wi_id.upper(),
-                confidence=1.0,
+                activation="/agent",
+                target=target,
+                reject_reason=reject_reason if verb == "reject" else None,
             )
+
+        if verb == "run":
+            wi_id = rest.split()[0] if rest else ""
+            target = _normalize_target(wi_id)
+            if target is None:
+                return CommandIntent(activated=False, confidence=0.0)
+            return _intent_with_target(kind=verb, activation="/agent", target=target)
+
         if not rest and verb in _BARE_COMMAND_KINDS:
             return CommandIntent(
                 activated=True,
@@ -78,6 +136,11 @@ def parse_command_intent(body: str) -> CommandIntent:
             return CommandIntent(activated=False, confidence=0.0)
         if not rest:
             return CommandIntent(activated=False, confidence=0.0)
+        if kind == "fix":
+            target = _normalize_target(rest.split()[0])
+            if target is None:
+                return CommandIntent(activated=False, confidence=0.0)
+            return _intent_with_target(kind=kind, activation=f"@agent-{role}", target=target)
         return CommandIntent(
             activated=True,
             activation=f"@agent-{role}",

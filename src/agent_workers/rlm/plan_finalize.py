@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent_shared.approval_ids import derive_approval_target_id, derive_plan_alias
 from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS
 from agent_shared.models.plan import PlanResult, PriorMemoryUsed
 from agent_shared.models.review import stub_blast_radius
@@ -75,6 +76,23 @@ def finalize_plan_result(
         plan = plan.model_copy(update={"blast_radius": stub_blast_radius()})
 
     validated, warnings = apply_path_validation(plan, known)
+
+    run_id = str(job.get("run_id") or "")
+    trigger_context = job.get("trigger_context") or {}
+    issue_number = trigger_context.get("issue_number")
+    if run_id and issue_number is not None:
+        approval_target_id = derive_approval_target_id(
+            issue_id=int(issue_number),
+            plan_run_id=run_id,
+        )
+        plan_alias = derive_plan_alias(run_id)
+        validated = validated.model_copy(
+            update={
+                "approval_target_id": approval_target_id,
+                "plan_alias": plan_alias,
+                "recommended_next_command": f"/agent fix {approval_target_id}",
+            }
+        )
 
     if pack is not None and pack.prior_memory and not validated.prior_memory_used:
         validated = validated.model_copy(

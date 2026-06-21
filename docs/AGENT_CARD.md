@@ -110,10 +110,10 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 | Prompt injection guards | `tests/test_prompt_injection.py` | Passing |
 | Public surface restriction | `tests/test_webhook_*` | Passing |
 | Dispatch payload validation | `tests/test_dispatch_payload.py` | Passing |
-| Structured output validation | `tests/test_fake_review_run.py`, engine layer | Slice 1 passing |
+| Structured output validation | `tests/test_*_output_normalization.py`, `model_output.py`, engine layer | **Slice 5 done** (163 tests) |
 | Policy gate unit tests | target | Not yet |
 | Graph blast-radius smoke | `tests/test_graph_blast_radius.py`, CT103 live | Verified 2026-06-18 |
-| Plan structured output | `tests/test_fake_plan_run.py`, engine layer | Plan MVP |
+| Plan structured output | `tests/test_fake_plan_run.py`, engine layer | Plan MVP + Slice 5 |
 
 Run: `pytest -q` in `agent-control-plane`.
 
@@ -139,6 +139,7 @@ Model self-review is **not** an acceptance gate.
 | Memory 4A writeback | 2026-06-20 | issue #2; review run `run-f32dd48059abccc08338352894b886f3`; `agentctl memory show` |
 | Memory 4B retrieval | 2026-06-21 | issue #2; plan run `run-bde99cf06bff485fec153c89a7841150`; `prior_memory_used` + `memory_retrieval` in audit |
 | **Review MVP (full + memory loop)** | **2026-06-21** | **issue #4** clean path: review `run-be063cbd2993bb2496bb038233151849` → plan `run-dc0b71ebebb3379b440471e2caa2b9cc`; `prior_memory[0]` = review; `prior_memory_used` cites review run |
+| **Slice 5 — structured output boundary** | **2026-06-21** | review `run-19a15588a6bc82d0104ee78006e4febf` → plan `run-d71996d36fca5c54e3f54cc50a4a6f35`; no `parse_failure.json`; pack blast_radius in `plan_result.json` |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

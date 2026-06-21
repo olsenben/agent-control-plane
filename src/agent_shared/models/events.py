@@ -51,6 +51,10 @@ class AgentRunCompletedEvent(BaseModel):
     risk_tags: list[str] = Field(default_factory=list)
     risk_tag_sources: list[RiskTagSourceEntry] = Field(default_factory=list)
     policy_decision: Literal["allow", "deny", "pending_approval"] = "allow"
+    approval_target_id: str | None = None
+    plan_alias: str | None = None
+    plan_hash: str | None = None
+    blast_radius_hash: str | None = None
 
 
 class SessionEvent(BaseModel):

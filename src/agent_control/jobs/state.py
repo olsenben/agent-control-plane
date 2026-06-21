@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from agent_control.approval.handlers import handle_approval_commands
 from agent_control.config import get_settings
 from agent_control.events import (
     clear_reduction_outbox,
@@ -33,10 +34,21 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
     clear_reduction_outbox(root, event_id)
 
     dispatch_result: dict[str, Any] = {"dispatched": False}
+    approval_result: dict[str, Any] = {"handled": False}
     if events:
         trigger = next((e for e in reversed(events) if e.get("event_id") == event_id), events[-1])
         trigger_intent, trigger_dispatch, trigger_kind = dispatch_for_event(trigger)
-        if trigger_dispatch:
+        settings = get_settings()
+
+        if trigger_intent.activated and trigger_intent.kind in ("approve", "reject", "fix"):
+            approval_result = handle_approval_commands(
+                root,
+                project,
+                trigger,
+                trigger_intent,
+                settings=settings,
+            )
+        elif trigger_dispatch:
             dispatch_state = state.model_copy(
                 update={
                     "command_intent": trigger_intent,
@@ -44,7 +56,6 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
                     "dispatch_kind": trigger_kind,
                 }
             )
-            settings = get_settings()
             try:
                 dispatch_result = maybe_dispatch_rlm_root(
                     dispatch_state,
@@ -65,4 +76,5 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
         "dispatch_recommended": state.dispatch_recommended,
         "snapshot_required": state.snapshot_required,
         "dispatch": dispatch_result,
+        "approval": approval_result,
     }

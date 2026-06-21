@@ -1,0 +1,99 @@
+# Slice 6A — Risk 2 Approval + Dispatch Plumbing
+
+CT103-only approval plumbing: scoped plan-revision handles, idempotent ledger events, Gitea block/confirm comments, owner-only authorization. **No CT104 writes, no patch generation, no branch push.**
+
+## Approval handle vs durable WorkItem
+
+| Term | Slice 6A | Future |
+|------|----------|--------|
+| `approval_target_id` | `WI-0004-dc0b71eb` — plan-scoped handle for one plan run | `WI-0004` durable epic WorkItem |
+| `plan_alias` | `PLAN-run-dc0b71eb` — immutable plan revision alias | Same |
+| `approval_id` | Hash-bound grant tying target + plan run + hashes | Approval of durable WI + plan revision |
+
+A Slice 6A approval **must not** apply to a revised plan on the same issue. New plan run → new `approval_target_id` → new approval.
+
+Derivation at plan completion:
+
+- `approval_target_id = WI-{issue:04d}-{plan_run_id[-8:]}`
+- `plan_alias = PLAN-run-{plan_run_id[-8:]}`
+
+Both are accepted for `/agent approve` and `/agent fix`.
+
+## Hash rules
+
+| Hash | Source | Exclusions |
+|------|--------|------------|
+| `plan_hash` | Finalized `PlanResult` after Slice 5 normalization | `recommended_next_command`, `prior_memory_used`, `approval_target_id`, `plan_alias` |
+| `blast_radius_hash` | `context_pack.blast_radius` (CT103-owned) | Canonical JSON sort |
+
+## Allowed files
+
+Structured only — from `plan_result.steps[].files`. Empty scope: approval may be granted (dry-run marker); patch generation blocked until 6B replan.
+
+## Ledger events
+
+| Event | When |
+|-------|------|
+| `agent.fix_requested` | Every scoped `/agent fix` (`policy_decision`: blocked \| approved) |
+| `human.approval_granted` | Owner approve success (full `WorkItemApproval`) |
+| `human.approval_rejected` | Owner reject success |
+| `agent.fix_authorized` | Approved fix only (`worker_enqueued=false`, `next_slice=6B`) |
+
+Slice 6B introduces `agent.fix_enqueued` when a real worker job is created.
+
+## Idempotency
+
+Deterministic event IDs:
+
+```text
+deterministic_event_id(
+  source="ct103",
+  delivery_id="{comment_id}:{command_kind}:{project}:{issue_id}:{approval_target}",
+  event_type="human.approval_granted",
+)
+```
+
+Webhook retries: `append_event` `created=False` skips duplicate side effects.
+
+## Authorization
+
+- `/agent approve` and `/agent reject`: **owner only** (`author_is_owner` — comment author matches repo owner segment)
+- Non-owner fix: may emit `fix_requested(blocked)`; execution not authorized
+- Approval consumed **only** on successful `agent.fix_authorized`
+
+## CLI
+
+```bash
+agentctl approvals list --repo owner/repo --issue 4
+agentctl approvals show WI-0004-dc0b71eb --repo owner/repo
+agentctl approvals grant --repo owner/repo --issue 4 --approval-target WI-0004-dc0b71eb --approver owner
+```
+
+## Homelab acceptance checklist
+
+On `agent-control-plane` after review + plan on an issue:
+
+1. `/agent fix WI-xxxx` without approval → blocked comment + `fix_requested(blocked)`
+2. Owner `/agent approve WI-xxxx` → one `human.approval_granted`
+3. Owner `/agent fix WI-xxxx` → `fix_authorized` (`worker_enqueued=false`); approval consumed
+4. Repeat fix with same approval → blocked (consumed)
+5. Non-owner `/agent approve` → rejected comment; no approval file
+6. Replay same approve comment webhook → no duplicate approval event
+7. Ledger chain: `review → plan → fix_requested(blocked) → approval_granted → fix_requested(approved) → fix_authorized`
+
+Verify with:
+
+```bash
+agentctl events list --repo ai-sdlc-lab/agent-control-plane
+agentctl approvals list --repo ai-sdlc-lab/agent-control-plane --issue 4
+```
+
+## Fix MVP slice map
+
+| Slice | Scope | CT104 writes? |
+|-------|-------|---------------|
+| **6A** | Approval plumbing + `fix_authorized` | No |
+| 6B | Local patch artifact | Workspace only |
+| 6C | Closed-world diff gate | No push |
+| 6D | Branch push + PR | Agent branch |
+| 6E | CT102 CI truth loop | Observe only |

@@ -7,9 +7,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from agent_shared.hash_utils import hash_blast_radius, hash_plan_result
 from agent_shared.models.events import AgentRunCompletedEvent, RiskTagSourceEntry
 from agent_shared.models.plan import PlanResult
 from agent_shared.models.review import ReviewResult
+from agent_shared.models.context_pack import ContextPack
+from agent_shared.approval_ids import derive_approval_target_id, derive_plan_alias
 from agent_shared.repo_identity import normalize_repo_full_name
 
 _MEMORY_KINDS = frozenset({"review", "plan"})
@@ -84,9 +87,29 @@ def build_run_completed_event(
         plan_result=plan_result,
     )
 
+    plan_hash: str | None = None
+    blast_radius_hash: str | None = None
+    approval_target_id: str | None = None
+    plan_alias: str | None = None
+
+    if command_kind == "plan" and plan_result is not None:
+        plan_hash = hash_plan_result(plan_result)
+        pack_raw = job.get("context_pack")
+        if pack_raw:
+            pack = ContextPack.model_validate(pack_raw)
+            blast_radius_hash = hash_blast_radius(pack.blast_radius)
+        else:
+            blast_radius_hash = hash_blast_radius(plan_result.blast_radius)
+        if trigger_context.get("issue_number") is not None:
+            approval_target_id = plan_result.approval_target_id or derive_approval_target_id(
+                issue_id=int(trigger_context["issue_number"]),
+                plan_run_id=run_id,
+            )
+            plan_alias = plan_result.plan_alias or derive_plan_alias(run_id)
+
     repo_full_name = normalize_repo_full_name(project)
 
-    return AgentRunCompletedEvent(
+    event = AgentRunCompletedEvent(
         run_id=run_id,
         job_id=job.get("job_id", f"rlm-root-{job.get('trigger_event_id', run_id)}"),
         workflow_id=job.get("workflow_id", run_id),
@@ -117,7 +140,12 @@ def build_run_completed_event(
         risk_tags=risk_tags,
         risk_tag_sources=risk_tag_sources,
         policy_decision="allow",
+        approval_target_id=approval_target_id,
+        plan_alias=plan_alias,
+        plan_hash=plan_hash,
+        blast_radius_hash=blast_radius_hash,
     )
+    return event
 
 
 def _kind_from_flow(flow: str | None) -> str | None:

@@ -207,6 +207,9 @@ def build_trigger_context(
     pr_number = pr.get("number") if pr else None
     comment_id = str(comment.get("id", "")) if comment else None
 
+    owner_login = project.split("/", 1)[0] if "/" in project else ""
+    author_is_owner = bool(author and owner_login and str(author).lower() == owner_login.lower())
+
     comment_url = None
     if issue_number and comment_id:
         if pr_number:
@@ -227,7 +230,7 @@ def build_trigger_context(
         "comment_url": comment_url,
         "discussion_id": None,
         "author": author,
-        "author_is_owner": False,
+        "author_is_owner": author_is_owner,
         "raw_body": intent_body,
         "normalized_body": intent_body.strip(),
         "reply_mode": "same_thread_if_possible",

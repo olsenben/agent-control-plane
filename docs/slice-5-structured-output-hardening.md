@@ -1,8 +1,8 @@
 # Slice 5 — Structured Output Boundary Hardening
 
-**Status:** planned  
-**Prerequisite:** Review MVP path live (inspect/review/plan dispatch + memory 4A/4B)  
-**Blocks:** `/agent fix` (Risk 2) — do not start fix until this slice passes acceptance
+**Status:** complete (homelab sign-off 2026-06-21 UTC)  
+**Prerequisite:** Review MVP path live (inspect/review/plan dispatch + memory 4A/4B) — satisfied  
+**Unblocks:** `/agent fix` (Risk 2)
 
 ## Thesis
 
@@ -189,16 +189,18 @@ Once pre-merge owns blast_radius and prior_memory_used:
 
 ## Acceptance criteria
 
-1. Plan survives `prior_memory_used` as `["run-..."]` (with or without pack).
-2. Plan survives `blast_radius` as prose when `context_pack.blast_radius` exists (pack wins).
-3. Review survives `blast_radius` as prose when pack exists.
-4. Review survives `findings` as list of strings (coerced to minimal objects).
-5. CT103-owned fields pre-merged before Pydantic validation.
-6. Ollama requests use schema or JSON `format` when available.
-7. One repair retry on `ValidationError`.
-8. Final failure produces `parse_failure.json` with platform context.
-9. RQ failed count stops growing for common shape errors (manual homelab check).
-10. Tests cover plan + review normalization; at least one official-engine integration test for parse failure artifact.
+Homelab sign-off: issue on `agent-control-plane`, review `run-19a15588a6bc82d0104ee78006e4febf`, plan `run-d71996d36fca5c54e3f54cc50a4a6f35` (2026-06-21 UTC). Unit/integration: 163 tests passing.
+
+1. Plan survives `prior_memory_used` as `["run-..."]` (with or without pack). **Unit tests**
+2. Plan survives `blast_radius` as prose when `context_pack.blast_radius` exists (pack wins). **Unit + homelab** (`plan_result.json` blast matches `context_pack.json`)
+3. Review survives `blast_radius` as prose when pack exists. **Unit + homelab**
+4. Review survives `findings` as list of strings (coerced to minimal objects). **Unit tests**
+5. CT103-owned fields pre-merged before Pydantic validation. **Homelab** (blast_radius match above)
+6. Ollama requests use schema or JSON `format` when available. **Code** (`official_engine._run_single_shot`; trace field dropped by runner overwrite — see follow-up)
+7. One repair retry on `ValidationError`. **Code + unit tests**
+8. Final failure produces `parse_failure.json` with platform context. **Integration test**; not triggered on sign-off runs (no `parse_failure.json`)
+9. RQ failed count stops growing for common shape errors (manual homelab check). **Homelab** (review + plan completed; no parse failures)
+10. Tests cover plan + review normalization; at least one official-engine integration test for parse failure artifact. **Done**
 
 ## Out of scope (this slice)
 
@@ -222,3 +224,4 @@ Once pre-merge owns blast_radius and prior_memory_used:
 ## Review log
 
 - 2026-06-21 — Slice scoped after homelab plan parse failures (`prior_memory_used` strings, `blast_radius` prose). Ad-hoc fix committed in `fix(plan): coerce prose blast_radius...`; superseded by this slice.
+- 2026-06-21 — Slice landed (`04b0dc3` slice 5 complete, `6f74eea` lint). Homelab sign-off: review `run-19a15588…`, plan `run-d71996d3…`; no `parse_failure.json`; `plan_result.blast_radius` matches `context_pack`. `/agent fix` unblocked.

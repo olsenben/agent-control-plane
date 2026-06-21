@@ -69,14 +69,18 @@ Review findings are **hypotheses**, not verified truth.
 
 ## Risk 2 — fix
 
+Slice **6A** (current): CT103 records `agent.fix_requested`, owner-only `human.approval_granted` / `human.approval_rejected`, and `agent.fix_authorized` with `worker_enqueued=false`. No CT104 dispatch until **6B**. See [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md).
+
 ```yaml
 repo_access: branch_write_only
 auto_run: false
 human_approval_event: human.approval_granted
+fix_authorized_event: agent.fix_authorized   # 6A dry-run; worker_enqueued=false
 required_before_dispatch:
   - prior_review_or_plan_memory
   - blast_radius_acknowledged
-  - sandbox_available
+  - owner_approval_on_plan_scoped_target   # WI-{issue}-{run_suffix} or PLAN-run-{suffix}
+  - sandbox_available                      # 6B+
 allowed_side_effects:
   - agent_branch_push
   - gitea_comment

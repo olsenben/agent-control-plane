@@ -111,6 +111,28 @@ def reduce_event_only(events: list[dict[str, Any]], project: str) -> Verificatio
             state.ref = pr.get("head", {}).get("ref") or state.ref
             state.head_sha = pr.get("head", {}).get("sha") or state.head_sha
 
+        elif etype == "agent.fix_requested":
+            state.pending_fix_request = payload
+            state.last_policy_decision = payload.get("policy_decision")
+
+        elif etype == "human.approval_granted":
+            target = payload.get("approval_target_id")
+            if target:
+                state.active_approvals[target] = payload
+
+        elif etype == "human.approval_rejected":
+            target = payload.get("approval_target_id")
+            if target and target in state.active_approvals:
+                del state.active_approvals[target]
+
+        elif etype == "agent.fix_authorized":
+            target = payload.get("approval_target_id")
+            if target and target in state.active_approvals:
+                entry = dict(state.active_approvals[target])
+                entry["status"] = "consumed"
+                state.active_approvals[target] = entry
+            state.last_policy_decision = "approved"
+
         elif etype.startswith("gitea.workflow_"):
             state.pipeline_status = etype.replace("gitea.workflow_", "")
 

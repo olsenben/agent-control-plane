@@ -1,0 +1,77 @@
+"""Scoped approval records for Risk 2 fix (Slice 6A plan-scoped handles)."""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+ApprovalStatus = Literal["approved", "rejected", "expired", "consumed"]
+
+
+class WorkItemApproval(BaseModel):
+    """Plan-scoped approval handle in Slice 6A — not a durable epic WorkItem."""
+
+    schema_version: str = "work_item_approval.v1"
+    approval_id: str
+    approval_target_id: str
+    plan_alias: str
+    plan_run_id: str
+    plan_hash: str
+    blast_radius_hash: str
+    project: str
+    issue_id: int
+    allowed_files: list[str] = Field(default_factory=list)
+    allowed_commands: list[str] = Field(default_factory=lambda: ["fix"])
+    risk_class: str = "write_patch"
+    approved_by_login: str
+    approved_at: str
+    expires_at: str
+    status: ApprovalStatus = "approved"
+    reject_reason: str | None = None
+    source_comment_id: int | None = None
+    source_event_id: str | None = None
+    source_url: str | None = None
+    approval_command_text_hash: str | None = None
+    consumed_at: str | None = None
+    consumed_by_run_id: str | None = None
+    consumed_event_id: str | None = None
+
+
+class ApprovalRejected(BaseModel):
+    schema_version: str = "approval_rejected.v1"
+    approval_target_id: str
+    plan_run_id: str | None = None
+    plan_alias: str | None = None
+    project: str
+    issue_id: int
+    rejected_by_login: str
+    rejected_at: str
+    reject_reason: str | None = None
+    source_comment_id: int | None = None
+    source_event_id: str | None = None
+
+
+class FixRequestedEvent(BaseModel):
+    schema_version: str = "fix_requested.v1"
+    approval_target_id: str
+    project: str
+    issue_id: int
+    policy_decision: Literal["blocked", "approved"]
+    reason: str | None = None
+    requested_by_login: str | None = None
+
+
+class FixAuthorizedEvent(BaseModel):
+    schema_version: str = "fix_authorized.v1"
+    dry_run: bool = True
+    worker_enqueued: bool = False
+    dispatch_target: str = "none"
+    next_slice: str = "6B"
+    approval_id: str
+    approval_target_id: str
+    plan_run_id: str
+    plan_hash: str
+    blast_radius_hash: str
+    project: str
+    issue_id: int

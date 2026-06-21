@@ -11,9 +11,10 @@ def test_slash_agent_inspect() -> None:
 
 
 def test_slash_agent_fix() -> None:
-    intent = parse_command_intent("/agent fix the webhook enqueue gap")
+    intent = parse_command_intent("/agent fix WI-0004-dc0b71eb")
+    assert intent.activated is True
     assert intent.kind == "fix"
-    assert intent.natural_language_task == "the webhook enqueue gap"
+    assert intent.approval_target == "WI-0004-dc0b71eb"
 
 
 def test_mention_agent_reviewer() -> None:
@@ -33,6 +34,6 @@ def test_ambiguous_agent() -> None:
 
 
 def test_work_item_approve() -> None:
-    intent = parse_command_intent("/agent approve WI-0001")
+    intent = parse_command_intent("/agent approve WI-0004-dc0b71eb")
     assert intent.kind == "approve"
-    assert intent.work_item_id == "WI-0001"
+    assert intent.approval_target == "WI-0004-dc0b71eb"

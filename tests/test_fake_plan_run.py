@@ -73,7 +73,9 @@ def test_fake_plan_end_to_end(runs_env: Path) -> None:
 
     plan_data = json.loads((run_path / "plan_result.json").read_text(encoding="utf-8"))
     assert plan_data.get("schema_version") == "plan_result.v1"
-    assert plan_data.get("recommended_next_command") == "/agent fix"
+    assert plan_data.get("recommended_next_command", "").startswith("/agent fix WI-")
+    assert plan_data.get("approval_target_id")
+    assert plan_data.get("plan_alias")
 
     report_result = process_report(
         {

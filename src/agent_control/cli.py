@@ -564,6 +564,55 @@ def results_ingest(path: Path | None, inbox: bool) -> None:
 
 
 @main.group()
+def approvals() -> None:
+    """Risk 2 approval handles (Slice 6A)."""
+
+
+@approvals.command("list")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--issue", "issue_id", type=int, default=None)
+def approvals_list(project: str, issue_id: int | None) -> None:
+    from agent_control.approval.storage import list_approvals
+
+    settings = get_settings()
+    items = list_approvals(settings.agent_state_root, project, issue_id=issue_id)
+    click.echo(json.dumps([a.model_dump(mode="json") for a in items], indent=2))
+
+
+@approvals.command("show")
+@click.argument("approval_target")
+@click.option("--repo", "project", required=True, help="owner/repo")
+def approvals_show(approval_target: str, project: str) -> None:
+    from agent_control.approval.storage import load_approval
+
+    settings = get_settings()
+    approval = load_approval(settings.agent_state_root, project, approval_target)
+    if approval is None:
+        raise click.ClickException(f"no approval for {approval_target}")
+    click.echo(approval.model_dump_json(indent=2))
+
+
+@approvals.command("grant")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--issue", "issue_id", type=int, required=True)
+@click.option("--approval-target", required=True)
+@click.option("--approver", required=True, help="Owner login for homelab debug")
+def approvals_grant(project: str, issue_id: int, approval_target: str, approver: str) -> None:
+    from agent_control.approval.service import grant_approval
+
+    settings = get_settings()
+    approval, message, created = grant_approval(
+        settings.agent_state_root,
+        project=project,
+        issue_id=issue_id,
+        target=approval_target,
+        approver_login=approver,
+        author_is_owner=True,
+    )
+    click.echo(json.dumps({"created": created, "message": message, "approval": approval.model_dump(mode="json") if approval else None}, indent=2))
+
+
+@main.group()
 def memory() -> None:
     """Trajectory memory (CT103 SQLite)."""
 

@@ -17,12 +17,24 @@ def test_comment_sets_fix_intent() -> None:
     events = [
         {
             "type": "gitea.issue_comment",
-            "payload": {"comment": {"body": "/agent fix F-1"}},
+            "payload": {"comment": {"body": "/agent fix WI-0004-dc0b71eb"}},
         }
     ]
     state = reduce_event_only(events, "ai-sdlc-lab/demo-app")
     assert state.command_intent is not None
     assert state.command_intent.kind == "fix"
+    assert state.command_intent.approval_target == "WI-0004-dc0b71eb"
+
+
+def test_finding_scoped_fix_not_activated() -> None:
+    events = [
+        {
+            "type": "gitea.issue_comment",
+            "payload": {"comment": {"body": "/agent fix F-1"}},
+        }
+    ]
+    state = reduce_event_only(events, "ai-sdlc-lab/demo-app")
+    assert state.command_intent is None
 
 
 def test_pr_sync_requires_snapshot() -> None:

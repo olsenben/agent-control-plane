@@ -65,4 +65,16 @@ def render_plan_comment(plan: PlanResult) -> str:
             plan.recommended_next_command,
         ]
     )
+
+    if plan.approval_target_id and plan.plan_alias:
+        lines.extend(
+            [
+                "",
+                "### Approval required (Risk 2)",
+                f"Approval target: {plan.approval_target_id} (this plan run only)",
+                f"Plan alias: {plan.plan_alias}",
+                f"To approve: /agent approve {plan.approval_target_id}",
+                f"To fix after approval: /agent fix {plan.approval_target_id}",
+            ]
+        )
     return "\n".join(lines)

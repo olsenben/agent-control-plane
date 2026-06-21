@@ -104,7 +104,9 @@ On same issue:
 
 Verify dispatch context includes prior review memory (check run artifacts: `context_pack.json`, `plan_result.json`). Plan posts a structured comment with scope, steps, CI hints, and blast-radius.
 
-**Plan MVP:** `OfficialRLMEngine` and `FakeRLMEngine` support `/agent plan` with `plan_result.v1`. `/agent fix` remains blocked at dispatch (Risk 2).
+**Plan MVP:** `OfficialRLMEngine` and `FakeRLMEngine` support `/agent plan` with `plan_result.v1`.
+
+**Slice 5 (structured output boundary):** complete 2026-06-21. Pre-merge, shared normalizers, one repair retry, `parse_failure.json` on final validation failure. Homelab: review `run-19a15588…` → plan `run-d71996d3…`. `/agent fix` unblocked at parse layer; dispatch still gated at Risk 2.
 
 ### 8. Policy check
 
@@ -117,9 +119,7 @@ agentctl runs list --kind fix
 
 ## Pass criteria
 
-All items in [EVALS.md](EVALS.md) Review MVP table pass.
-
-Update [AGENT_CARD.md](AGENT_CARD.md) `last_verified.review_mvp` date.
+All items in [EVALS.md](EVALS.md) Review MVP table pass. Homelab sign-off recorded in [AGENT_CARD.md](AGENT_CARD.md) (`review_mvp`, issue #4, 2026-06-21 UTC).
 
 ## Rollback
 

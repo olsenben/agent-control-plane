@@ -31,4 +31,7 @@ class VerificationState(BaseModel):
     event_count: int = 0
     dispatch_recommended: bool = False
     dispatch_kind: str | None = None
+    pending_fix_request: dict[str, Any] | None = None
+    active_approvals: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    last_policy_decision: str | None = None
     safety: SafetyState = Field(default_factory=SafetyState)

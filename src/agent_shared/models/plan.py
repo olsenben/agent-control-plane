@@ -31,3 +31,5 @@ class PlanResult(BaseModel):
     recommended_next_command: str = "/agent fix"
     risk_tags: list[str] = Field(default_factory=list)
     prior_memory_used: list[PriorMemoryUsed] = Field(default_factory=list)
+    approval_target_id: str | None = None
+    plan_alias: str | None = None
