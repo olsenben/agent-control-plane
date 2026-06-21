@@ -19,6 +19,14 @@ class Settings(BaseSettings):
         alias="GITEA_ALLOWED_REPOS",
         description="Comma-separated owner/repo allowlist; owner/* or * wildcards supported",
     )
+    gitea_approver_logins: str = Field(
+        default="",
+        alias="GITEA_APPROVER_LOGINS",
+        description=(
+            "Comma-separated Gitea logins allowed to /agent approve and /agent reject "
+            "(in addition to owner/repo namespace segment match)"
+        ),
+    )
     agent_state_root: Path = Field(
         default=Path("../agent-state"),
         alias="AGENT_STATE_ROOT",
@@ -97,6 +105,9 @@ class Settings(BaseSettings):
 
     def allowed_repos_set(self) -> set[str]:
         return {r.strip() for r in self.gitea_allowed_repos.split(",") if r.strip()}
+
+    def approver_logins_set(self) -> set[str]:
+        return {r.strip().lower() for r in self.gitea_approver_logins.split(",") if r.strip()}
 
     def is_repo_allowed(self, full_name: str) -> bool:
         """Match owner/repo entries; owner/* allows any repo under that owner; * allows all."""

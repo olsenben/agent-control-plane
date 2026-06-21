@@ -71,13 +71,12 @@ def handle_approval_commands(
             source_url=tc.get("comment_url"),
             command_text=body,
         )
-        if created or approval:
-            if not author_is_owner:
-                post_issue_comment(project, issue_id, format_non_owner_approval(), settings=settings)
-            elif approval:
-                post_issue_comment(project, issue_id, format_approval_granted(approval), settings=settings)
-            elif not approval:
-                post_issue_comment(project, issue_id, format_plan_resolution_error(message), settings=settings)
+        if not author_is_owner:
+            post_issue_comment(project, issue_id, format_non_owner_approval(), settings=settings)
+        elif approval and created:
+            post_issue_comment(project, issue_id, format_approval_granted(approval), settings=settings)
+        elif not approval:
+            post_issue_comment(project, issue_id, format_plan_resolution_error(message), settings=settings)
         return {
             "handled": True,
             "kind": "approve",
@@ -97,16 +96,17 @@ def handle_approval_commands(
             reject_reason=intent.reject_reason,
             comment_id=comment_id,
         )
-        if created:
-            if not author_is_owner:
-                post_issue_comment(project, issue_id, format_non_owner_approval(), settings=settings)
-            else:
-                post_issue_comment(
-                    project,
-                    issue_id,
-                    format_approval_rejected(target=target, reason=intent.reject_reason),
-                    settings=settings,
-                )
+        if not author_is_owner:
+            post_issue_comment(project, issue_id, format_non_owner_approval(), settings=settings)
+        elif ok and created:
+            post_issue_comment(
+                project,
+                issue_id,
+                format_approval_rejected(target=target, reason=intent.reject_reason),
+                settings=settings,
+            )
+        elif not ok:
+            post_issue_comment(project, issue_id, format_plan_resolution_error(message), settings=settings)
         return {"handled": True, "kind": "reject", "created": created, "ok": ok, "message": message}
 
     if intent.kind == "fix":

@@ -57,7 +57,7 @@ Webhook retries: `append_event` `created=False` skips duplicate side effects.
 
 ## Authorization
 
-- `/agent approve` and `/agent reject`: **owner only** (`author_is_owner` — comment author matches repo owner segment)
+- `/agent approve` and `/agent reject`: **owner only** — comment author matches repo namespace segment (`owner/repo`) **or** is listed in `GITEA_APPROVER_LOGINS` on CT103
 - Non-owner fix: may emit `fix_requested(blocked)`; execution not authorized
 - Approval consumed **only** on successful `agent.fix_authorized`
 

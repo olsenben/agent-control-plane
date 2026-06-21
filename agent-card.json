@@ -133,5 +133,14 @@
     "command": "plan",
     "run_id": "run-bde99cf06bff485fec153c89a7841150",
     "proof": "initial 4B homelab proof on multi-plan issue"
+  },
+  "slice_6a_evidence": {
+    "verified_at_utc": "2026-06-21T20:58:48Z",
+    "project": "ai-sdlc-lab/agent-control-plane",
+    "issue": 6,
+    "plan_run_id": "run-c29ad349c1f560bc6b989732d4c92e62",
+    "approval_target_id": "WI-0006-d4c92e62",
+    "approval_id": "appr-392553853b78457e",
+    "proof": "fix blocked without approval; fix authorized dry-run (worker_enqueued=false); repeat fix blocked (consumed); agentctl approvals show status=consumed"
   }
 }

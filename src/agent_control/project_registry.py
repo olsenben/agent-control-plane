@@ -188,6 +188,22 @@ def resolve_refs(project: str, event: dict[str, Any], settings: Settings | None 
     )
 
 
+def is_approval_authority(
+    author: str | None,
+    project: str,
+    settings: Settings | None = None,
+) -> bool:
+    """True when author may grant or reject Risk 2 approvals for project."""
+    settings = settings or get_settings()
+    if not author:
+        return False
+    author_lower = str(author).lower()
+    owner_login = project.split("/", 1)[0] if "/" in project else ""
+    if owner_login and author_lower == owner_login.lower():
+        return True
+    return author_lower in settings.approver_logins_set()
+
+
 def build_trigger_context(
     event: dict[str, Any],
     intent_body: str,
@@ -207,8 +223,7 @@ def build_trigger_context(
     pr_number = pr.get("number") if pr else None
     comment_id = str(comment.get("id", "")) if comment else None
 
-    owner_login = project.split("/", 1)[0] if "/" in project else ""
-    author_is_owner = bool(author and owner_login and str(author).lower() == owner_login.lower())
+    author_is_owner = is_approval_authority(author, project, settings=settings)
 
     comment_url = None
     if issue_number and comment_id:
