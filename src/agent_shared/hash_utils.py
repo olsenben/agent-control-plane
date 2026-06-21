@@ -6,8 +6,6 @@ import hashlib
 import json
 from typing import Any
 
-from pydantic import BaseModel
-
 from agent_shared.models.plan import PlanResult
 from agent_shared.models.review import BlastRadiusContext
 

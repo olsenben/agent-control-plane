@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from agent_control.config import Settings
+from agent_control.events import AgentEvent, append_event, deterministic_event_id
 from agent_control.graph.snapshot import snapshot_project
+from agent_shared.approval_ids import derive_approval_target_id, derive_plan_alias
+from agent_shared.hash_utils import hash_blast_radius, hash_plan_result
+from agent_shared.models.plan import PlanResult, PlanStep
+from agent_shared.models.review import BlastRadiusContext
 
 
 @pytest.fixture
@@ -38,14 +44,6 @@ def indexed_graph(graph_settings: Settings, control_plane_root: Path):
 
 
 # --- Approval test helpers (Slice 6A) ---
-
-from typing import Any
-
-from agent_control.events import AgentEvent, append_event, deterministic_event_id
-from agent_shared.approval_ids import derive_approval_target_id, derive_plan_alias
-from agent_shared.hash_utils import hash_blast_radius, hash_plan_result
-from agent_shared.models.plan import PlanResult, PlanStep
-from agent_shared.models.review import BlastRadiusContext
 
 
 def sample_plan(*, with_files: bool = True) -> PlanResult:
