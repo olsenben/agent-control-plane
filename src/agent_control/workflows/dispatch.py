@@ -103,6 +103,7 @@ def build_rlm_job(
             trigger_context,
             refs=refs,
             settings=settings,
+            command_kind=kind,
         )
 
     return RLMJob(

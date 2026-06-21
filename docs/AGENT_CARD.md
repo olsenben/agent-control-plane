@@ -130,11 +130,15 @@ Model self-review is **not** an acceptance gate.
 
 ## Last verified
 
-| Milestone | Date | Evidence |
-|-----------|------|----------|
+| Milestone | Date (UTC) | Evidence |
+|-----------|------------|----------|
 | Inspect MVP end-to-end | 2026-06-14 | Homelab runbook + ingest |
 | Review Slice 1 (structured comment) | 2026-06-17 | `agent-control-plane` issue #3; run `run-d91435838f457716cb443736c4cc3c6b`; README in files inspected, blast-radius stub |
 | Review MVP (graph + context-pack) | 2026-06-18 | CT103 snapshot + blast-radius; `/agent review` on issue #2/#3 |
-| Plan MVP (structured comment) | Pending deploy | `plan_result.v1` + `/agent plan` on official/fake engine |
+| Plan MVP (structured comment) | 2026-06-21 | issue #2; `plan_result.v1` + `/agent plan` on official engine (`run-425a2cbe…`, `run-bde99cf…`) |
+| Memory 4A writeback | 2026-06-20 | issue #2; review run `run-f32dd48059abccc08338352894b886f3`; `agentctl memory show` |
+| Memory 4B retrieval | 2026-06-21 | issue #2; plan run `run-bde99cf06bff485fec153c89a7841150`; `prior_memory_used` + `memory_retrieval` in audit |
+
+Dates are UTC as recorded on CT103/CT104 at ingest time.
 
 Update this table when milestones are verified on CT103+CT104.

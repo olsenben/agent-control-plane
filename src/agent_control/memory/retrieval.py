@@ -36,6 +36,12 @@ def apply_staleness(
 
 def record_to_prior_memory_dict(record: MemoryRecord) -> dict:
     """Distilled capsule for context_pack.prior_memory (no nested blobs)."""
+    recommended = None
+    if record.recommended_next_step:
+        recommended = {
+            "command": record.recommended_next_step.command,
+            "rationale": record.recommended_next_step.rationale,
+        }
     return {
         "record_id": record.record_id,
         "run_id": record.run_id,
@@ -52,12 +58,56 @@ def record_to_prior_memory_dict(record: MemoryRecord) -> dict:
         "blast_radius": record.blast_radius.model_dump(mode="json"),
         "unresolved_questions": record.unresolved_questions,
         "uncertain_hypotheses": record.uncertain_hypotheses,
-        "recommended_next_step": (
-            record.recommended_next_step.model_dump(mode="json")
-            if record.recommended_next_step
-            else None
-        ),
+        "recommended_next_step": recommended,
     }
+
+
+def _order_records_for_plan(records: list[MemoryRecord]) -> list[MemoryRecord]:
+    """Plan dispatch: latest review first, then latest plan, then remaining trajectory."""
+    reviews = [r for r in records if r.source_command == "review"]
+    plans = [r for r in records if r.source_command == "plan"]
+    ordered: list[MemoryRecord] = []
+    if reviews:
+        ordered.append(reviews[0])
+    if plans:
+        latest_plan = plans[0]
+        if not ordered or ordered[0].run_id != latest_plan.run_id:
+            ordered.append(latest_plan)
+    seen = {r.run_id for r in ordered}
+    for record in records:
+        if record.run_id not in seen:
+            ordered.append(record)
+            seen.add(record.run_id)
+    return ordered
+
+
+def _fit_capsules_to_budget(capsules: list[dict], max_chars: int) -> list[dict]:
+    import json
+
+    from agent_workers.rlm.budget import truncate_text
+
+    kept: list[dict] = []
+    for capsule in capsules:
+        trial = kept + [capsule]
+        if len(json.dumps(trial, indent=2)) <= max_chars:
+            kept = trial
+        else:
+            break
+    if kept:
+        return kept
+    if not capsules:
+        return []
+    blob = json.dumps([capsules[0]], indent=2)
+    if len(blob) <= max_chars:
+        return [capsules[0]]
+    truncated = truncate_text(blob, max_chars)
+    try:
+        parsed = json.loads(truncated)
+        if isinstance(parsed, list):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    return [capsules[0]]
 
 
 def get_memory_trajectory(
@@ -81,6 +131,7 @@ def retrieve_prior_memory_dicts(
     issue_id: int,
     *,
     current_target_sha: str | None = None,
+    command_kind: str | None = None,
     limit: int = 5,
     max_chars: int = 3000,
     settings: Settings | None = None,
@@ -98,25 +149,8 @@ def retrieve_prior_memory_dicts(
     if not records:
         return []
 
-    import json
-
-    from agent_workers.rlm.budget import truncate_text
+    if command_kind == "plan":
+        records = _order_records_for_plan(records)
 
     capsules = [record_to_prior_memory_dict(r) for r in records]
-    while len(capsules) > 1:
-        blob = json.dumps(capsules, indent=2)
-        if len(blob) <= max_chars:
-            break
-        capsules = capsules[:-1]
-    if capsules:
-        blob = json.dumps(capsules, indent=2)
-        if len(blob) > max_chars:
-            truncated = truncate_text(blob, max_chars)
-            try:
-                parsed = json.loads(truncated)
-                if isinstance(parsed, list):
-                    return parsed
-            except json.JSONDecodeError:
-                pass
-            return [capsules[0]]
-    return capsules
+    return _fit_capsules_to_budget(capsules, max_chars)

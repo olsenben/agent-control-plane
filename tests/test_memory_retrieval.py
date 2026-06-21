@@ -46,6 +46,7 @@ def test_compile_context_pack_includes_prior_memory(tmp_path, monkeypatch) -> No
         "ai-sdlc-lab/agent-control-plane",
         trigger,
         settings=None,
+        command_kind="plan",
         issue_override={"title": "Plan after review", "body": "/agent plan"},
     )
     assert "memory_retrieval" in pack.context_sources
