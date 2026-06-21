@@ -13,6 +13,7 @@ from agent_control.adr_compiler import list_related_adrs
 from agent_control.config import Settings, get_settings
 from agent_control.gitea_client import GiteaClient
 from agent_control.graph.blast_radius import compute_blast_radius
+from agent_control.memory.retrieval import PRIOR_MEMORY_HEADER, retrieve_prior_memory_dicts
 from agent_control.project_registry import RefResolution
 from agent_shared.models.context_pack import ContextPack
 from agent_shared.models.jobs import TriggerContext
@@ -22,6 +23,7 @@ ISSUE_BUDGET = 4000
 DIFF_BUDGET = 12000
 ADR_BUDGET = 4000
 BLAST_BUDGET = 2000
+PRIOR_MEMORY_BUDGET = 3000
 TOTAL_BUDGET = 24000
 
 
@@ -165,6 +167,21 @@ def compile_context_pack(
             if search_hits:
                 sources.append("ripgrep")
 
+    prior_memory: list[dict] = []
+    if trigger_context.issue_number is not None:
+        current_sha = refs.target_sha if refs is not None else None
+        prior_memory = retrieve_prior_memory_dicts(
+            project,
+            trigger_context.issue_number,
+            current_target_sha=current_sha,
+            limit=5,
+            max_chars=PRIOR_MEMORY_BUDGET,
+            settings=settings,
+        )
+        if prior_memory:
+            sources.append("memory_retrieval")
+            budget["prior_memory"] = len(json.dumps(prior_memory))
+
     pack = ContextPack(
         project=project,
         issue_number=trigger_context.issue_number,
@@ -174,7 +191,7 @@ def compile_context_pack(
         adr_slice=adr_slice,
         blast_radius=blast,
         search_hits=search_hits,
-        prior_memory=[],
+        prior_memory=prior_memory,
         context_sources=sources,
         budget=budget,
     )
@@ -211,6 +228,12 @@ def render_context_pack_text(pack: ContextPack) -> str:
     )
     if pack.search_hits:
         sections.append("--- search_hits ---\n" + "\n".join(pack.search_hits))
+    if pack.prior_memory:
+        sections.append(
+            "--- prior_memory ---\n"
+            f"{PRIOR_MEMORY_HEADER}\n\n"
+            f"{json.dumps(pack.prior_memory, indent=2)}"
+        )
     return "\n\n".join(sections)
 
 

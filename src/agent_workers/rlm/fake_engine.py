@@ -101,12 +101,21 @@ def _build_fake_plan_result(
 
     blast = stub_blast_radius()
     ci_hints: list[str] = []
+    prior_note = ""
+    if pack is not None and pack.prior_memory:
+        first = pack.prior_memory[0]
+        prior_run = first.get("run_id") or first.get("source_run_id") or "prior-run"
+        prior_note = f" Prior review run {prior_run}."
+        findings = first.get("findings") or []
+        if findings:
+            prior_note += f" Finding {findings[0].get('id', 'F-001')}: {findings[0].get('summary', '')[:80]}."
+
     if pack is not None and _has_graph_blast_from_pack(pack):
         blast = pack.blast_radius
         ci_hints = list(blast.affected_tests[:3])
 
     plan = PlanResult(
-        scope_summary=f"Fake plan for {job['project']}: {task or 'plan from prior review context'}.",
+        scope_summary=f"Fake plan for {job['project']}: {task or 'plan from prior review context'}.{prior_note}",
         steps=[
             PlanStep(
                 id="S-001",

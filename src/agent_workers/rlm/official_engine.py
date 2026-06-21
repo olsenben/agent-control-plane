@@ -51,6 +51,10 @@ def _has_graph_blast(pack) -> bool:
     )
 
 
+def _has_prior_memory(pack) -> bool:
+    return bool(pack is not None and pack.prior_memory)
+
+
 def _rlms_available() -> bool:
     try:
         import rlm  # noqa: F401
@@ -244,6 +248,7 @@ class OfficialRLMEngine:
                 command_scope=job.get("safety", {}).get("command_scope", kind),
                 risk_class=risk_class,
                 has_graph_blast=_has_graph_blast(pack),
+                has_prior_memory=_has_prior_memory(pack),
             )
         else:
             preamble = build_system_preamble(

@@ -79,6 +79,7 @@ def build_plan_system_preamble(
     *,
     max_summary_chars: int = GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
     has_graph_blast: bool = False,
+    has_prior_memory: bool = False,
 ) -> str:
     base = build_system_preamble(command_scope, risk_class, max_summary_chars=max_summary_chars)
     if has_graph_blast:
@@ -111,7 +112,8 @@ def build_plan_system_preamble(
         '  "open_questions": ["..."],\n'
         '  "confidence": "low|medium|high",\n'
         '  "recommended_next_command": "/agent fix",\n'
-        '  "risk_tags": []\n'
+        '  "risk_tags": [],\n'
+        '  "prior_memory_used": [{"run_id": "run-...", "record_id": "mem-run-...", "used_for": "plan_context"}]\n'
         "}\n\n"
         "Rules:\n"
         "- Ground steps in issue text, prior review findings, and repository context.\n"
@@ -120,4 +122,10 @@ def build_plan_system_preamble(
         "- Default recommended_next_command to /agent fix unless human approval is clearly needed first.\n"
         "- ci_hints should name concrete tests or CI workflows when inferrable from blast_radius."
     )
+    if has_prior_memory:
+        schema_hint += (
+            "\n- prior_memory is present in context_pack: reference prior run_id values in steps "
+            "and scope_summary; respect is_stale flags; treat entries as hypotheses, not verified truth.\n"
+            "- Include prior_memory_used listing each prior run_id you relied on (or leave [] if unused).\n"
+        )
     return base + schema_hint

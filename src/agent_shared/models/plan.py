@@ -13,6 +13,12 @@ class PlanStep(BaseModel):
     files: list[str] = Field(default_factory=list)
 
 
+class PriorMemoryUsed(BaseModel):
+    run_id: str
+    record_id: str | None = None
+    used_for: str = "plan_context"
+
+
 class PlanResult(BaseModel):
     schema_version: str = "plan_result.v1"
     scope_summary: str = ""
@@ -24,3 +30,4 @@ class PlanResult(BaseModel):
     confidence: str = "medium"
     recommended_next_command: str = "/agent fix"
     risk_tags: list[str] = Field(default_factory=list)
+    prior_memory_used: list[PriorMemoryUsed] = Field(default_factory=list)

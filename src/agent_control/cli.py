@@ -590,6 +590,28 @@ def memory_show(project: str, issue_id: int, run_id: str | None) -> None:
     click.echo(record.model_dump_json(indent=2, exclude={"review_result", "plan_result"}))
 
 
+@memory.command("trajectory")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--issue", "issue_id", type=int, required=True)
+@click.option("--limit", default=5, type=int, show_default=True)
+def memory_trajectory(project: str, issue_id: int, limit: int) -> None:
+    settings = get_settings()
+    repo_full_name = normalize_repo_full_name(project)
+    if repo_full_name is None:
+        raise click.ClickException(f"invalid repo: {project}")
+    from agent_control.memory.retrieval import get_memory_trajectory
+
+    records = get_memory_trajectory(repo_full_name, issue_id, limit=limit, settings=settings)
+    if not records:
+        raise click.ClickException(f"no memory trajectory for {repo_full_name} issue #{issue_id}")
+    click.echo(
+        json.dumps(
+            [r.model_dump(mode="json") for r in records],
+            indent=2,
+        )
+    )
+
+
 @main.group()
 def runs() -> None:
     """Inspect CT104 run artifacts."""
