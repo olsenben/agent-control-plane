@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from agent_shared.models.plan import PlanResult, PlanStep
+from agent_shared.models.review import BlastRadiusContext, stub_blast_radius
 from agent_workers.rlm.review_parser import (
     ReviewParseError,
     _parse_blast_radius,
@@ -45,10 +46,56 @@ def _normalize_prior_memory_used(raw: Any) -> list[dict[str, Any]]:
     return normalized
 
 
+def _blast_radius_has_data(br: BlastRadiusContext) -> bool:
+    return any(
+        [
+            br.affected_repos,
+            br.affected_services,
+            br.affected_tests,
+            br.related_adrs,
+            br.missing_graph_edges,
+        ]
+    )
+
+
+def _normalize_blast_radius(raw: Any) -> dict[str, Any]:
+    """Coerce model output where blast_radius is prose instead of structured fields."""
+    if raw is None:
+        return stub_blast_radius().model_dump(mode="json")
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return stub_blast_radius().model_dump(mode="json")
+        parsed = _parse_blast_radius(text)
+        if _blast_radius_has_data(parsed):
+            return parsed.model_dump(mode="json")
+        return BlastRadiusContext(
+            missing_graph_edges=[f"model_narrative: {text[:500]}"]
+        ).model_dump(mode="json")
+    return stub_blast_radius().model_dump(mode="json")
+
+
+def _normalize_string_list(raw: Any) -> list[str]:
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        return [line.strip() for line in raw.splitlines() if line.strip()]
+    if isinstance(raw, list):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    return []
+
+
 def _normalize_plan_data(data: dict[str, Any]) -> dict[str, Any]:
+    data = dict(data)
     if "prior_memory_used" in data:
-        data = dict(data)
         data["prior_memory_used"] = _normalize_prior_memory_used(data.get("prior_memory_used"))
+    if "blast_radius" in data:
+        data["blast_radius"] = _normalize_blast_radius(data.get("blast_radius"))
+    for list_field in ("ci_hints", "assumptions", "open_questions", "risk_tags"):
+        if list_field in data and not isinstance(data[list_field], list):
+            data[list_field] = _normalize_string_list(data.get(list_field))
     return data
 
 

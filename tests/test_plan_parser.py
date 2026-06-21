@@ -72,6 +72,17 @@ def test_parse_plan_output_json_coerces_prior_memory_run_ids() -> None:
     assert result.prior_memory_used[0].used_for == "plan_context"
 
 
+def test_parse_plan_output_json_coerces_prose_blast_radius() -> None:
+    payload = {
+        "scope_summary": "Plan scope",
+        "steps": [{"id": "S-001", "summary": "Step one", "files": []}],
+        "blast_radius": "The review should focus on worker idle paths to avoid service disruption.",
+    }
+    result = parse_plan_output(json.dumps(payload))
+    assert result.blast_radius.missing_graph_edges
+    assert result.blast_radius.missing_graph_edges[0].startswith("model_narrative:")
+
+
 def test_parse_plan_output_invalid_raises() -> None:
     with pytest.raises(PlanParseError):
         parse_plan_output("not parseable at all")
