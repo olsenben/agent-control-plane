@@ -41,6 +41,23 @@ def _should_dispatch(intent: CommandIntent) -> tuple[bool, str | None]:
     return True, flow
 
 
+def dispatch_for_comment_body(body: str) -> tuple[CommandIntent, bool, str | None]:
+    """Parse a comment body and return (intent, should_dispatch, dispatch_kind)."""
+    intent = parse_command_intent(body)
+    dispatch, kind = _should_dispatch(intent)
+    return intent, dispatch, kind
+
+
+def dispatch_for_event(event: dict[str, Any]) -> tuple[CommandIntent, bool, str | None]:
+    """Return dispatch decision for a single ledger event (issue/PR comments only)."""
+    etype = event.get("type", "")
+    if etype not in ("gitea.issue_comment", "gitea.pr_comment"):
+        inactive = CommandIntent(activated=False, confidence=0.0)
+        return inactive, False, None
+    body = _comment_body(event.get("payload") or {})
+    return dispatch_for_comment_body(body)
+
+
 def reduce_event_only(events: list[dict[str, Any]], project: str) -> VerificationState:
     """Update logical state from normalized events without a local checkout."""
     state = VerificationState(project=project, reduction_mode="event_only")
@@ -66,12 +83,17 @@ def reduce_event_only(events: list[dict[str, Any]], project: str) -> Verificatio
         elif etype in ("gitea.issue_comment", "gitea.pr_comment"):
             body = _comment_body(payload)
             intent = parse_command_intent(body)
-            state.command_intent = intent
-            dispatch, kind = _should_dispatch(intent)
-            state.dispatch_recommended = dispatch
-            state.dispatch_kind = kind
-            if intent.kind in ("fix", "review", "plan", "inspect", "explain", "verify"):
-                state.safety = SafetyState(requires_manual_approval=intent.kind == "fix")
+            if intent.activated:
+                state.command_intent = intent
+                dispatch, kind = _should_dispatch(intent)
+                state.dispatch_recommended = dispatch
+                state.dispatch_kind = kind
+                if intent.kind in ("fix", "review", "plan", "inspect", "explain", "verify"):
+                    state.safety = SafetyState(requires_manual_approval=intent.kind == "fix")
+            else:
+                # Agent/bot completion comments must not erase the last human command.
+                state.dispatch_recommended = False
+                state.dispatch_kind = None
 
         elif etype == "gitea.pr_opened":
             pr = payload.get("pull_request") or {}

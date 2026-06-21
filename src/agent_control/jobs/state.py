@@ -12,7 +12,7 @@ from agent_control.events import (
     load_project_events,
     write_verification_state,
 )
-from agent_control.state_reducer import reduce_event_only
+from agent_control.state_reducer import dispatch_for_event, reduce_event_only
 from agent_control.workflows.dispatch import maybe_dispatch_rlm_root
 
 
@@ -33,18 +33,27 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
     clear_reduction_outbox(root, event_id)
 
     dispatch_result: dict[str, Any] = {"dispatched": False}
-    if state.dispatch_recommended and events:
+    if events:
         trigger = next((e for e in reversed(events) if e.get("event_id") == event_id), events[-1])
-        settings = get_settings()
-        try:
-            dispatch_result = maybe_dispatch_rlm_root(
-                state,
-                trigger,
-                settings.redis_url,
-                settings=settings,
+        trigger_intent, trigger_dispatch, trigger_kind = dispatch_for_event(trigger)
+        if trigger_dispatch:
+            dispatch_state = state.model_copy(
+                update={
+                    "command_intent": trigger_intent,
+                    "dispatch_recommended": True,
+                    "dispatch_kind": trigger_kind,
+                }
             )
-        except Exception as exc:
-            dispatch_result = {"dispatched": False, "error": str(exc)}
+            settings = get_settings()
+            try:
+                dispatch_result = maybe_dispatch_rlm_root(
+                    dispatch_state,
+                    trigger,
+                    settings.redis_url,
+                    settings=settings,
+                )
+            except Exception as exc:
+                dispatch_result = {"dispatched": False, "error": str(exc)}
 
     intent = state.command_intent
     return {
