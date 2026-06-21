@@ -5,9 +5,9 @@ import json
 import pytest
 
 from agent_shared.models.review import ReviewResult
+from agent_workers.rlm.json_extract import extract_json_blob
 from agent_workers.rlm.review_parser import (
     ReviewParseError,
-    extract_json_blob,
     filter_hallucinated_paths,
     parse_markdown_sections,
     parse_review_output,

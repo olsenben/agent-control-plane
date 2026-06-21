@@ -13,7 +13,6 @@ from agent_shared.models.review import (
     ReviewResult,
     stub_blast_radius,
 )
-from agent_workers.rlm.json_extract import extract_json_blob
 from agent_workers.rlm.model_output import StructuredParseFailure, validate_or_repair
 from agent_workers.rlm.normalizers import parse_blast_radius_lines
 
