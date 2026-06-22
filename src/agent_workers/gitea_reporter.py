@@ -29,7 +29,13 @@ def maybe_post_comment(
     owner, repo = completed.project.split("/", 1)
     url = f"{settings.gitea_base_url.rstrip('/')}/api/v1/repos/{owner}/{repo}/issues/{issue_number}/comments"
     mention = trigger.get("author", "")
-    if completed.agent == "reviewer" or completed.flow == "code_review":
+    if completed.command_kind == "fix":
+        body = (
+            f"@{mention} Agent fix `{completed.run_id}` **{completed.status}** "
+            f"(risk={completed.risk_class}).\n\n"
+            f"{completed.summary}"
+        )
+    elif completed.agent == "reviewer" or completed.flow == "code_review":
         body = (
             f"@{mention} Agent run `{completed.run_id}` **{completed.status}** "
             f"({completed.flow}/{completed.agent}, risk={completed.risk_class}).\n\n"

@@ -37,9 +37,11 @@ Structured only — from `plan_result.steps[].files`. Empty scope: approval may 
 | `agent.fix_requested` | Every scoped `/agent fix` (`policy_decision`: blocked \| approved) |
 | `human.approval_granted` | Owner approve success (full `WorkItemApproval`) |
 | `human.approval_rejected` | Owner reject success |
-| `agent.fix_authorized` | Approved fix only (`worker_enqueued=false`, `next_slice=6B`) |
+| `agent.fix_authorized` | Approved fix; `worker_enqueued=false` until enqueue succeeds |
+| `agent.approval_consumed` | Approval consumed on successful Redis enqueue (Slice 6B) |
+| `agent.fix_enqueued` | CT104 job enqueued (`dispatch_target=rlm-root`) |
 
-Slice 6B introduces `agent.fix_enqueued` when a real worker job is created.
+See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) for the full 6B audit chain.
 
 ## Idempotency
 
@@ -59,7 +61,7 @@ Webhook retries: `append_event` `created=False` skips duplicate side effects.
 
 - `/agent approve` and `/agent reject`: **owner only** — comment author matches repo namespace segment (`owner/repo`) **or** is listed in `GITEA_APPROVER_LOGINS` on CT103
 - Non-owner fix: may emit `fix_requested(blocked)`; execution not authorized
-- Approval consumed **only** on successful `agent.fix_authorized`
+- Approval consumed **only** on successful Redis enqueue (Slice 6B); see [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md)
 
 ## CLI
 
@@ -77,7 +79,7 @@ On `agent-control-plane` after review + plan on an issue:
 
 1. `/agent fix WI-xxxx` without approval → blocked comment + `fix_requested(blocked)`
 2. Owner `/agent approve WI-xxxx` → one `human.approval_granted`
-3. Owner `/agent fix WI-xxxx` → `fix_authorized` (`worker_enqueued=false`); approval consumed
+3. Owner `/agent fix WI-xxxx` → `fix_authorized` + `approval_consumed` + `fix_enqueued` (Slice 6B)
 4. Repeat fix with same approval → blocked (consumed)
 5. Non-owner `/agent approve` → rejected comment; no approval file
 6. Replay same approve comment webhook → no duplicate approval event
@@ -97,7 +99,7 @@ agentctl approvals show WI-0007-68922c7f --repo ai-sdlc-lab/agent-control-plane
 | Slice | Scope | CT104 writes? |
 |-------|-------|---------------|
 | **6A** | Approval plumbing + `fix_authorized` | No |
-| 6B | Local patch artifact | Workspace only |
+| **6B** | Local patch artifact | Workspace only — [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) |
 | 6C | Closed-world diff gate | No push |
 | 6D | Branch push + PR | Agent branch |
 | 6E | CT102 CI truth loop | Observe only |

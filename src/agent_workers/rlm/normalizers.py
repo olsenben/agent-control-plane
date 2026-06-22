@@ -163,6 +163,32 @@ def coerce_confidence(raw: Any) -> str:
     return "medium"
 
 
+def normalize_fix_dict(data: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(data)
+    if "changes" in normalized:
+        normalized["changes"] = coerce_fix_changes(normalized.get("changes"))
+    for list_field in ("files_changed", "ci_hints", "risk_tags"):
+        if list_field in normalized and not isinstance(normalized[list_field], list):
+            normalized[list_field] = coerce_string_list(normalized.get(list_field))
+    if "confidence" in normalized:
+        normalized["confidence"] = coerce_confidence(normalized.get("confidence"))
+    return normalized
+
+
+def coerce_fix_changes(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    changes: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, dict):
+            entry = dict(item)
+            entry.setdefault("edit_kind", "replace")
+            entry.setdefault("content", "")
+            entry.setdefault("summary", "")
+            changes.append(entry)
+    return changes
+
+
 def normalize_plan_dict(data: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(data)
     if "prior_memory_used" in normalized:

@@ -64,10 +64,11 @@ class FixRequestedEvent(BaseModel):
 
 class FixAuthorizedEvent(BaseModel):
     schema_version: str = "fix_authorized.v1"
-    dry_run: bool = True
+    dry_run: bool = False
     worker_enqueued: bool = False
     dispatch_target: str = "none"
     next_slice: str = "6B"
+    fix_run_id: str | None = None
     approval_id: str
     approval_target_id: str
     plan_run_id: str
@@ -75,3 +76,48 @@ class FixAuthorizedEvent(BaseModel):
     blast_radius_hash: str
     project: str
     issue_id: int
+
+
+class ApprovalConsumedEvent(BaseModel):
+    schema_version: str = "approval_consumed.v1"
+    approval_id: str
+    approval_target_id: str
+    plan_run_id: str
+    project: str
+    issue_id: int
+    consumed_by_fix_run_id: str
+    consumed_by_event_id: str | None = None
+
+
+class FixEnqueuedEvent(BaseModel):
+    schema_version: str = "fix_enqueued.v1"
+    fix_run_id: str
+    job_id: str
+    approval_id: str
+    approval_target_id: str
+    plan_run_id: str
+    project: str
+    issue_id: int
+    worker_enqueued: bool = True
+    dispatch_target: str = "rlm-root"
+
+
+class FixPlanStepBinding(BaseModel):
+    id: str
+    summary: str = ""
+    files: list[str] = Field(default_factory=list)
+
+
+class FixAuthorizationBinding(BaseModel):
+    """Compact immutable approval scope for CT104 fix jobs (Slice 6B)."""
+
+    schema_version: str = "fix_authorization_binding.v1"
+    approval_id: str
+    approval_target_id: str
+    plan_run_id: str
+    plan_hash: str
+    blast_radius_hash: str
+    allowed_files: list[str] = Field(default_factory=list)
+    plan_summary: str = ""
+    plan_steps: list[FixPlanStepBinding] = Field(default_factory=list)
+    ci_hints: list[str] = Field(default_factory=list)

@@ -37,11 +37,19 @@ def test_get_engine_official_returns_official_engine() -> None:
     assert isinstance(engine, OfficialRLMEngine)
 
 
-def test_official_engine_rejects_non_read_only_kind(tmp_path: Path) -> None:
+def test_official_engine_rejects_unsupported_kind(tmp_path: Path) -> None:
+    engine = OfficialRLMEngine()
+    job = _inspect_job()
+    job["command_intent"]["kind"] = "verify"
+    with pytest.raises(ValueError, match="inspect/explain/review/plan and fix"):
+        engine.run(job, tmp_path, {})
+
+
+def test_official_engine_rejects_fix_wrong_risk_class(tmp_path: Path) -> None:
     engine = OfficialRLMEngine()
     job = _inspect_job()
     job["command_intent"]["kind"] = "fix"
-    with pytest.raises(ValueError, match="inspect/explain/review"):
+    with pytest.raises(ValueError, match="write_patch"):
         engine.run(job, tmp_path, {})
 
 

@@ -24,6 +24,8 @@ from agent_workers.artifacts.writer import (
     write_metadata,
 )
 from agent_workers.context.broker import ContextBroker
+from agent_workers.formatters.fix_comment import render_fix_failed
+from agent_workers.patch.apply import ApplyFixError, apply_fix_to_workspace
 from agent_workers.repo.policy_loader import clone_repo, load_policy, write_policy_artifacts
 from agent_workers.rlm.engine import get_engine
 from agent_workers.runtime.capabilities import detect_capabilities, python_version
@@ -161,12 +163,47 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         result.engine = engine.name
         result.trace_path = str(run_path / "rlm_trace.jsonl")
         result.context_receipt_path = str(run_path / "context_receipt.json")
+
+        if result.fix_result is not None:
+            write_json(run_path / "fix_result.json", result.fix_result.model_dump(mode="json"))
+            binding = job.fix_authorization
+            allowed_files = list(binding.allowed_files) if binding is not None else []
+            session.emit(SessionEventType.FIX_APPLY_STARTED)
+            try:
+                patch_rel = apply_fix_to_workspace(
+                    repo_workspace,
+                    result.fix_result,
+                    allowed_files,
+                    run_path,
+                )
+                session.emit(SessionEventType.POST_APPLY_DIFF_ASSERT)
+                result.patch_path = patch_rel
+                session.emit(SessionEventType.PATCH_ARTIFACT_WRITTEN, artifact=patch_rel)
+                session.emit(SessionEventType.FIX_APPLY_COMPLETED)
+            except ApplyFixError as exc:
+                failure_payload = {
+                    "stage": exc.stage,
+                    "message": str(exc),
+                    "allowed_files": exc.allowed_files or allowed_files,
+                    "changed_files_so_far": exc.changed_files_so_far,
+                }
+                write_json(run_path / "error.json", failure_payload)
+                result.status = "failed"
+                result.summary = render_fix_failed(
+                    run_id=job.run_id,
+                    stage=exc.stage,
+                    message=str(exc),
+                    allowed_files_count=len(allowed_files),
+                )
+                session.emit(SessionEventType.FIX_FAILED, message=str(exc))
+
         if result.review_result is not None:
             write_json(run_path / "review_result.json", result.review_result.model_dump(mode="json"))
         if result.plan_result is not None:
             write_json(run_path / "plan_result.json", result.plan_result.model_dump(mode="json"))
         write_json(run_path / "result.json", result.model_dump(mode="json"))
-        update_metadata_status(meta_path, RunStatus.COMPLETED)
+        final_status = RunStatus.COMPLETED if result.status == "completed" else RunStatus.FAILED
+        update_metadata_status(meta_path, final_status)
 
         redaction = RedactionReport(
             run_id=job.run_id,
@@ -188,9 +225,16 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
             from agent_workers.jobs.report import process_report
 
             process_report(report_payload)
-        session.emit(SessionEventType.RUN_COMPLETED)
+        session.emit(
+            SessionEventType.RUN_COMPLETED if result.status == "completed" else SessionEventType.RUN_FAILED,
+            message=result.summary if result.status != "completed" else None,
+        )
 
-        return {"status": "completed", "run_id": job.run_id, "artifact_root": str(run_path)}
+        return {
+            "status": result.status,
+            "run_id": job.run_id,
+            "artifact_root": str(run_path),
+        }
 
     except Exception as exc:
         err = AgentError(

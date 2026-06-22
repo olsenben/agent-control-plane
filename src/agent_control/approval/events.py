@@ -9,8 +9,10 @@ from typing import Any
 from agent_control.events import AgentEvent, append_event, deterministic_event_id
 from agent_control.project_identity import canonical_project
 from agent_shared.models.approval import (
+    ApprovalConsumedEvent,
     ApprovalRejected,
     FixAuthorizedEvent,
+    FixEnqueuedEvent,
     FixRequestedEvent,
     WorkItemApproval,
 )
@@ -132,3 +134,49 @@ def append_fix_authorized(
         approval_target=body.approval_target_id,
         payload=body.model_dump(mode="json"),
     )
+
+
+def append_approval_consumed(
+    state_root: Path,
+    *,
+    body: ApprovalConsumedEvent,
+    comment_id: str | int | None,
+) -> tuple[Path, bool]:
+    return append_approval_event(
+        state_root,
+        event_type="agent.approval_consumed",
+        project=body.project,
+        comment_id=comment_id,
+        command_kind="fix",
+        issue_id=body.issue_id,
+        approval_target=body.approval_target_id,
+        payload=body.model_dump(mode="json"),
+    )
+
+
+def append_fix_enqueued(
+    state_root: Path,
+    *,
+    body: FixEnqueuedEvent,
+    comment_id: str | int | None,
+) -> tuple[Path, bool]:
+    delivery = _delivery_id(
+        comment_id=comment_id,
+        command_kind="fix_enqueued",
+        project=body.project,
+        issue_id=body.issue_id,
+        approval_target=body.approval_target_id,
+    )
+    delivery = f"{delivery}:{body.fix_run_id}"
+    event_id = deterministic_event_id("ct103", delivery, "agent.fix_enqueued")
+    event = AgentEvent(
+        event_id=event_id,
+        type="agent.fix_enqueued",
+        raw_event_type="agent.fix_enqueued",
+        source="ct103",
+        delivery_id=delivery,
+        project=canonical_project(body.project),
+        payload=body.model_dump(mode="json"),
+        recorded_at=datetime.now(timezone.utc).isoformat(),
+    )
+    return append_event(state_root, event)

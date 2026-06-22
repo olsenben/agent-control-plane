@@ -52,7 +52,7 @@ def test_reject_does_not_activate_fix(tmp_path: Path) -> None:
     assert ev.policy_decision == "blocked"
 
 
-def test_consume_on_authorize(tmp_path: Path) -> None:
+def test_authorize_does_not_consume(tmp_path: Path) -> None:
     target = seed_plan_completed(tmp_path)
     grant_approval(
         tmp_path,
@@ -72,4 +72,4 @@ def test_consume_on_authorize(tmp_path: Path) -> None:
     assert created is True
     stored = load_approval(tmp_path, "ai-sdlc-lab/agent-control-plane", target)
     assert stored is not None
-    assert stored.status == "consumed"
+    assert stored.status == "approved"

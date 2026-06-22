@@ -114,7 +114,7 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 | Policy gate unit tests | target | Not yet |
 | Graph blast-radius smoke | `tests/test_graph_blast_radius.py`, CT103 live | Verified 2026-06-18 |
 | Plan structured output | `tests/test_fake_plan_run.py`, engine layer | Plan MVP + Slice 5 |
-| Risk 2 approval plumbing | `tests/test_approval_*.py`, `tests/test_fix_*.py` | **Slice 6A done** (189 tests) |
+| Risk 2 approval + local patch | `tests/test_approval_*.py`, `tests/test_fix_*.py`, `tests/test_fake_fix_run.py` | **Slice 6A+6B done** (211 tests) |
 
 Run: `pytest -q` in `agent-control-plane`.
 
@@ -141,7 +141,8 @@ Model self-review is **not** an acceptance gate.
 | Memory 4B retrieval | 2026-06-21 | issue #2; plan run `run-bde99cf06bff485fec153c89a7841150`; `prior_memory_used` + `memory_retrieval` in audit |
 | **Review MVP (full + memory loop)** | **2026-06-21** | **issue #4** clean path: review `run-be063cbd2993bb2496bb038233151849` → plan `run-dc0b71ebebb3379b440471e2caa2b9cc`; `prior_memory[0]` = review; `prior_memory_used` cites review run |
 | **Slice 5 — structured output boundary** | **2026-06-21** | review `run-19a15588a6bc82d0104ee78006e4febf` → plan `run-d71996d36fca5c54e3f54cc50a4a6f35`; no `parse_failure.json`; pack blast_radius in `plan_result.json` |
-| **Slice 6A — Risk 2 approval plumbing** | **2026-06-21** | issue #6 initial (`WI-0006-d4c92e62`, CLI grant); issue #7 retest (`WI-0007-68922c7f`, Gitea `/agent approve` via `GITEA_APPROVER_LOGINS`); fix authorized dry-run then consumed on both |
+| **Slice 6A — Risk 2 approval plumbing** | **2026-06-21** | issue #6 initial (`WI-0006-d4c92e62`, CLI grant); issue #7 retest (`WI-0007-68922c7f`, Gitea `/agent approve` via `GITEA_APPROVER_LOGINS`) |
+| **Slice 6B — local patch artifact** | **2026-06-09** | CT103 enqueue + CT104 `fix_result.json` / `patch.diff`; fake E2E `tests/test_fake_fix_run.py`; no push/PR |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

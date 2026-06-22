@@ -125,3 +125,42 @@ def build_plan_system_preamble(
             "and scope_summary; respect is_stale flags; treat entries as hypotheses, not verified truth.\n"
         )
     return base + schema_hint
+
+
+def build_fix_system_preamble(
+    command_scope: str,
+    risk_class: str,
+    *,
+    max_summary_chars: int = GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+    allowed_files: list[str] | None = None,
+) -> str:
+    base = build_system_preamble(command_scope, risk_class, max_summary_chars=max_summary_chars)
+    allowed_note = ""
+    if allowed_files:
+        allowed_note = (
+            "Allowed files (only these may be edited):\n"
+            + "\n".join(f"- {path}" for path in allowed_files)
+            + "\n\n"
+        )
+    schema_hint = (
+        "\n\nYou are producing a bounded local patch after human approval. Respond with a single "
+        "JSON object only (no markdown fences, no prose before or after) matching FixResult:\n"
+        "{\n"
+        '  "scope_summary": "one paragraph scope",\n'
+        '  "files_changed": ["path/in/repo"],\n'
+        '  "changes": [{"path": "...", "summary": "...", "edit_kind": "replace|append|create", '
+        '"content": "full new file content or append payload"}],\n'
+        '  "ci_hints": ["pytest ..."],\n'
+        '  "risk_tags": [],\n'
+        '  "confidence": "low|medium|high"\n'
+        "}\n\n"
+        f"{allowed_note}"
+        "Rules:\n"
+        "- edit_kind replace: file must exist; content is full replacement.\n"
+        "- edit_kind create: file must not exist; path must be in allowed_files.\n"
+        "- edit_kind append: file must exist; content is appended.\n"
+        "- Do not touch paths outside allowed_files.\n"
+        "- Do not invent push, PR, or CI execution — local patch artifact only.\n"
+    )
+    return base + schema_hint
+

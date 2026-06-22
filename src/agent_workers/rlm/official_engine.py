@@ -18,10 +18,17 @@ from agent_workers.rlm.budget import (
 )
 from agent_workers.rlm.completion import chat_completion
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
+from agent_workers.rlm.fix_finalize import finalize_fix_result
+from agent_workers.rlm.fix_parser import FixParseError, parse_fix_output
 from agent_workers.rlm.model_output import StructuredParseFailure
 from agent_workers.rlm.plan_finalize import finalize_plan_result
 from agent_workers.rlm.plan_parser import PlanParseError, parse_plan_output
-from agent_workers.rlm.prompts import build_plan_system_preamble, build_review_system_preamble, build_system_preamble
+from agent_workers.rlm.prompts import (
+    build_fix_system_preamble,
+    build_plan_system_preamble,
+    build_review_system_preamble,
+    build_system_preamble,
+)
 from agent_workers.rlm.review_finalize import finalize_review_result
 from agent_workers.rlm.review_parser import ReviewParseError, parse_review_output
 from agent_workers.rlm.trace import append_trace_event
@@ -30,6 +37,7 @@ from agent_workers.artifacts.writer import write_json
 INSPECT_KINDS = frozenset({"inspect", "explain"})
 REVIEW_KINDS = frozenset({"review"})
 PLAN_KINDS = frozenset({"plan"})
+FIX_KINDS = frozenset({"fix"})
 READ_ONLY_RISKS = frozenset({"read_only", "read_only_with_repo_context"})
 
 
@@ -128,8 +136,14 @@ def _validate_kind_and_risk(kind: str, risk_class: str) -> None:
                 f"OfficialRLMEngine supports risk_class planning_only for plan, got {risk_class!r}"
             )
         return
+    if kind in FIX_KINDS:
+        if risk_class != "write_patch":
+            raise ValueError(
+                f"OfficialRLMEngine supports risk_class write_patch for fix, got {risk_class!r}"
+            )
+        return
     raise ValueError(
-        f"OfficialRLMEngine supports read-only inspect/explain/review/plan only, got kind={kind!r}"
+        f"OfficialRLMEngine supports read-only inspect/explain/review/plan and fix only, got kind={kind!r}"
     )
 
 
@@ -181,6 +195,7 @@ def _run_rlms(
 
 
 def _response_format_for_kind(kind: str) -> tuple[dict[str, Any] | str | None, str]:
+    from agent_shared.models.fix import FixResult
     from agent_shared.models.plan import PlanResult
     from agent_shared.models.review import ReviewResult
 
@@ -188,6 +203,8 @@ def _response_format_for_kind(kind: str) -> tuple[dict[str, Any] | str | None, s
         return PlanResult.model_json_schema(), "schema"
     if kind in REVIEW_KINDS:
         return ReviewResult.model_json_schema(), "schema"
+    if kind in FIX_KINDS:
+        return FixResult.model_json_schema(), "schema"
     return None, "none"
 
 
@@ -301,6 +318,13 @@ class OfficialRLMEngine:
                 has_graph_blast=_has_graph_blast(pack),
                 has_prior_memory=_has_prior_memory(pack),
             )
+        elif kind in FIX_KINDS:
+            binding = job.get("fix_authorization") or {}
+            preamble = build_fix_system_preamble(
+                command_scope=job.get("safety", {}).get("command_scope", kind),
+                risk_class=risk_class,
+                allowed_files=list(binding.get("allowed_files") or []),
+            )
         else:
             preamble = build_system_preamble(
                 command_scope=job.get("safety", {}).get("command_scope", kind),
@@ -370,6 +394,7 @@ class OfficialRLMEngine:
 
         review_result = None
         plan_result = None
+        fix_result = None
         if kind in REVIEW_KINDS:
             try:
                 parsed = parse_review_output(
@@ -420,6 +445,33 @@ class OfficialRLMEngine:
                 engine=self.name,
             )
             warnings.extend(plan_warnings)
+        elif kind in FIX_KINDS:
+            binding = job.get("fix_authorization") or {}
+            allowed_files = list(binding.get("allowed_files") or [])
+            try:
+                parsed = parse_fix_output(
+                    raw_response,
+                    context_pack=pack,
+                    run_id=job["run_id"],
+                    repair_endpoint=endpoint,
+                    repair_timeout_seconds=min(completion_timeout, 60.0),
+                    allowed_files=allowed_files,
+                )
+            except FixParseError as exc:
+                if isinstance(exc.__cause__, StructuredParseFailure):
+                    failure = exc.__cause__.artifact
+                    if artifact_dir:
+                        write_json(
+                            Path(artifact_dir) / "parse_failure.json",
+                            failure.model_dump(mode="json"),
+                        )
+                raise ValueError(f"Failed to parse fix output: {exc}") from exc
+            summary, fix_result, fix_warnings = finalize_fix_result(
+                parsed,
+                job=job,
+                engine=self.name,
+            )
+            warnings.extend(fix_warnings)
         else:
             summary = raw_response
             if not summary:
@@ -445,4 +497,5 @@ class OfficialRLMEngine:
             warnings=warnings,
             review_result=review_result,
             plan_result=plan_result,
+            fix_result=fix_result,
         )

@@ -5,11 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from agent_shared.models.fix import FixFileChange, FixResult
 from agent_shared.models.plan import PlanResult, PlanStep
 from agent_shared.models.review import ReviewFinding, ReviewResult, stub_blast_radius
 from agent_shared.models.runs import RLMResult
 from agent_workers.rlm.constants import ENGINE_FAKE
 from agent_workers.rlm.official_engine import gather_read_only_context
+from agent_workers.rlm.fix_finalize import finalize_fix_result
 from agent_workers.rlm.plan_finalize import finalize_plan_result
 from agent_workers.rlm.review_finalize import finalize_review_result
 from agent_workers.rlm.trace import append_trace_event
@@ -133,6 +135,40 @@ def _build_fake_plan_result(
     return plan, sources
 
 
+def _build_fake_fix_result(
+    job: dict[str, Any],
+    workspace: Path,
+) -> FixResult:
+    binding = job.get("fix_authorization") or {}
+    allowed = list(binding.get("allowed_files") or [])
+    target_path = allowed[0] if allowed else "README.md"
+    target = workspace / target_path
+    if target.is_file():
+        content = target.read_text(encoding="utf-8") + "\n# fake fix applied\n"
+        edit_kind: str = "replace"
+    else:
+        content = "# fake fix created\n"
+        edit_kind = "create"
+
+    return FixResult(
+        scope_summary=binding.get("plan_summary") or f"Fake fix for {job['project']}",
+        files_changed=[target_path],
+        changes=[
+            FixFileChange(
+                path=target_path,
+                summary="FakeRLMEngine local patch",
+                edit_kind=edit_kind,  # type: ignore[arg-type]
+                content=content,
+            )
+        ],
+        ci_hints=list(binding.get("ci_hints") or ["pytest -q"]),
+        risk_tags=[],
+        confidence="medium",
+        approval_target_id=str(binding.get("approval_target_id") or ""),
+        plan_run_id=str(binding.get("plan_run_id") or ""),
+    )
+
+
 class FakeRLMEngine:
     name = ENGINE_FAKE
 
@@ -223,6 +259,42 @@ class FakeRLMEngine:
                 context_receipt_path="context_receipt.json",
                 warnings=warnings,
                 plan_result=plan_result,
+            )
+
+        if kind == "fix":
+            fix = _build_fake_fix_result(job, workspace)
+            append_trace_event(
+                artifact_dir,
+                {
+                    "run_id": job["run_id"],
+                    "engine": self.name,
+                    "event": "context_gathered",
+                    "sources": list(binding.get("allowed_files") or []) if (binding := job.get("fix_authorization")) else [],
+                },
+            )
+            summary, fix_result, fix_warnings = finalize_fix_result(
+                fix,
+                job=job,
+                engine=self.name,
+            )
+            warnings.extend(fix_warnings)
+            return RLMResult(
+                run_id=job["run_id"],
+                session_id=job["session_id"],
+                project=job["project"],
+                flow=job["flow"],
+                agent=job["agent"],
+                risk_class=job["risk_class"],
+                workflow_definition=job["workflow_definition"],
+                flow_config_id=job["flow_config_id"],
+                flow_version=job["flow_version"],
+                status="completed",
+                summary=summary,
+                engine=self.name,
+                trace_path="rlm_trace.jsonl",
+                context_receipt_path="context_receipt.json",
+                warnings=warnings,
+                fix_result=fix_result,
             )
 
         summary = (

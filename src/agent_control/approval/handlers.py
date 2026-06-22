@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from agent_control.approval.dispatch_fix import enqueue_fix_after_authorization
 from agent_control.approval.service import (
     authorize_fix,
     evaluate_fix_request,
@@ -16,8 +17,9 @@ from agent_control.config import Settings, get_settings
 from agent_control.gitea_comments import (
     format_approval_granted,
     format_approval_rejected,
-    format_fix_authorized,
     format_fix_blocked,
+    format_fix_enqueue_failed,
+    format_fix_started,
     format_non_owner_approval,
     format_plan_resolution_error,
     post_issue_comment,
@@ -142,17 +144,60 @@ def handle_approval_commands(
             result["reason"] = evaluation.reason
             return result
 
-        authorized, auth_path, auth_created = authorize_fix(
+        authorized, _, auth_created = authorize_fix(
             state_root,
             evaluation=evaluation,
             comment_id=comment_id,
         )
         result["fix_authorized_created"] = auth_created
-        if auth_created and authorized:
+        if evaluation.approval is None or evaluation.plan_record is None:
+            return result
+
+        if not evaluation.approval.allowed_files:
+            if auth_created:
+                post_issue_comment(
+                    project,
+                    issue_id,
+                    format_fix_blocked(
+                        target=target,
+                        reason="Plan lacks explicit file scope (allowed_files empty)",
+                    ),
+                    settings=settings,
+                )
+            result["reason"] = "empty_allowed_files"
+            return result
+
+        if not auth_created:
+            return result
+
+        enqueue_result = enqueue_fix_after_authorization(
+            state_root,
+            trigger_event=trigger_event,
+            approval=evaluation.approval,
+            plan_record=evaluation.plan_record,
+            comment_id=comment_id,
+            settings=settings,
+        )
+        result["enqueue"] = enqueue_result
+        if enqueue_result.get("enqueued"):
             post_issue_comment(
                 project,
                 issue_id,
-                format_fix_authorized(authorized),
+                format_fix_started(
+                    run_id=str(enqueue_result["run_id"]),
+                    approval_target_id=evaluation.approval.approval_target_id,
+                    allowed_files=evaluation.approval.allowed_files,
+                ),
+                settings=settings,
+            )
+        else:
+            post_issue_comment(
+                project,
+                issue_id,
+                format_fix_enqueue_failed(
+                    target=target,
+                    reason=str(enqueue_result.get("reason", "enqueue failed")),
+                ),
                 settings=settings,
             )
         return result

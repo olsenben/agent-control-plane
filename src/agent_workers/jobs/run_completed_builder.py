@@ -9,6 +9,7 @@ from typing import Any
 
 from agent_shared.hash_utils import hash_blast_radius, hash_plan_result
 from agent_shared.models.events import AgentRunCompletedEvent, RiskTagSourceEntry
+from agent_shared.models.fix import FixResult
 from agent_shared.models.plan import PlanResult
 from agent_shared.models.review import ReviewResult
 from agent_shared.models.context_pack import ContextPack
@@ -43,6 +44,7 @@ def collect_risk_tags(
     command_kind: str | None,
     review_result: ReviewResult | None,
     plan_result: PlanResult | None,
+    fix_result: FixResult | None = None,
 ) -> tuple[list[str], list[RiskTagSourceEntry]]:
     tags: set[str] = set()
     if command_kind == "review" and review_result is not None:
@@ -51,6 +53,8 @@ def collect_risk_tags(
             tags.update(finding.risk_tags)
     elif command_kind == "plan" and plan_result is not None:
         tags.update(plan_result.risk_tags)
+    elif command_kind == "fix" and fix_result is not None:
+        tags.update(fix_result.risk_tags)
     sorted_tags = sorted(tags)
     sources = [RiskTagSourceEntry(tag=tag, source="model_output") for tag in sorted_tags]
     return sorted_tags, sources
@@ -71,12 +75,16 @@ def build_run_completed_event(
 
     review_result: ReviewResult | None = None
     plan_result: PlanResult | None = None
+    fix_result: FixResult | None = None
     raw_review = result.get("review_result")
     raw_plan = result.get("plan_result")
+    raw_fix = result.get("fix_result")
     if command_kind == "review" and raw_review is not None:
         review_result = ReviewResult.model_validate(raw_review)
     elif command_kind == "plan" and raw_plan is not None:
         plan_result = PlanResult.model_validate(raw_plan)
+    elif command_kind == "fix" and raw_fix is not None:
+        fix_result = FixResult.model_validate(raw_fix)
 
     context_sources = _load_context_sources(artifact_root, job)
     prompt_hash, prompt_hash_source = extract_prompt_hash_from_trace(artifact_root / "rlm_trace.jsonl")
@@ -85,6 +93,7 @@ def build_run_completed_event(
         command_kind=command_kind,
         review_result=review_result,
         plan_result=plan_result,
+        fix_result=fix_result,
     )
 
     plan_hash: str | None = None
@@ -106,6 +115,13 @@ def build_run_completed_event(
                 plan_run_id=run_id,
             )
             plan_alias = plan_result.plan_alias or derive_plan_alias(run_id)
+    elif command_kind == "fix":
+        binding = job.get("fix_authorization") or {}
+        approval_target_id = binding.get("approval_target_id")
+        plan_hash = binding.get("plan_hash")
+        blast_radius_hash = binding.get("blast_radius_hash")
+        if binding.get("plan_run_id"):
+            plan_alias = derive_plan_alias(str(binding["plan_run_id"]))
 
     repo_full_name = normalize_repo_full_name(project)
 
@@ -131,6 +147,8 @@ def build_run_completed_event(
         commit_sha=job.get("target_sha"),
         review_result=review_result if command_kind in _MEMORY_KINDS else None,
         plan_result=plan_result if command_kind in _MEMORY_KINDS else None,
+        fix_result=fix_result if command_kind == "fix" else None,
+        patch_path=result.get("patch_path"),
         context_sources=context_sources,
         prompt_hash=prompt_hash,
         prompt_hash_source=prompt_hash_source,  # type: ignore[arg-type]
@@ -153,6 +171,8 @@ def _kind_from_flow(flow: str | None) -> str | None:
         return "review"
     if flow == "planner":
         return "plan"
+    if flow == "developer":
+        return "fix"
     if flow == "inspect":
         return "inspect"
     return flow

@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from agent_shared.constants import RiskClass, RunStatus
+from agent_shared.models.fix import FixResult
 from agent_shared.models.plan import PlanResult
 from agent_shared.models.review import ReviewResult
 
@@ -54,6 +55,7 @@ class RLMResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     review_result: ReviewResult | None = None
     plan_result: PlanResult | None = None
+    fix_result: FixResult | None = None
 
 
 class AgentError(BaseModel):

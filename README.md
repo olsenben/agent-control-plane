@@ -4,7 +4,7 @@ Reusable platform for the Gitea agentic SDLC homelab — a **persistent, auditab
 
 Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, result ingest, ADR compiler, Redis/RQ, Gitea integration, model routing, and CT103 memory (SQLite + FTS5 target). CT104 executes bounded workflows.
 
-**Status:** Review + Plan MVP done. **Slice 5** (structured output boundary) done — homelab sign-off 2026-06-21. **Next:** Fix MVP (Risk 2 `/agent fix`). See `docs/AGENT_CARD.md`, `docs/architecture.md`, `docs/slice-5-structured-output-hardening.md`, V4 §0.5.
+**Status:** Review + Plan MVP done. **Slice 5** (structured output boundary) done. **Slice 6B** (local patch artifact) implemented — deploy with `MODEL_ROUTING_POLICY=fake` first. See `docs/slice-6b-local-patch-artifact.md`, `docs/AGENT_CARD.md`, `docs/architecture.md`.
 
 ## Documentation index
 
@@ -19,6 +19,7 @@ Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, resul
 | [EVALS.md](docs/EVALS.md) | Evaluation criteria |
 | [RUNBOOK_REVIEW_MVP.md](docs/RUNBOOK_REVIEW_MVP.md) | Review MVP verification |
 | [slice-5-structured-output-hardening.md](docs/slice-5-structured-output-hardening.md) | Structured output boundary (complete) |
+| [slice-6b-local-patch-artifact.md](docs/slice-6b-local-patch-artifact.md) | Local patch artifact / fix worker (6B) |
 
 Target repos are thin clients; they declare contract versions via `.agent/contract.yaml` and must not copy schema files from this package.
 

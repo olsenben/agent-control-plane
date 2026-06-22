@@ -47,23 +47,29 @@ def premerge_platform_context(
     kind: str,
     raw_dict: dict[str, Any],
     context_pack: ContextPack | None,
+    *,
+    allowed_files: list[str] | None = None,
 ) -> dict[str, Any]:
     """Inject CT103-owned fields from context_pack before Pydantic validation."""
-    if context_pack is None:
+    if context_pack is None and not allowed_files:
         return raw_dict
 
     merged = dict(raw_dict)
-    pack_blast = context_pack.blast_radius
-    if _blast_radius_has_data(pack_blast):
-        merged["blast_radius"] = pack_blast.model_dump(mode="json")
+    if context_pack is not None:
+        pack_blast = context_pack.blast_radius
+        if _blast_radius_has_data(pack_blast):
+            merged["blast_radius"] = pack_blast.model_dump(mode="json")
 
-    if kind == "plan" and context_pack.prior_memory:
-        merged["prior_memory_used"] = build_prior_memory_used_from_pack(
-            merged.get("prior_memory_used"),
-            context_pack.prior_memory,
-        )
+        if kind == "plan" and context_pack.prior_memory:
+            merged["prior_memory_used"] = build_prior_memory_used_from_pack(
+                merged.get("prior_memory_used"),
+                context_pack.prior_memory,
+            )
 
-    if context_pack.context_sources:
-        merged["context_sources"] = list(context_pack.context_sources)
+        if context_pack.context_sources:
+            merged["context_sources"] = list(context_pack.context_sources)
+
+    if kind == "fix" and allowed_files is not None:
+        merged.setdefault("files_changed", list(allowed_files))
 
     return merged

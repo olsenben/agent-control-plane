@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from agent_shared.models.fix import FixResult
 from agent_shared.models.plan import PlanResult
 from agent_shared.models.review import ReviewResult
 
@@ -42,6 +43,8 @@ class AgentRunCompletedEvent(BaseModel):
     commit_sha: str | None = None
     review_result: ReviewResult | None = None
     plan_result: PlanResult | None = None
+    fix_result: FixResult | None = None
+    patch_path: str | None = None
     context_sources: list[str] = Field(default_factory=list)
     prompt_hash: str | None = None
     prompt_hash_source: PromptHashSource = "not_available"

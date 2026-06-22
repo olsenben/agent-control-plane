@@ -10,9 +10,10 @@ from pydantic import ValidationError
 from agent_control.model_router import ResolvedEndpoint
 from agent_shared.models.context_pack import ContextPack
 from agent_shared.models.parse_failure import ParseFailureArtifact, RecommendedNextStep
+from agent_shared.models.fix import FixResult
 from agent_shared.models.plan import PlanResult
 from agent_shared.models.review import BlastRadiusContext, ReviewResult
-from agent_workers.rlm.normalizers import normalize_plan_dict, normalize_review_dict
+from agent_workers.rlm.normalizers import normalize_fix_dict, normalize_plan_dict, normalize_review_dict
 from agent_workers.rlm.premerge import premerge_platform_context
 from agent_workers.rlm.repair import attempt_repair
 from agent_workers.rlm.json_extract import JsonExtractError, extract_json_blob
@@ -53,28 +54,33 @@ def _build_failure_artifact(
 
 
 def _process_dict(
-    kind: Literal["plan", "review"],
+    kind: Literal["plan", "review", "fix"],
     data: dict[str, Any],
     *,
     context_pack: ContextPack | None,
+    allowed_files: list[str] | None = None,
 ) -> dict[str, Any]:
-    merged = premerge_platform_context(kind, data, context_pack)
+    merged = premerge_platform_context(kind, data, context_pack, allowed_files=allowed_files)
     if kind == "plan":
         return normalize_plan_dict(merged)
+    if kind == "fix":
+        return normalize_fix_dict(merged)
     return normalize_review_dict(merged)
 
 
 def _validate_dict(
-    kind: Literal["plan", "review"],
+    kind: Literal["plan", "review", "fix"],
     data: dict[str, Any],
-) -> PlanResult | ReviewResult:
+) -> PlanResult | ReviewResult | FixResult:
     if kind == "plan":
         return PlanResult.model_validate(data)
+    if kind == "fix":
+        return FixResult.model_validate(data)
     return ReviewResult.model_validate(data)
 
 
 def validate_or_repair(
-    kind: Literal["plan", "review"],
+    kind: Literal["plan", "review", "fix"],
     raw: str,
     *,
     context_pack: ContextPack | None = None,
@@ -82,7 +88,8 @@ def validate_or_repair(
     repair_endpoint: ResolvedEndpoint | None = None,
     repair_timeout_seconds: float = 60.0,
     markdown_fallback: dict[str, Any] | None = None,
-) -> PlanResult | ReviewResult:
+    allowed_files: list[str] | None = None,
+) -> PlanResult | ReviewResult | FixResult:
     """Extract, premerge, normalize, validate; one repair retry on ValidationError."""
     if not raw or not raw.strip():
         raise StructuredParseFailure(
@@ -116,7 +123,7 @@ def validate_or_repair(
             )
         )
 
-    processed = _process_dict(kind, candidate_dict, context_pack=context_pack)
+    processed = _process_dict(kind, candidate_dict, context_pack=context_pack, allowed_files=allowed_files)
     validation_error: ValidationError | None = None
     try:
         return _validate_dict(kind, processed)

@@ -279,6 +279,7 @@ def authorize_fix(
     evaluation: FixEvaluation,
     comment_id: int | None,
 ) -> tuple[FixAuthorizedEvent | None, Path | None, bool]:
+    """Record fix authorization without consuming approval (Slice 6B enqueue consumes)."""
     if evaluation.policy_decision != "approved" or evaluation.approval is None or evaluation.plan_record is None:
         return None, None, False
 
@@ -290,13 +291,24 @@ def authorize_fix(
         blast_radius_hash=evaluation.approval.blast_radius_hash,
         project=evaluation.approval.project,
         issue_id=evaluation.approval.issue_id,
+        dry_run=False,
+        worker_enqueued=False,
+        dispatch_target="none",
     )
     path, created = append_fix_authorized(state_root, body=body, comment_id=comment_id)
-    if created:
-        consume_approval(
-            state_root,
-            evaluation.approval,
-            consumed_by_run_id=evaluation.plan_record.run_id,
-            consumed_event_id=path.stem if path else "",
-        )
     return body, path, created
+
+
+def consume_approval_for_fix(
+    state_root: Path,
+    approval: WorkItemApproval,
+    *,
+    fix_run_id: str,
+    consumed_event_id: str,
+) -> WorkItemApproval:
+    return consume_approval(
+        state_root,
+        approval,
+        consumed_by_run_id=fix_run_id,
+        consumed_event_id=consumed_event_id,
+    )

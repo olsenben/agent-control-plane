@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from agent_shared.constants import RiskClass
 from agent_shared.models.context_pack import ContextPack
 from agent_shared.models.intent import CommandIntent
+from agent_shared.models.approval import FixAuthorizationBinding
 
 
 class ReplyTarget(BaseModel):
@@ -95,3 +96,4 @@ class RLMJob(BaseModel):
     model_policy: str = "fake"
     state_path: str | None = None
     context_pack: ContextPack | None = None
+    fix_authorization: FixAuthorizationBinding | None = None

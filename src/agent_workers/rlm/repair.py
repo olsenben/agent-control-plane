@@ -17,6 +17,10 @@ def _schema_for_kind(kind: str) -> dict[str, Any]:
         return PlanResult.model_json_schema()
     if kind == "review":
         return ReviewResult.model_json_schema()
+    if kind == "fix":
+        from agent_shared.models.fix import FixResult
+
+        return FixResult.model_json_schema()
     raise ValueError(f"Unsupported repair kind: {kind!r}")
 
 

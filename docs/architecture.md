@@ -90,8 +90,9 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Review MVP** | **Done** | Review + graph blast-radius + context-pack + memory (4A/4B); homelab issue #4 (2026-06-21 UTC) |
 | Plan MVP | **Done** | Graph-informed plan + CI hints + structured comment + prior memory (issue #4) |
 | **Slice 5 — structured output boundary** | **Done** | Pre-merge, normalizers, repair retry, `parse_failure.json`; homelab review `run-19a15588…` → plan `run-d71996d3…` (2026-06-21 UTC). See [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) |
-| **Slice 6A — approval plumbing** | **Done (CT103)** | Plan-scoped `WI-*` / `PLAN-run-*` handles; `human.approval_granted`, `agent.fix_authorized` (no worker); owner-only approve. See [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md) |
-| **Fix MVP** | **In progress (6B+)** | 6B local patch, 6C diff gate, 6D branch, 6E CT102 (Risk 2) |
+| **Slice 6A — approval plumbing** | **Done (CT103)** | Plan-scoped `WI-*` / `PLAN-run-*` handles; owner-only approve. See [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md) |
+| **Slice 6B — local patch artifact** | **Done (CT103+CT104)** | Enqueue fix worker; `fix_result.json` + `patch.diff` in run workspace only; post-apply diff subset assert. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) |
+| **Fix MVP (6C+)** | **In progress** | 6C diff gate, 6D branch, 6E CT102 (Risk 2) |
 | Later | — | AgentFacts-lite, replay console, drift detector, MCP graph; runner trace preservation |
 
 Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — review `run-be063cbd…` / plan `run-dc0b71e…` (issue #4); Slice 5 review `run-19a15588…` / plan `run-d71996d3…`.

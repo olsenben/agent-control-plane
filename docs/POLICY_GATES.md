@@ -69,13 +69,14 @@ Review findings are **hypotheses**, not verified truth.
 
 ## Risk 2 — fix
 
-Slice **6A** (current): CT103 records `agent.fix_requested`, owner-only `human.approval_granted` / `human.approval_rejected`, and `agent.fix_authorized` with `worker_enqueued=false`. No CT104 dispatch until **6B**. See [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md).
+Slice **6B** (current): After approval, CT103 enqueues CT104 fix worker (`agent.fix_enqueued`, `agent.approval_consumed`). CT104 writes workspace-local `fix_result.json` + `patch.diff` only — no push/PR. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md). Slice 6A details: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md).
 
 ```yaml
 repo_access: branch_write_only
 auto_run: false
 human_approval_event: human.approval_granted
-fix_authorized_event: agent.fix_authorized   # 6A dry-run; worker_enqueued=false
+fix_authorized_event: agent.fix_authorized   # before enqueue
+fix_enqueued_event: agent.fix_enqueued       # CT104 job created (6B)
 required_before_dispatch:
   - prior_review_or_plan_memory
   - blast_radius_acknowledged
