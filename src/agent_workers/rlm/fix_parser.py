@@ -6,7 +6,7 @@ from typing import Any
 
 from agent_control.model_router import ResolvedEndpoint
 from agent_shared.models.context_pack import ContextPack
-from agent_shared.models.fix import FixFileChange, FixResult
+from agent_shared.models.fix import FixResult
 from agent_workers.rlm.model_output import StructuredParseFailure, validate_or_repair
 
 

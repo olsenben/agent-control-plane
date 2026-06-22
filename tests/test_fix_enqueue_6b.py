@@ -10,7 +10,6 @@ from agent_control.approval.handlers import handle_approval_commands
 from agent_control.approval.storage import load_approval
 from agent_control.events import load_project_events
 from agent_shared.models.intent import CommandIntent
-from agent_shared.models.plan import PlanResult, PlanStep
 from conftest import sample_plan, seed_plan_completed
 from agent_control.approval.service import grant_approval
 

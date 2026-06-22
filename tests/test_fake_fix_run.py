@@ -9,7 +9,6 @@ import pytest
 
 from agent_control.approval.dispatch_fix import build_fix_rlm_job
 from agent_control.approval.plan_lookup import resolve_plan_for_target
-from agent_control.approval.service import grant_approval
 from agent_control.results_ingest import ingest_result_file
 from agent_workers.jobs.rlm_root import process_rlm_root
 from agent_workers.jobs.report import process_report
