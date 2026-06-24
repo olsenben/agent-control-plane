@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
-from agent_shared.closed_world.policy import ClosedWorldPolicy, any_glob_match, paths_matching_any
+from agent_shared.closed_world.policy import ClosedWorldPolicy, paths_matching_any
 from agent_shared.closed_world.secrets import scan_added_lines_for_secrets
 from agent_shared.hash_utils import hash_blast_radius
 from agent_shared.models.diff_gate import (

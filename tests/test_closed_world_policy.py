@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 
 from agent_shared.closed_world.loader import load_closed_world_policy
-from agent_shared.closed_world.policy import ClosedWorldPolicy, path_matches_glob
+from agent_shared.closed_world.policy import path_matches_glob
 
 
 def test_path_matches_glob_starstar() -> None:
