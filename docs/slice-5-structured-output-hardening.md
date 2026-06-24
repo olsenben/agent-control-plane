@@ -214,8 +214,13 @@ Homelab sign-off: issue on `agent-control-plane`, review `run-19a15588a6bc82d010
 - Set `MODEL_ROUTING_POLICY=fake` on CT104 for offline tests
 - Revert to pre-slice parsers (plan_parser ad-hoc coercions remain until slice lands)
 
+## Follow-up: Slice 5.1
+
+Homelab issue #9 and 6B sign-off gaps (prose output, silent parse failures, missing-JSON repair) are tracked in [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md). **Mandatory before 6D.**
+
 ## Related
 
+- [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md)
 - [RUNBOOK_REVIEW_MVP.md](RUNBOOK_REVIEW_MVP.md)
 - [POLICY_GATES.md](POLICY_GATES.md)
 - [architecture.md](architecture.md) — three-layer truth model

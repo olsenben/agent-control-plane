@@ -71,7 +71,13 @@ def seed_plan_completed(
     blast_hash = hash_blast_radius(blast)
     target = derive_approval_target_id(issue_id=issue_id, plan_run_id=run_id)
     alias = derive_plan_alias(run_id)
-    plan = plan.model_copy(update={"approval_target_id": target, "plan_alias": alias})
+    plan = plan.model_copy(
+        update={
+            "approval_target_id": target,
+            "plan_alias": alias,
+            "blast_radius": blast,
+        }
+    )
 
     event_id = deterministic_event_id("ct104", run_id, "agent.run_completed")
     payload: dict[str, Any] = {

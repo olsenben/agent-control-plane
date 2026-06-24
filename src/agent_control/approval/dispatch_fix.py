@@ -17,6 +17,7 @@ from agent_control.project_registry import (
 from agent_control.queue import enqueue_rlm_root
 from agent_shared.approval_ids import derive_approval_target_id, derive_plan_alias
 from agent_shared.constants import FLOW_VERSIONS, RiskClass
+from agent_shared.hash_utils import hash_blast_radius
 from agent_shared.models.approval import (
     ApprovalConsumedEvent,
     FixAuthorizationBinding,
@@ -118,6 +119,10 @@ def build_fix_rlm_job(
         command_kind="fix",
         changed_files=binding.allowed_files,
     )
+    plan_br = plan_record.plan_result.blast_radius
+    if hash_blast_radius(context_pack.blast_radius) != binding.blast_radius_hash:
+        if hash_blast_radius(plan_br) == binding.blast_radius_hash:
+            context_pack = context_pack.model_copy(update={"blast_radius": plan_br})
 
     summaries = settings.agent_state_root / "projects" / owner / repo / "summaries"
     state_path = str(summaries / "verification_state.json")

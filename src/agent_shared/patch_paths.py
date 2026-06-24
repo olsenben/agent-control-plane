@@ -47,7 +47,7 @@ def validate_allowed_patch_path(path: str, allowed_files: list[str]) -> str:
     """Return normalized path if allowed; raise PatchPathError otherwise."""
     normalized = normalize_repo_relative_path(path)
     if is_protected_patch_path(normalized):
-        raise PatchPathError(f"protected path not allowed in 6B: {normalized!r}")
+        raise PatchPathError(f"protected path not allowed: {normalized!r}")
     allowed = normalize_allowed_files(allowed_files)
     if normalized not in allowed:
         raise PatchPathError(f"path not in allowed_files: {normalized!r}")

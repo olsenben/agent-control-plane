@@ -46,8 +46,9 @@ def test_apply_success_writes_patch(git_repo: Path, tmp_path: Path) -> None:
         ],
     )
     patch = apply_fix_to_workspace(git_repo, fix, allowed, tmp_path)
-    assert patch == "patch.diff"
-    assert (tmp_path / "patch.diff").exists()
+    assert patch == "raw_patch.diff"
+    assert (tmp_path / "raw_patch.diff").exists()
+    assert not (tmp_path / "patch.diff").exists()
     assert "42" in (git_repo / "src" / "allowed.py").read_text(encoding="utf-8")
 
 

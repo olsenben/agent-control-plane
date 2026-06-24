@@ -4,7 +4,7 @@ Reusable platform for the Gitea agentic SDLC homelab — a **persistent, auditab
 
 Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, result ingest, ADR compiler, Redis/RQ, Gitea integration, model routing, and CT103 memory (SQLite + FTS5 target). CT104 executes bounded workflows.
 
-**Status:** Review + Plan MVP done. **Slice 5** (structured output boundary) done. **Slice 6B** (local patch artifact) implemented — deploy with `MODEL_ROUTING_POLICY=fake` first. See `docs/slice-6b-local-patch-artifact.md`, `docs/AGENT_CARD.md`, `docs/architecture.md`.
+**Status:** Review + Plan MVP done. **Slice 5** done. **Slice 6B** done. **Slice 6C** in progress (fake-engine acceptance). **6D blocked** until **5.1** (engine reliability) + **4C** (event-driven ingest). See `docs/architecture.md` roadmap.
 
 ## Documentation index
 
@@ -20,6 +20,10 @@ Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, resul
 | [RUNBOOK_REVIEW_MVP.md](docs/RUNBOOK_REVIEW_MVP.md) | Review MVP verification |
 | [slice-5-structured-output-hardening.md](docs/slice-5-structured-output-hardening.md) | Structured output boundary (complete) |
 | [slice-6b-local-patch-artifact.md](docs/slice-6b-local-patch-artifact.md) | Local patch artifact / fix worker (6B) |
+| [slice-6c-closed-world-diff-gate.md](docs/slice-6c-closed-world-diff-gate.md) | Closed-world diff gate (6C) |
+| [slice-5.1-engine-reliability.md](docs/slice-5.1-engine-reliability.md) | Engine I/O + parse-failure reporting (blocks 6D) |
+| [slice-4c-result-ingest-automation.md](docs/slice-4c-result-ingest-automation.md) | Event-driven result ingest (blocks 6D) |
+| [slice-5.2-plan-quality-gate.md](docs/slice-5.2-plan-quality-gate.md) | Plan quality gate |
 
 Target repos are thin clients; they declare contract versions via `.agent/contract.yaml` and must not copy schema files from this package.
 

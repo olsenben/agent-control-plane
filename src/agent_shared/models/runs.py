@@ -56,6 +56,7 @@ class RLMResult(BaseModel):
     review_result: ReviewResult | None = None
     plan_result: PlanResult | None = None
     fix_result: FixResult | None = None
+    diff_gate_result: dict[str, Any] | None = None
 
 
 class AgentError(BaseModel):

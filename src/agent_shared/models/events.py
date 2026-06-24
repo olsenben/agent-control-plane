@@ -58,6 +58,10 @@ class AgentRunCompletedEvent(BaseModel):
     plan_alias: str | None = None
     plan_hash: str | None = None
     blast_radius_hash: str | None = None
+    diff_gate_passed: bool | None = None
+    diff_gate_violation_codes: list[str] = Field(default_factory=list)
+    diff_gate_policy_sources: list[str] = Field(default_factory=list)
+    approval_id: str | None = None
 
 
 class SessionEvent(BaseModel):

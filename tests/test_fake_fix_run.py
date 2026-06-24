@@ -78,6 +78,8 @@ def test_fake_fix_end_to_end(runs_env: Path, tmp_path: Path) -> None:
     run_path = Path(root_result["artifact_root"])
     assert (run_path / "fix_result.json").exists()
     assert (run_path / "patch.diff").exists()
+    assert (run_path / "raw_patch.diff").exists()
+    assert (run_path / "diff_gate_result.json").exists()
 
     result_data = json.loads((run_path / "result.json").read_text(encoding="utf-8"))
     assert result_data.get("fix_result") is not None

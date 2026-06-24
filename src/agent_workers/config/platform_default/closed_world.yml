@@ -1,0 +1,55 @@
+schema: closed_world_policy.v1
+mode: deny_by_default
+
+limits:
+  max_files_changed: 20
+  max_diff_lines: 500
+
+always_denied:
+  - ".gitea/workflows/**"
+  - ".github/workflows/**"
+  - ".agent/project.yaml"
+  - ".agent/contract.yaml"
+  - ".agent/policies/**"
+  - "docs/adr/**"
+  - "infra/**"
+  - "terraform/**"
+
+allowed_by_default:
+  - "src/**"
+  - "tests/**"
+  - "README.md"
+
+requires_elevated_approval:
+  - ".gitea/workflows/**"
+  - ".agent/**"
+  - "docs/adr/**"
+  - "pyproject.toml"
+  - "package.json"
+  - "requirements*.txt"
+  - "Dockerfile"
+  - "compose*.yaml"
+  - "infra/**"
+  - "terraform/**"
+
+lockfile_globs:
+  - "package-lock.json"
+  - "yarn.lock"
+  - "poetry.lock"
+  - "pnpm-lock.yaml"
+  - "Pipfile.lock"
+
+generated_file_globs:
+  - ".agent/state/**"
+  - ".agent/architecture/**"
+
+secret_scan:
+  enabled: true
+
+test_deletion:
+  flag_deleted_test_files: true
+  flag_assertion_removals: true
+
+plan_scope:
+  warn_on_drift: true
+  fail_on_drift: false

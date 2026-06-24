@@ -223,10 +223,65 @@ See [architecture.md](architecture.md), [AGENT_CARD.md](AGENT_CARD.md), V4 §0.5
 | 6 | Branch push + CT102 CI |
 | 7+ | AgentFacts-lite, replay console, drift detector |
 
+## Result ingest (CT103)
+
+CT104 `worker-report` writes `inbox/ct104-results/{run_id}.json` under shared agent-state. CT103 merges into the event ledger with:
+
+```bash
+docker compose exec control-plane agentctl results ingest --inbox
+```
+
+Approve/fix on CT103 require plan `agent.run_completed` events in that ledger. **Ingest must run before `/agent approve` or `/agent fix`** unless an automated ingest path is live.
+
+### Verify cron (homelab)
+
+There is **no cron definition in this repo** — if ingest is scheduled, it was added manually on CT103. Check:
+
+```bash
+# User crontab
+crontab -l
+
+# System cron
+grep -r ingest /etc/cron.* /etc/cron.d 2>/dev/null
+
+# systemd timer (if used)
+systemctl list-timers --all | grep -i agent
+
+# Recent cron mail / logs
+grep -i ingest /var/log/syslog 2>/dev/null | tail -20
+journalctl -u cron --since "24 hours ago" 2>/dev/null | grep -i ingest | tail -20
+```
+
+Functional test: leave one pending inbox file (or touch a test name), wait one cron interval, confirm it becomes `*.processed`:
+
+```bash
+ls -lt /data/agent-state/inbox/ct104-results/ | head
+docker compose exec control-plane agentctl results ingest --inbox
+```
+
+If `crontab -l` shows nothing ingest-related, cron is **not** running — use manual ingest after each bot comment or install a timer (example below).
+
+Example user crontab (every 2 minutes — **bridge only**):
+
+```cron
+*/2 * * * * cd /opt/ai-sdlc-lab/agent-control-plane && docker compose exec -T control-plane agentctl results ingest --inbox >>/var/log/agent-ingest.log 2>&1
+```
+
+### Future: replace cron (Slice 4C — blocks 6D)
+
+Cron is an interim homelab workaround. Target design: [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md).
+
+1. Redis-enqueued ingest when CT104 `worker-report` writes inbox (primary).
+2. `watchfiles` + periodic sweep on CT103 (backup over NFS).
+3. Plan lookup fallback from pending inbox when ledger lacks the plan run yet.
+
+Do not treat cron as the long-term architecture. **6D branch push requires 4C live.**
+
 ## Defer until section 1.3+
 
 - [x] `GITEA_WEBHOOK_SECRET` and Gitea webhook registration (LAN `http://192.168.4.62:8080/webhooks/gitea`)
 - [x] CI deploy keeps **worker-state** (state queue) in sync via `--profile workers`
 - [x] **CT104 agent-worker** provision — see [ct104.md](ct104.md)
-- [ ] Scheduled `agentctl results ingest --inbox` on CT103 (optional cron)
+- [ ] Scheduled `agentctl results ingest --inbox` on CT103 — **verify on host** (not in repo); replace with [Slice 4C](slice-4c-result-ingest-automation.md) before 6D
+- [ ] **Slice 5.1** engine reliability — mandatory before 6D ([slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md))
 - Do **not** run agent sandboxes or RQ repo workers on GPU Windows hosts

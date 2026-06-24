@@ -89,7 +89,7 @@ def apply_fix_to_workspace(
     allowed_files: list[str],
     artifact_root: Path,
 ) -> str:
-    """Apply changes under repo_root; write patch.diff; return relative patch path."""
+    """Apply changes under repo_root; write raw_patch.diff; return relative path."""
     changed_so_far: list[str] = []
     try:
         for change in fix.changes:
@@ -123,9 +123,9 @@ def apply_fix_to_workspace(
                 changed_files_so_far=changed_files,
             )
 
-        patch_path = artifact_root / "patch.diff"
+        patch_path = artifact_root / "raw_patch.diff"
         patch_path.write_text(proc.stdout, encoding="utf-8")
-        return "patch.diff"
+        return "raw_patch.diff"
     except ApplyFixError:
         raise
     except OSError as exc:

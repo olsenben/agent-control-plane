@@ -1,6 +1,6 @@
 # Slice 6B — Local Patch Artifact (Fix Worker)
 
-After Slice 6A approval, CT103 enqueues a CT104 fix job. CT104 produces **workspace-local patch artifacts only** — no push, PR, full 6C gate, or CI execution.
+After Slice 6A approval, CT103 enqueues a CT104 fix job. CT104 produces **workspace-local patch artifacts** — `raw_patch.diff` always; `patch.diff` only after Slice 6C gate passes. No push, PR, or CI execution.
 
 **Prerequisite:** [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md)
 
@@ -8,17 +8,12 @@ After Slice 6A approval, CT103 enqueues a CT104 fix job. CT104 produces **worksp
 
 ## Scope boundary (6B vs 6C)
 
-| Layer | 6B (this slice) | 6C (deferred) |
-|-------|-----------------|---------------|
+| Layer | 6B (this slice) | 6C (next) |
+|-------|-----------------|-----------|
 | Requested paths | Each `change.path` ∈ `allowed_files` | — |
-| Post-apply | `git diff --name-only` → changed ⊆ allowed | — |
-| Push/PR | **None** | — |
-| Diff size limits | — | max lines/files |
-| Protected config | `.gitea/`, `.agent/`, `docs/adr/` block | full closed-world policy |
-| Secret scan | — | yes |
-| Lockfile / generated files | — | yes |
-| Blast-radius consistency | echoed only | enforced |
-| Required tests | `ci_hints` echoed only | selected CI matrix |
+| Post-apply | `git diff --name-only` → changed ⊆ allowed | closed-world diff gate |
+| Artifacts | `raw_patch.diff` | promoted `patch.diff` on gate pass |
+| Push/PR | **None** | **None** (6D) |
 
 ## Audit chain
 
@@ -44,7 +39,7 @@ Approval is consumed **only** when Redis `enqueue_rlm_root` succeeds. Empty `all
 
 - Shared path validation: `agent_shared/patch_paths.py`
 - `apply_fix_to_workspace` in `agent_workers/patch/apply.py`
-- Artifacts: `fix_result.json`, `patch.diff`, `RLMResult.patch_path`
+- Artifacts: `fix_result.json`, `raw_patch.diff` (`patch.diff` after 6C gate)
 - Apply/parse failures: `error.json`, Gitea failure comment, inbox ingest — **no memory writeback**
 
 ## Structured output
@@ -70,7 +65,7 @@ On issue with review + plan chain:
 
 1. Owner `/agent approve WI-xxxx`
 2. Owner `/agent fix WI-xxxx` → `fix_authorized` + `approval_consumed` + `fix_enqueued` + new `run-*`
-3. CT104 completes → Gitea fix comment + `fix_result.json` + `patch.diff`
+3. CT104 completes → Gitea fix comment + `fix_result.json` + `raw_patch.diff` + promoted `patch.diff`
 4. `git diff --name-only` inside run workspace ⊆ `allowed_files` only
 5. `git status` — only allowed files modified
 6. **Remote unchanged:** no new Gitea PR; `main`/remote branches unchanged
@@ -88,7 +83,7 @@ On issue with review + plan chain:
 | `test_fix_after_approval.py` | authorize without consume; handler enqueue |
 | `test_fix_post_apply_diff_subset.py` | post-apply subset assert |
 | `test_fix_failure_reports_inbox.py` | apply failure → inbox; no-push guard |
-| `test_fake_fix_run.py` | fake E2E → patch.diff + ingest |
+| `test_fake_fix_run.py` | fake E2E → raw_patch.diff + patch.diff + diff_gate_result.json + ingest |
 | `test_fix_parser.py` | Slice 5 fix boundary |
 
 ## Fix MVP slice map
@@ -97,6 +92,33 @@ On issue with review + plan chain:
 |-------|-------|---------------|
 | 6A | Approval plumbing | No |
 | **6B** | **Local patch artifact** | **Workspace only** |
-| 6C | Closed-world diff gate | No push |
+| **6C** | Closed-world diff gate | No push |
 | 6D | Branch push + PR | Agent branch |
 | 6E | CT102 CI truth loop | Observe only |
+
+## Homelab sign-off status (2026-06-22)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Fake E2E (approve → patch → ingest) | **Pass** | issue #8; `run-025ff111…`; approval consumed once |
+| Official review + plan with real file | **Pass** | issue #9; review `README.md`; plan `WI-0009-cc26b3de` with `allowed_files: [README.md]` |
+| Official fix local patch | **Fail** | issue #9; `run-2fc4eff…` parse failure (prose, not FixResult JSON); approval consumed |
+| Strict checklist #10 (parse fail → Gitea + inbox) | **Gap** | `parse_failure.json` + `error.json` on CT104; report worker not reached |
+| Pytest 6B suite | **Pass** | CI / local |
+
+**Slice 6B code scope:** closed (implemented + unit/integration tests green).
+
+**Strict homelab sign-off:** acceptable with issue #8 fake E2E; issue #9 adds official review/plan + enqueue/consume proof. A successful **fake** fix on `README.md` (issue #9 or #10) closes the remaining polish item without blocking 6C.
+
+## Follow-up (tracked as dedicated slices)
+
+Homelab pain points from 6B sign-off are now explicit roadmap slices. **6D branch push is blocked until 5.1 + 4C land.**
+
+| Gap | Slice | Doc |
+|-----|-------|-----|
+| Ingest lag / plan lookup false negatives | **4C** | [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
+| Official-engine prose / silent parse failures | **5.1** | [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
+| Hollow plans look fixable | **5.2** | [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
+| Approval consumed on enqueue | **6C polish** | [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) — reservation lifecycle before 6D |
+
+**Interim (homelab):** cron or manual ingest ([deploy.md](deploy.md#result-ingest-ct103)); `MODEL_ROUTING_POLICY=fake` for fix/6C acceptance runs.

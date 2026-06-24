@@ -60,6 +60,32 @@ def collect_risk_tags(
     return sorted_tags, sources
 
 
+def _load_diff_gate_result(artifact_root: Path) -> dict[str, Any] | None:
+    path = artifact_root / "diff_gate_result.json"
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _gate_policy_tags(gate: dict[str, Any] | None) -> tuple[list[str], list[RiskTagSourceEntry]]:
+    if not gate or gate.get("passed"):
+        return [], []
+    codes = gate.get("violations") or []
+    tags = sorted({str(v.get("code")) for v in codes if v.get("code")})
+    sources = [RiskTagSourceEntry(tag=tag, source="policy_gate") for tag in tags]
+    if "secret_exposure" in tags and "secret_exposure" not in {s.tag for s in sources}:
+        pass
+    extra_tags: list[str] = []
+    if "secret_exposure" in tags:
+        extra_tags.append("secret_exposure")
+    merged_tags = sorted(set(tags) | set(extra_tags))
+    merged_sources = [RiskTagSourceEntry(tag=tag, source="policy_gate") for tag in merged_tags]
+    return merged_tags, merged_sources
+
+
 def build_run_completed_event(
     *,
     run_id: str,
@@ -96,10 +122,41 @@ def build_run_completed_event(
         fix_result=fix_result,
     )
 
+    diff_gate = result.get("diff_gate_result") or _load_diff_gate_result(artifact_root)
+    gate_tags, gate_sources = _gate_policy_tags(diff_gate)
+    if gate_tags:
+        merged_tags = sorted(set(risk_tags) | set(gate_tags))
+        source_by_tag = {s.tag: s for s in risk_tag_sources}
+        for gs in gate_sources:
+            source_by_tag[gs.tag] = gs
+        risk_tags = merged_tags
+        risk_tag_sources = [source_by_tag[t] for t in risk_tags]
+
     plan_hash: str | None = None
     blast_radius_hash: str | None = None
     approval_target_id: str | None = None
     plan_alias: str | None = None
+    approval_id: str | None = None
+    diff_gate_passed: bool | None = None
+    diff_gate_violation_codes: list[str] = []
+    diff_gate_policy_sources: list[str] = []
+    policy_decision: str = "allow"
+
+    if diff_gate is not None:
+        diff_gate_passed = bool(diff_gate.get("passed"))
+        diff_gate_violation_codes = [
+            str(v.get("code"))
+            for v in (diff_gate.get("violations") or [])
+            if v.get("code")
+        ]
+        diff_gate_policy_sources = list(diff_gate.get("policy_sources") or [])
+        approval_id = diff_gate.get("approval_id")
+
+    run_status = result.get("status", "completed")
+    if command_kind == "fix" and run_status == "failed":
+        policy_decision = "deny"
+    elif diff_gate is not None and not diff_gate.get("passed"):
+        policy_decision = "deny"
 
     if command_kind == "plan" and plan_result is not None:
         plan_hash = hash_plan_result(plan_result)
@@ -118,6 +175,7 @@ def build_run_completed_event(
     elif command_kind == "fix":
         binding = job.get("fix_authorization") or {}
         approval_target_id = binding.get("approval_target_id")
+        approval_id = approval_id or binding.get("approval_id")
         plan_hash = binding.get("plan_hash")
         blast_radius_hash = binding.get("blast_radius_hash")
         if binding.get("plan_run_id"):
@@ -136,7 +194,7 @@ def build_run_completed_event(
         flow=result.get("flow", job.get("flow", "inspect")),
         agent=result.get("agent", job.get("agent", "explainer")),
         risk_class=str(result.get("risk_class", job.get("risk_class", "read_only"))),
-        status=result.get("status", "completed"),
+        status=run_status,
         summary=summary,
         artifact_root=str(artifact_root),
         command_kind=command_kind,
@@ -148,7 +206,7 @@ def build_run_completed_event(
         review_result=review_result if command_kind in _MEMORY_KINDS else None,
         plan_result=plan_result if command_kind in _MEMORY_KINDS else None,
         fix_result=fix_result if command_kind == "fix" else None,
-        patch_path=result.get("patch_path"),
+        patch_path=result.get("patch_path") if run_status == "completed" else None,
         context_sources=context_sources,
         prompt_hash=prompt_hash,
         prompt_hash_source=prompt_hash_source,  # type: ignore[arg-type]
@@ -157,11 +215,15 @@ def build_run_completed_event(
         model_policy=job.get("model_policy"),
         risk_tags=risk_tags,
         risk_tag_sources=risk_tag_sources,
-        policy_decision="allow",
+        policy_decision=policy_decision,  # type: ignore[arg-type]
         approval_target_id=approval_target_id,
         plan_alias=plan_alias,
         plan_hash=plan_hash,
         blast_radius_hash=blast_radius_hash,
+        diff_gate_passed=diff_gate_passed,
+        diff_gate_violation_codes=diff_gate_violation_codes,
+        diff_gate_policy_sources=diff_gate_policy_sources,
+        approval_id=approval_id,
     )
     return event
 

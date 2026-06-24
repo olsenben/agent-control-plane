@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_control.queue import enqueue_report
-from agent_shared.constants import RunStatus, SessionEventType
+from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS, RunStatus, SessionEventType
 from agent_shared.models.jobs import RLMJob
 from agent_shared.models.runs import AgentError, RLMResult
 from agent_shared.models.session import BootstrapInfo, RedactionReport, SystemContext
@@ -24,8 +24,10 @@ from agent_workers.artifacts.writer import (
     write_metadata,
 )
 from agent_workers.context.broker import ContextBroker
-from agent_workers.formatters.fix_comment import render_fix_failed
+from agent_workers.formatters.fix_comment import render_fix_comment, render_fix_failed, render_fix_gate_failed
+from agent_workers.gates.runner import APPROVED_PATCH_NAME, DiffGateError, run_closed_world_diff_gate
 from agent_workers.patch.apply import ApplyFixError, apply_fix_to_workspace
+from agent_workers.rlm.budget import fit_summary_for_comment
 from agent_workers.repo.policy_loader import clone_repo, load_policy, write_policy_artifacts
 from agent_workers.rlm.engine import get_engine
 from agent_workers.runtime.capabilities import detect_capabilities, python_version
@@ -170,16 +172,56 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
             allowed_files = list(binding.allowed_files) if binding is not None else []
             session.emit(SessionEventType.FIX_APPLY_STARTED)
             try:
-                patch_rel = apply_fix_to_workspace(
+                raw_patch_rel = apply_fix_to_workspace(
                     repo_workspace,
                     result.fix_result,
                     allowed_files,
                     run_path,
                 )
                 session.emit(SessionEventType.POST_APPLY_DIFF_ASSERT)
-                result.patch_path = patch_rel
-                session.emit(SessionEventType.PATCH_ARTIFACT_WRITTEN, artifact=patch_rel)
-                session.emit(SessionEventType.FIX_APPLY_COMPLETED)
+                session.emit(SessionEventType.RAW_PATCH_WRITTEN, artifact=raw_patch_rel)
+                session.emit(SessionEventType.DIFF_GATE_STARTED)
+                try:
+                    gate_result = run_closed_world_diff_gate(
+                        repo_root=repo_workspace,
+                        policy_workspace=policy_workspace,
+                        artifact_root=run_path,
+                        job=job.model_dump(mode="json"),
+                        fix_ci_hints=list(result.fix_result.ci_hints),
+                    )
+                    session.emit(SessionEventType.DIFF_GATE_PASSED)
+                    result.patch_path = APPROVED_PATCH_NAME
+                    result.diff_gate_result = gate_result.model_dump(mode="json")
+                    if result.fix_result is not None:
+                        result.summary = fit_summary_for_comment(
+                            render_fix_comment(
+                                result.fix_result,
+                                patch_artifact=APPROVED_PATCH_NAME,
+                                ci_matrix=gate_result.selected_ci_matrix,
+                            ),
+                            GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+                        )
+                    session.emit(SessionEventType.PATCH_ARTIFACT_WRITTEN, artifact=APPROVED_PATCH_NAME)
+                    session.emit(SessionEventType.FIX_APPLY_COMPLETED)
+                except DiffGateError as gate_exc:
+                    gate_result = gate_exc.result
+                    result.diff_gate_result = gate_result.model_dump(mode="json")
+                    failure_payload = {
+                        "stage": "diff_gate",
+                        "message": str(gate_exc),
+                        "allowed_files": allowed_files,
+                        "violations": [v.model_dump(mode="json") for v in gate_result.violations],
+                        "violation_codes": gate_result.violation_codes(),
+                    }
+                    write_json(run_path / "error.json", failure_payload)
+                    result.status = "failed"
+                    result.summary = render_fix_gate_failed(
+                        run_id=job.run_id,
+                        gate_result=gate_result,
+                        allowed_files_count=len(allowed_files),
+                    )
+                    session.emit(SessionEventType.DIFF_GATE_FAILED, message=str(gate_exc))
+                    session.emit(SessionEventType.FIX_FAILED, message=str(gate_exc))
             except ApplyFixError as exc:
                 failure_payload = {
                     "stage": exc.stage,

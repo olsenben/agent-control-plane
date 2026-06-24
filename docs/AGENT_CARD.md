@@ -142,7 +142,7 @@ Model self-review is **not** an acceptance gate.
 | **Review MVP (full + memory loop)** | **2026-06-21** | **issue #4** clean path: review `run-be063cbd2993bb2496bb038233151849` → plan `run-dc0b71ebebb3379b440471e2caa2b9cc`; `prior_memory[0]` = review; `prior_memory_used` cites review run |
 | **Slice 5 — structured output boundary** | **2026-06-21** | review `run-19a15588a6bc82d0104ee78006e4febf` → plan `run-d71996d36fca5c54e3f54cc50a4a6f35`; no `parse_failure.json`; pack blast_radius in `plan_result.json` |
 | **Slice 6A — Risk 2 approval plumbing** | **2026-06-21** | issue #6 initial (`WI-0006-d4c92e62`, CLI grant); issue #7 retest (`WI-0007-68922c7f`, Gitea `/agent approve` via `GITEA_APPROVER_LOGINS`) |
-| **Slice 6B — local patch artifact** | **2026-06-09** | CT103 enqueue + CT104 `fix_result.json` / `patch.diff`; fake E2E `tests/test_fake_fix_run.py`; no push/PR |
+| **Slice 6B — local patch artifact** | **2026-06-22** | issue #8 fake E2E (`run-025ff111…`, approval consumed); issue #9 official review/plan + `README.md` scope + enqueue (`run-2fc4eff…` official fix parse fail); pytest 6B green; see [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

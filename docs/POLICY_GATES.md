@@ -26,6 +26,7 @@ Risk class is declared in `.agent/flows.yml` per flow and enforced in CT103 `dis
 6. Memory-as-governance check (later): bad history on file/failure mode?
 7. Graph gate (Fix MVP): plan names affected components + required CI checks?
 8. Dispatch enqueue to CT104
+9. CT104 closed-world diff gate (Slice 6C) — after local patch apply
 ```
 
 Write-capable commands **fail closed** if any gate fails.
@@ -69,7 +70,7 @@ Review findings are **hypotheses**, not verified truth.
 
 ## Risk 2 — fix
 
-Slice **6B** (current): After approval, CT103 enqueues CT104 fix worker (`agent.fix_enqueued`, `agent.approval_consumed`). CT104 writes workspace-local `fix_result.json` + `patch.diff` only — no push/PR. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md). Slice 6A details: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md).
+Slice **6B+6C** (current): After approval, CT103 enqueues CT104 fix worker. CT104 applies workspace-local changes, runs closed-world diff gate, writes `raw_patch.diff` and promotes `patch.diff` only on gate pass. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) and [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md). Slice 6A: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md).
 
 ```yaml
 repo_access: branch_write_only

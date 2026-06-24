@@ -34,6 +34,10 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [EVALS.md](EVALS.md) | Review MVP + maintainability metrics |
 | [RUNBOOK_REVIEW_MVP.md](RUNBOOK_REVIEW_MVP.md) | Verification runbook |
 | [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) | Structured output boundary (complete) |
+| [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) | Engine I/O: Instructor adapter, parse-failure reporting (blocks 6D) |
+| [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) | Event-driven ingest + reconciliation (blocks 6D) |
+| [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) | Hollow-plan gate — no fixable WI without scoped files |
+| [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) | Post-apply closed-world diff gate (complete) |
 | [graph-indexer.md](graph-indexer.md) | Graph-lite: Tree-sitter + SQLite + catalog-info |
 | [graph-oss-borrowing.md](research/tool-spikes/graph-oss-borrowing.md) | OSS borrow map and phases |
 
@@ -92,8 +96,14 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Slice 5 — structured output boundary** | **Done** | Pre-merge, normalizers, repair retry, `parse_failure.json`; homelab review `run-19a15588…` → plan `run-d71996d3…` (2026-06-21 UTC). See [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) |
 | **Slice 6A — approval plumbing** | **Done (CT103)** | Plan-scoped `WI-*` / `PLAN-run-*` handles; owner-only approve. See [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md) |
 | **Slice 6B — local patch artifact** | **Done (CT103+CT104)** | Enqueue fix worker; `fix_result.json` + `patch.diff` in run workspace only; post-apply diff subset assert. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) |
-| **Fix MVP (6C+)** | **In progress** | 6C diff gate, 6D branch, 6E CT102 (Risk 2) |
-| Later | — | AgentFacts-lite, replay console, drift detector, MCP graph; runner trace preservation |
+| **Slice 6C — closed-world diff gate** | **Done (CT104)** | Post-apply policy gate; `raw_patch.diff` → promoted `patch.diff`; `diff_gate_result.json`. See [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) |
+| **Fix MVP (6D+)** | **Next** | 6D branch push, 6E CT102 (Risk 2) |
+| **Slice 5.1 — engine reliability** | **Planned (blocks 6D)** | `StructuredOutputClient`, Instructor adapter, missing-JSON repair, RQ failure → worker-report/inbox. See [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
+| **Slice 4C — result ingest automation** | **Planned (blocks 6D)** | Redis-enqueued ingest + watch/sweep fallback + plan resolution fallback. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
+| **Slice 5.2 — plan quality gate** | **Planned** | No approval-ready WI for hollow plans. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
+| **6D — branch push + PR** | **Blocked** | Requires 5.1 + 4C (+ approval reservation polish). Official-engine fix not trusted until 5.1 |
+| **6E — CT102 CI truth loop** | **Planned** | After 6D |
+| Later | — | Command reconciliation (`agentctl commands reconcile`), AgentFacts-lite, replay console, drift detector, MCP graph |
 
 Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — review `run-be063cbd…` / plan `run-dc0b71e…` (issue #4); Slice 5 review `run-19a15588…` / plan `run-d71996d3…`.
 

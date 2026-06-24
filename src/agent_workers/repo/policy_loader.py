@@ -77,6 +77,10 @@ def load_policy(
         if candidate.exists():
             loaded_files.append(str(candidate.relative_to(workspace)))
 
+    repo_policy = workspace / ".agent" / "policies" / "closed_world.yaml"
+    if repo_policy.exists():
+        loaded_files.append(".agent/policies/closed_world.yaml")
+
     if not agent_config.exists() and cfg.bootstrap_default_policy:
         source = "platform_default"
         warnings.append("missing .agent/agent-config.yml; using platform_default inspect policy")
