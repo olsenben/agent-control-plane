@@ -2,11 +2,10 @@
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from agent_control.queue import enqueue_ingest_inbox_file
 from agent_control.results_ingest import inbox_content_hash, ingest_result_file
 from agent_workers.jobs.report import process_report
 

@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from agent_control.approval.plan_lookup import resolve_plan_for_target
 from agent_shared.approval_ids import derive_approval_target_id
 from agent_shared.hash_utils import hash_plan_result

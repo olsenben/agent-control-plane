@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from agent_control.results_ingest import ingest_result_file
 from agent_shared.models.jobs import RLMJob
 from agent_workers.flows.failure_report import finalize_failed_run, terminal_report_exists

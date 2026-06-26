@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import traceback
 from pathlib import Path
-from typing import Any
 
 from agent_shared.models.jobs import RLMJob
 from agent_workers.flows.failure_report import (
-    dispatch_report,
     finalize_failed_run,
     terminal_report_exists,
 )
@@ -43,7 +40,6 @@ def handle_rlm_job_exception(job, exc_type, exc_value, traceback_obj) -> bool:
     session = SessionEventWriter(run_path / "session_events.jsonl", rlm_job.run_id, SecretRedactor())
     meta_path = run_path / "metadata.json"
     exc = exc_value if isinstance(exc_value, BaseException) else Exception(str(exc_value))
-    details_tb = "".join(traceback.format_exception(exc_type, exc_value, traceback_obj))
     try:
         finalize_failed_run(
             job=rlm_job,

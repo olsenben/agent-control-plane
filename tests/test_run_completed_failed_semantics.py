@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from agent_control.memory.mapper import memory_record_from_completed
 from agent_control.results_ingest import ingest_result_file
 from agent_shared.models.events import AgentRunCompletedEvent
