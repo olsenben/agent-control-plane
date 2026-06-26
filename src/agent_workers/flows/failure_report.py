@@ -1,0 +1,158 @@
+"""Terminal failure reporting helpers (Slice 5.1)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from agent_control.queue import enqueue_report
+from agent_shared.constants import (
+    TERMINAL_STATUS_COMPLETED,
+    TERMINAL_STATUS_FAILED_APPLY,
+    TERMINAL_STATUS_FAILED_GATE,
+    TERMINAL_STATUS_FAILED_INFRA,
+    TERMINAL_STATUS_FAILED_PARSE,
+)
+from agent_shared.models.jobs import RLMJob
+from agent_shared.models.runs import AgentError, RLMResult
+from agent_shared.models.session import RedactionReport
+from agent_shared.constants import RunStatus, SessionEventType
+from agent_workers.artifacts.errors import write_error
+from agent_workers.artifacts.session_events import SessionEventWriter
+from agent_workers.artifacts.writer import update_metadata_status, write_json
+from agent_workers.security.redactor import SecretRedactor
+from agent_workers.settings import WorkerSettings
+
+
+def classify_terminal_status(run_path: Path, exc: Exception) -> str:
+    if (run_path / "parse_failure.json").exists():
+        return TERMINAL_STATUS_FAILED_PARSE
+    message = str(exc).lower()
+    if "failed to parse" in message:
+        return TERMINAL_STATUS_FAILED_PARSE
+    error_path = run_path / "error.json"
+    if error_path.is_file():
+        try:
+            data = json.loads(error_path.read_text(encoding="utf-8"))
+            stage = str(data.get("stage", ""))
+            if stage == "diff_gate":
+                return TERMINAL_STATUS_FAILED_GATE
+            if stage:
+                return TERMINAL_STATUS_FAILED_APPLY
+        except (json.JSONDecodeError, OSError, TypeError):
+            pass
+    return TERMINAL_STATUS_FAILED_INFRA
+
+
+def infer_terminal_status_from_artifacts(run_path: Path, result_status: str) -> str:
+    if result_status == "completed":
+        return TERMINAL_STATUS_COMPLETED
+    if (run_path / "parse_failure.json").exists():
+        return TERMINAL_STATUS_FAILED_PARSE
+    error_path = run_path / "error.json"
+    if error_path.is_file():
+        try:
+            data = json.loads(error_path.read_text(encoding="utf-8"))
+            stage = str(data.get("stage", ""))
+            if stage == "diff_gate":
+                return TERMINAL_STATUS_FAILED_GATE
+            if stage:
+                return TERMINAL_STATUS_FAILED_APPLY
+        except (json.JSONDecodeError, OSError, TypeError):
+            pass
+    return TERMINAL_STATUS_FAILED_INFRA
+
+
+def build_failure_summary(run_id: str, terminal_status: str, message: str) -> str:
+    label = terminal_status.replace("_", " ")
+    excerpt = message.strip()[:500]
+    return f"Agent run `{run_id}` failed ({label}).\n\n{excerpt}"
+
+
+def build_failed_rlm_result(job: RLMJob, message: str, terminal_status: str) -> RLMResult:
+    return RLMResult(
+        run_id=job.run_id,
+        session_id=job.session_id,
+        project=job.project,
+        flow=job.flow,
+        agent=job.agent,
+        risk_class=job.risk_class,
+        workflow_definition=job.workflow_definition,
+        flow_config_id=job.flow_config_id,
+        flow_version=job.flow_version,
+        status="failed",
+        terminal_status=terminal_status,
+        summary=build_failure_summary(job.run_id, terminal_status, message),
+    )
+
+
+def terminal_report_exists(run_path: Path, state_root: Path, run_id: str) -> bool:
+    inbox = state_root / "inbox" / "ct104-results" / f"{run_id}.json"
+    return (run_path / "result.json").is_file() and inbox.is_file()
+
+
+def dispatch_report(
+    *,
+    settings: WorkerSettings,
+    job: RLMJob,
+    run_path: Path,
+    result: RLMResult,
+    session: SessionEventWriter,
+) -> None:
+    report_payload = {
+        "run_id": job.run_id,
+        "project": job.project,
+        "artifact_root": str(run_path),
+        "job": job.model_dump(mode="json"),
+        "result": result.model_dump(mode="json"),
+    }
+    try:
+        enqueue_report(settings.redis_url, job.run_id, report_payload)
+    except Exception:
+        from agent_workers.jobs.report import process_report
+
+        process_report(report_payload)
+
+
+def finalize_failed_run(
+    *,
+    job: RLMJob,
+    run_path: Path,
+    session: SessionEventWriter,
+    settings: WorkerSettings,
+    exc: Exception,
+    redactor: SecretRedactor,
+    meta_path: Path,
+    traceback_text: str | None = None,
+) -> dict[str, Any]:
+    terminal_status = classify_terminal_status(run_path, exc)
+    err = AgentError(
+        run_id=job.run_id,
+        stage="rlm_root",
+        error_type=type(exc).__name__,
+        message=str(exc),
+        recoverable=False,
+        details={
+            "traceback": traceback_text or "",
+            "terminal_status": terminal_status,
+        },
+    )
+    write_error(run_path / "error.json", err)
+    failed = build_failed_rlm_result(job, str(exc), terminal_status)
+    write_json(run_path / "result.json", failed.model_dump(mode="json"))
+    update_metadata_status(meta_path, RunStatus.FAILED)
+    redaction = RedactionReport(
+        run_id=job.run_id,
+        rules_loaded=redactor.rules_loaded,
+        events_scanned=session.events_scanned,
+    )
+    write_json(run_path / "redaction_report.json", redaction.model_dump(mode="json"))
+    dispatch_report(settings=settings, job=job, run_path=run_path, result=failed, session=session)
+    session.emit(SessionEventType.RUN_FAILED, message=failed.summary)
+    return {
+        "status": "failed",
+        "run_id": job.run_id,
+        "artifact_root": str(run_path),
+        "terminal_status": terminal_status,
+    }

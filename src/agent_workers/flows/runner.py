@@ -8,12 +8,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from agent_control.queue import enqueue_report
-from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS, RunStatus, SessionEventType
+from agent_shared.constants import (
+    GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+    TERMINAL_STATUS_COMPLETED,
+    TERMINAL_STATUS_FAILED_APPLY,
+    TERMINAL_STATUS_FAILED_GATE,
+    RunStatus,
+    SessionEventType,
+)
 from agent_shared.models.jobs import RLMJob
-from agent_shared.models.runs import AgentError, RLMResult
 from agent_shared.models.session import BootstrapInfo, RedactionReport, SystemContext
-from agent_workers.artifacts.errors import write_error
 from agent_workers.artifacts.session_events import SessionEventWriter
 from agent_workers.artifacts.writer import (
     ensure_run_dir,
@@ -24,6 +28,11 @@ from agent_workers.artifacts.writer import (
     write_metadata,
 )
 from agent_workers.context.broker import ContextBroker
+from agent_workers.flows.failure_report import (
+    dispatch_report,
+    finalize_failed_run,
+    infer_terminal_status_from_artifacts,
+)
 from agent_workers.formatters.fix_comment import render_fix_comment, render_fix_failed, render_fix_gate_failed
 from agent_workers.gates.runner import APPROVED_PATCH_NAME, DiffGateError, run_closed_world_diff_gate
 from agent_workers.patch.apply import ApplyFixError, apply_fix_to_workspace
@@ -151,16 +160,20 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
             context_receipt["budget"]["used_context_bytes"] = sum(len(s) for s in context_sources)
             write_json(run_path / "context_receipt.json", context_receipt)
 
-        trace_lines = [
-            json.dumps(
-                {
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "run_id": job.run_id,
-                    "engine": engine.name,
-                }
-            ),
-        ]
-        (run_path / "rlm_trace.jsonl").write_text("\n".join(trace_lines) + "\n", encoding="utf-8")
+        trace_path = run_path / "rlm_trace.jsonl"
+        runner_trace = json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "run_id": job.run_id,
+                "engine": engine.name,
+                "event": "runner_metadata",
+            }
+        )
+        if trace_path.is_file():
+            existing = trace_path.read_text(encoding="utf-8").rstrip("\n")
+            trace_path.write_text(f"{existing}\n{runner_trace}\n", encoding="utf-8")
+        else:
+            trace_path.write_text(f"{runner_trace}\n", encoding="utf-8")
 
         result.engine = engine.name
         result.trace_path = str(run_path / "rlm_trace.jsonl")
@@ -215,6 +228,7 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                     }
                     write_json(run_path / "error.json", failure_payload)
                     result.status = "failed"
+                    result.terminal_status = TERMINAL_STATUS_FAILED_GATE
                     result.summary = render_fix_gate_failed(
                         run_id=job.run_id,
                         gate_result=gate_result,
@@ -231,6 +245,7 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                 }
                 write_json(run_path / "error.json", failure_payload)
                 result.status = "failed"
+                result.terminal_status = TERMINAL_STATUS_FAILED_APPLY
                 result.summary = render_fix_failed(
                     run_id=job.run_id,
                     stage=exc.stage,
@@ -243,6 +258,12 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
             write_json(run_path / "review_result.json", result.review_result.model_dump(mode="json"))
         if result.plan_result is not None:
             write_json(run_path / "plan_result.json", result.plan_result.model_dump(mode="json"))
+        if result.terminal_status is None:
+            result.terminal_status = (
+                TERMINAL_STATUS_COMPLETED
+                if result.status == "completed"
+                else infer_terminal_status_from_artifacts(run_path, result.status)
+            )
         write_json(run_path / "result.json", result.model_dump(mode="json"))
         final_status = RunStatus.COMPLETED if result.status == "completed" else RunStatus.FAILED
         update_metadata_status(meta_path, final_status)
@@ -254,19 +275,7 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         )
         write_json(run_path / "redaction_report.json", redaction.model_dump(mode="json"))
 
-        report_payload = {
-            "run_id": job.run_id,
-            "project": job.project,
-            "artifact_root": str(run_path),
-            "job": job.model_dump(mode="json"),
-            "result": result.model_dump(mode="json"),
-        }
-        try:
-            enqueue_report(settings.redis_url, job.run_id, report_payload)
-        except Exception:
-            from agent_workers.jobs.report import process_report
-
-            process_report(report_payload)
+        dispatch_report(settings=settings, job=job, run_path=run_path, result=result, session=session)
         session.emit(
             SessionEventType.RUN_COMPLETED if result.status == "completed" else SessionEventType.RUN_FAILED,
             message=result.summary if result.status != "completed" else None,
@@ -279,28 +288,13 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         }
 
     except Exception as exc:
-        err = AgentError(
-            run_id=job.run_id,
-            stage="rlm_root",
-            error_type=type(exc).__name__,
-            message=str(exc),
-            recoverable=False,
-            details={"traceback": traceback.format_exc()},
+        return finalize_failed_run(
+            job=job,
+            run_path=run_path,
+            session=session,
+            settings=settings,
+            exc=exc,
+            redactor=redactor,
+            meta_path=meta_path,
+            traceback_text=traceback.format_exc(),
         )
-        write_error(run_path / "error.json", err)
-        failed = RLMResult(
-            run_id=job.run_id,
-            session_id=job.session_id,
-            project=job.project,
-            flow=job.flow,
-            agent=job.agent,
-            risk_class=job.risk_class,
-            workflow_definition=job.workflow_definition,
-            flow_config_id=job.flow_config_id,
-            flow_version=job.flow_version,
-            status="failed",
-            summary=str(exc),
-        )
-        write_json(run_path / "result.json", failed.model_dump(mode="json"))
-        session.emit(SessionEventType.RUN_FAILED, message=str(exc))
-        raise

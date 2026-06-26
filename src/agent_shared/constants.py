@@ -12,6 +12,7 @@ QUEUE_RLM_ROOT = "rlm-root"
 QUEUE_RLM_CHILD = "rlm-child"
 QUEUE_VERIFY = "verify"
 QUEUE_REPORT = "report"
+QUEUE_RESULTS_INGEST = "results-ingest"
 
 FLOW_QUEUE_NAMES: tuple[str, ...] = (
     QUEUE_STATE,
@@ -19,6 +20,22 @@ FLOW_QUEUE_NAMES: tuple[str, ...] = (
     QUEUE_RLM_CHILD,
     QUEUE_VERIFY,
     QUEUE_REPORT,
+    QUEUE_RESULTS_INGEST,
+)
+
+TerminalStatus = str
+TERMINAL_STATUS_COMPLETED = "completed"
+TERMINAL_STATUS_FAILED_PARSE = "failed_parse"
+TERMINAL_STATUS_FAILED_APPLY = "failed_apply"
+TERMINAL_STATUS_FAILED_GATE = "failed_gate"
+TERMINAL_STATUS_FAILED_INFRA = "failed_infra"
+TERMINAL_FAILED_STATUSES = frozenset(
+    {
+        TERMINAL_STATUS_FAILED_PARSE,
+        TERMINAL_STATUS_FAILED_APPLY,
+        TERMINAL_STATUS_FAILED_GATE,
+        TERMINAL_STATUS_FAILED_INFRA,
+    }
 )
 
 LEGACY_GPU_QUEUES: tuple[str, ...] = (

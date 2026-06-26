@@ -84,3 +84,50 @@ def attempt_repair(
         response_format="json",
     )
     return str(result.get("content") or "").strip()
+
+
+def attempt_json_only_retry(
+    *,
+    kind: str,
+    raw_excerpt: str,
+    endpoint: ResolvedEndpoint,
+    timeout_seconds: float = 60.0,
+) -> str:
+    system_prompt = (
+        "Return a single JSON object only. No markdown fences, no prose, no commentary."
+    )
+    user_prompt = (
+        f"Command kind: {kind}\n"
+        f"The previous response was not valid JSON:\n{raw_excerpt[:2000]}\n\n"
+        "JSON object only, no markdown."
+    )
+    result = chat_completion(
+        endpoint,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        max_tokens=2048,
+        timeout_seconds=timeout_seconds,
+        response_format="json",
+        stream=False,
+        temperature=0.0,
+    )
+    return str(result.get("content") or "").strip()
+
+
+def attempt_missing_json_repair(
+    *,
+    kind: str,
+    raw_excerpt: str,
+    context_pack: ContextPack | None,
+    endpoint: ResolvedEndpoint,
+    timeout_seconds: float = 60.0,
+) -> str:
+    return attempt_repair(
+        kind=kind,
+        bad_json={},
+        validation_errors="No JSON object found in model output",
+        raw_excerpt=raw_excerpt,
+        context_pack=context_pack,
+        endpoint=endpoint,
+        timeout_seconds=timeout_seconds,
+    )

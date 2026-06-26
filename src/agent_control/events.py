@@ -16,6 +16,9 @@ from agent_shared.models.state import VerificationState
 LogicalState = VerificationState
 
 
+# agent.run_completed means the run reached a terminal state, not that the agent succeeded.
+
+
 def deterministic_event_id(source: str, delivery_id: str, event_type: str) -> str:
     """Stable event ID from delivery metadata."""
     payload = f"{source}:{delivery_id}:{event_type}"

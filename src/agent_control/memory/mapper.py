@@ -54,6 +54,10 @@ def policy_gate_risk_tags(event: AgentRunCompletedEvent) -> list[RiskTagSource]:
 
 
 def memory_record_from_completed(event: AgentRunCompletedEvent) -> MemoryRecord | None:
+    if event.status != "completed" or (
+        event.terminal_status is not None and event.terminal_status != "completed"
+    ):
+        return None
     kind = event.command_kind or _command_kind_from_flow(event.flow)
     if kind not in _MEMORY_COMMANDS:
         return None

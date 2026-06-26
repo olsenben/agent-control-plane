@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
 from typing import Any
 
+from agent_control.queue import enqueue_ingest_inbox_file
 from agent_shared.constants import GITEA_COMMENT_SUMMARY_MAX_CHARS, RunStatus, SessionEventType
 from agent_workers.artifacts.session_events import SessionEventWriter
 from agent_workers.artifacts.writer import update_metadata_status, write_json
@@ -66,6 +68,19 @@ def process_report(job_payload: dict[str, Any]) -> dict[str, Any]:
     tmp = inbox_path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(completed.model_dump(mode="json"), indent=2), encoding="utf-8")
     os.replace(tmp, inbox_path)
+
+    inbox_bytes = inbox_path.read_bytes()
+    content_hash = hashlib.sha256(inbox_bytes).hexdigest()[:16]
+    try:
+        enqueue_ingest_inbox_file(
+            settings.redis_url,
+            run_id,
+            str(inbox_path),
+            content_hash,
+            str(settings.agent_state_root),
+        )
+    except Exception:
+        pass
 
     comment_result = maybe_post_comment(settings, job, completed, artifact_root)
     session.emit(SessionEventType.REPORT_COMPLETED, message=comment_result.get("status", "ok"))

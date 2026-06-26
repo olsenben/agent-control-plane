@@ -1,6 +1,6 @@
 # Slice 5.1 — Engine Reliability / Structured-Output Failure Handling
 
-**Status:** planned  
+**Status:** implemented (homelab sign-off pending)  
 **Prerequisite:** [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) (complete), [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) fake acceptance (recommended order)  
 **Blocks:** [6D branch push + PR](#related) — **mandatory before any remote write**
 

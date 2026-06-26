@@ -1,6 +1,6 @@
 # Slice 4C — Event-Driven Result Ingest / Reconciliation
 
-**Status:** planned  
+**Status:** implemented (homelab sign-off pending)  
 **Prerequisite:** CT104 `worker-report` inbox writes (live)  
 **Blocks:** [6D branch push + PR](#related) — **mandatory before any remote write**
 

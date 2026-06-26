@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Final, Sequence
+from typing import Any, Callable, Final, Sequence
 
 import rq
 from redis import Redis
 from rq import Queue, Worker
 
-from agent_shared.constants import ALL_QUEUE_NAMES, FLOW_QUEUE_NAMES, QUEUE_RLM_ROOT, prefixed_queue
+from agent_shared.constants import (
+    ALL_QUEUE_NAMES,
+    FLOW_QUEUE_NAMES,
+    QUEUE_RESULTS_INGEST,
+    QUEUE_RLM_ROOT,
+    prefixed_queue,
+)
 
 QUEUE_NAMES: Final[tuple[str, ...]] = ALL_QUEUE_NAMES
 
@@ -17,6 +23,7 @@ STATE_WORKER_MAX_CONCURRENCY: Final[int] = 1
 STATE_JOB_ID_PREFIX: Final[str] = "state"
 RLM_ROOT_JOB_ID_PREFIX: Final[str] = "rlm-root"
 REPORT_JOB_ID_PREFIX: Final[str] = "report"
+INGEST_JOB_ID_PREFIX: Final[str] = "ingest"
 DEDUPE_KEY_PREFIX: Final[str] = "rq:dedupe:"
 DEDUPE_TTL_SECONDS: Final[int] = 86400
 
@@ -108,13 +115,49 @@ def enqueue_report(redis_url: str, run_id: str, job_payload: dict[str, Any]) -> 
     return _enqueue(redis_url, "report", process_report, job_id, job_payload, retry_max=3)
 
 
+def enqueue_ingest_inbox_file(
+    redis_url: str,
+    run_id: str,
+    inbox_path: str,
+    content_hash: str,
+    state_root: str,
+) -> str | None:
+    from agent_control.jobs.ingest import process_ingest_inbox_file
+
+    job_id = deterministic_job_id(INGEST_JOB_ID_PREFIX, f"{run_id}-{content_hash}")
+    return _enqueue(
+        redis_url,
+        QUEUE_RESULTS_INGEST,
+        process_ingest_inbox_file,
+        job_id,
+        state_root,
+        inbox_path,
+    )
+
+
+def _rlm_job_exception_handler(job, exc_type, exc_value, traceback) -> bool:
+    """Belt-and-suspenders: report terminal failure if runner crashed before normal path."""
+    func_name = getattr(job, "func_name", "") or ""
+    if "process_rlm_root" not in func_name:
+        return True
+    try:
+        from agent_workers.jobs.rlm_failure_handler import handle_rlm_job_exception
+
+        return handle_rlm_job_exception(job, exc_type, exc_value, traceback)
+    except Exception:
+        return True
+
+
 def run_worker(redis_url: str, queue_names: Sequence[str], concurrency: int = 1) -> None:
     """Block and process jobs from the named RQ queues."""
     if concurrency != 1:
         raise ValueError("only concurrency=1 is supported at MVP")
     conn = Redis.from_url(redis_url)
     queues = [Queue(prefixed_queue(name), connection=conn) for name in queue_names]
-    Worker(queues, connection=conn).work()
+    handlers: list[Callable[..., bool]] = []
+    if QUEUE_RLM_ROOT in queue_names:
+        handlers.append(_rlm_job_exception_handler)
+    Worker(queues, connection=conn, exception_handlers=handlers or None).work()
 
 
 def queue_info(redis_url: str) -> dict[str, Any]:

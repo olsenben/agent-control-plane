@@ -30,6 +30,7 @@ dependencies = [
 context = ["gitingest>=0"]
 rlm = ["rlms>=0.1.2"]
 dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.8"]
+structured = ["instructor>=1.0", "openai>=1.0", "watchfiles>=0.21"]
 
 [project.scripts]
 agentctl = "agent_control.cli:main"

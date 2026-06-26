@@ -225,15 +225,25 @@ See [architecture.md](architecture.md), [AGENT_CARD.md](AGENT_CARD.md), V4 §0.5
 
 ## Result ingest (CT103)
 
-CT104 `worker-report` writes `inbox/ct104-results/{run_id}.json` under shared agent-state. CT103 merges into the event ledger with:
+CT104 `worker-report` writes `inbox/ct104-results/{run_id}.json` under shared agent-state, then enqueues **`results-ingest`** on CT103 Redis (primary). `worker-state` must consume `state,results-ingest`:
+
+```yaml
+command: ["agentctl", "worker", "run", "--queues", "state,results-ingest", "--concurrency", "1"]
+```
+
+Manual ingest remains available as rollback/fallback:
 
 ```bash
 docker compose exec control-plane agentctl results ingest --inbox
 ```
 
-Approve/fix on CT103 require plan `agent.run_completed` events in that ledger. **Ingest must run before `/agent approve` or `/agent fix`** unless an automated ingest path is live.
+Backup over NFS: `agentctl results ingest-watch --inbox --sweep-interval 120` (optional `worker-ingest-watch` service).
 
-### Verify cron (homelab)
+Approve/fix on CT103 read the event ledger first; if a plan is still pending ingest, `resolve_plan_for_target` can fall back to the inbox and trigger ingest repair.
+
+**`agent.run_completed` means the run reached a terminal state, not that the agent succeeded.** Failed runs use `status=failed` with `terminal_status` (`failed_parse`, `failed_apply`, `failed_gate`, `failed_infra`).
+
+### Cron fallback (homelab rollback only)
 
 There is **no cron definition in this repo** — if ingest is scheduled, it was added manually on CT103. Check:
 
@@ -267,13 +277,9 @@ Example user crontab (every 2 minutes — **bridge only**):
 */2 * * * * cd /opt/ai-sdlc-lab/agent-control-plane && docker compose exec -T control-plane agentctl results ingest --inbox >>/var/log/agent-ingest.log 2>&1
 ```
 
-### Future: replace cron (Slice 4C — blocks 6D)
+### Slice 4C (implemented)
 
-Cron is an interim homelab workaround. Target design: [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md).
-
-1. Redis-enqueued ingest when CT104 `worker-report` writes inbox (primary).
-2. `watchfiles` + periodic sweep on CT103 (backup over NFS).
-3. Plan lookup fallback from pending inbox when ledger lacks the plan run yet.
+Redis-enqueued ingest is **primary**. Cron/manual ingest is **rollback only**. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md).
 
 Do not treat cron as the long-term architecture. **6D branch push requires 4C live.**
 

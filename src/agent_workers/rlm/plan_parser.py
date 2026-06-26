@@ -94,6 +94,7 @@ def parse_plan_output(
             run_id=run_id,
             repair_endpoint=repair_endpoint,
             repair_timeout_seconds=repair_timeout_seconds,
+            json_retry_endpoint=repair_endpoint,
             markdown_fallback=markdown_data,
         )
     except StructuredParseFailure as exc:

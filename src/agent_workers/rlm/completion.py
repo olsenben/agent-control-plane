@@ -25,6 +25,7 @@ def chat_completion(
     timeout_seconds: float = 120.0,
     response_format: dict[str, Any] | str | None = None,
     stream: bool = False,
+    temperature: float | None = None,
 ) -> dict[str, Any]:
     base = normalize_v1_base_url(endpoint.base_url)
     url = f"{base}/chat/completions"
@@ -40,6 +41,8 @@ def chat_completion(
         "max_tokens": max_tokens,
         "stream": stream,
     }
+    if temperature is not None:
+        payload["temperature"] = temperature
     if response_format is not None:
         payload["format"] = response_format
     response = httpx.post(url, json=payload, headers=headers, timeout=timeout_seconds)

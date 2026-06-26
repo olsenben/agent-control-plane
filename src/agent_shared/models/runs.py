@@ -45,6 +45,7 @@ class RLMResult(BaseModel):
     flow_config_id: str
     flow_version: str
     status: str
+    terminal_status: str | None = None
     summary: str
     engine: str | None = None
     patch_path: str | None = None

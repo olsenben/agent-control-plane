@@ -33,6 +33,7 @@ class AgentRunCompletedEvent(BaseModel):
     agent: str
     risk_class: str
     status: str
+    terminal_status: str | None = None
     summary: str
     artifact_root: str
     command_kind: str | None = None

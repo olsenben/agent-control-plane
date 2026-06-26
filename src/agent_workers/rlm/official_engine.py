@@ -223,19 +223,22 @@ def _run_single_shot(
     response_format, format_mode = _response_format_for_kind(kind)
     result: dict[str, Any] | None = None
     used_mode = format_mode
+    provider_name = "native_ollama_schema"
 
     if response_format is not None:
         try:
-            result = chat_completion(
-                endpoint,
+            from agent_workers.rlm.structured_output_client import StructuredOutputClient
+
+            client = StructuredOutputClient()
+            result = client.complete(
+                endpoint=endpoint,
                 system_prompt=preamble,
                 user_prompt=user_prompt,
-                max_tokens=2048,
-                timeout_seconds=timeout_seconds,
                 response_format=response_format,
-                stream=False,
+                timeout_seconds=timeout_seconds,
             )
             used_mode = "schema"
+            provider_name = result.get("structured_output_provider", client.provider)
         except Exception:
             try:
                 result = chat_completion(
@@ -248,9 +251,11 @@ def _run_single_shot(
                     stream=False,
                 )
                 used_mode = "json"
+                provider_name = "native_ollama_schema"
             except Exception:
                 result = None
                 used_mode = "none"
+                provider_name = "native_ollama_schema"
 
     if result is None:
         result = chat_completion(
@@ -262,12 +267,16 @@ def _run_single_shot(
             stream=False,
         )
         used_mode = "none"
+        provider_name = "native_ollama_schema"
+    elif "structured_output_provider" in result:
+        provider_name = str(result.get("structured_output_provider") or provider_name)
 
     trace = {
         "run_id": run_id,
         "engine": ENGINE_OFFICIAL,
         "mode": "single_shot_openai_compatible",
         "provider": result.get("provider"),
+        "structured_output_provider": provider_name,
         "base_url": result.get("base_url"),
         "usage": result.get("usage"),
         "response_chars": len(result.get("content") or ""),

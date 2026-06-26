@@ -98,10 +98,10 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Slice 6B — local patch artifact** | **Done (CT103+CT104)** | Enqueue fix worker; `fix_result.json` + `patch.diff` in run workspace only; post-apply diff subset assert. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) |
 | **Slice 6C — closed-world diff gate** | **Done (CT104)** | Post-apply policy gate; `raw_patch.diff` → promoted `patch.diff`; `diff_gate_result.json`. See [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) |
 | **Fix MVP (6D+)** | **Next** | 6D branch push, 6E CT102 (Risk 2) |
-| **Slice 5.1 — engine reliability** | **Planned (blocks 6D)** | `StructuredOutputClient`, Instructor adapter, missing-JSON repair, RQ failure → worker-report/inbox. See [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
-| **Slice 4C — result ingest automation** | **Planned (blocks 6D)** | Redis-enqueued ingest + watch/sweep fallback + plan resolution fallback. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
+| **Slice 5.1 — engine reliability** | **Done (code)** | Failure reporting, missing-JSON retry, `StructuredOutputClient`, RQ handler. Homelab sign-off pending. See [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
+| **Slice 4C — result ingest automation** | **Done (code)** | Redis-enqueued ingest, plan inbox fallback, ingest-watch backup. Homelab sign-off pending. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
 | **Slice 5.2 — plan quality gate** | **Planned** | No approval-ready WI for hollow plans. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
-| **6D — branch push + PR** | **Blocked** | Requires 5.1 + 4C (+ approval reservation polish). Official-engine fix not trusted until 5.1 |
+| **6D — branch push + PR** | **Blocked** | Requires Milestone 1 homelab acceptance (5.1 failure visibility + 4C ingest). See slice docs |
 | **6E — CT102 CI truth loop** | **Planned** | After 6D |
 | Later | — | Command reconciliation (`agentctl commands reconcile`), AgentFacts-lite, replay console, drift detector, MCP graph |
 

@@ -31,6 +31,7 @@ def parse_fix_output(
             run_id=run_id,
             repair_endpoint=repair_endpoint,
             repair_timeout_seconds=repair_timeout_seconds,
+            json_retry_endpoint=repair_endpoint,
             allowed_files=allowed_files,
         )
     except StructuredParseFailure as exc:

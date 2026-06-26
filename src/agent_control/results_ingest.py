@@ -1,7 +1,12 @@
-"""Ingest CT104 result events into the CT103 event ledger."""
+"""Ingest CT104 result events into the CT103 event ledger.
+
+``agent.run_completed`` means the run reached a terminal state, not that the agent succeeded.
+Failed runs use ``status=failed`` with a ``terminal_status`` of ``failed_*``.
+"""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,6 +16,10 @@ from agent_control.events import AgentEvent, append_event, deterministic_event_i
 from agent_control.memory.mapper import policy_gate_risk_tags
 from agent_control.memory.writeback import writeback_from_completed
 from agent_shared.models.events import AgentRunCompletedEvent, RiskTagSourceEntry
+
+
+def inbox_content_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
 
 def ct104_inbox_dir(state_root: Path) -> Path:
@@ -66,7 +75,10 @@ def ingest_result_file(
             "policy_decision": payload["policy_decision"],
         }
     )
-    writeback_from_completed(enriched, settings=settings)
+    if event_model.status == "completed" and (
+        event_model.terminal_status in (None, "completed")
+    ):
+        writeback_from_completed(enriched, settings=settings)
     if created:
         processed = path.with_suffix(".json.processed")
         os.replace(path, processed)

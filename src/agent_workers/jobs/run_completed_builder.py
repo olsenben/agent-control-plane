@@ -153,9 +153,15 @@ def build_run_completed_event(
         approval_id = diff_gate.get("approval_id")
 
     run_status = result.get("status", "completed")
+    terminal_status = result.get("terminal_status")
+    if not terminal_status:
+        terminal_status = "completed" if run_status == "completed" else "failed_infra"
+
     if command_kind == "fix" and run_status == "failed":
         policy_decision = "deny"
     elif diff_gate is not None and not diff_gate.get("passed"):
+        policy_decision = "deny"
+    elif run_status == "failed":
         policy_decision = "deny"
 
     if command_kind == "plan" and plan_result is not None:
@@ -195,6 +201,7 @@ def build_run_completed_event(
         agent=result.get("agent", job.get("agent", "explainer")),
         risk_class=str(result.get("risk_class", job.get("risk_class", "read_only"))),
         status=run_status,
+        terminal_status=terminal_status,
         summary=summary,
         artifact_root=str(artifact_root),
         command_kind=command_kind,

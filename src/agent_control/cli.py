@@ -563,6 +563,19 @@ def results_ingest(path: Path | None, inbox: bool) -> None:
     click.echo(json.dumps({"stored": str(stored), "created": created}))
 
 
+@results.command("ingest-watch")
+@click.option("--inbox", is_flag=True, default=True, help="Watch ct104-results inbox (default)")
+@click.option("--sweep-interval", default=120, type=int, show_default=True)
+def results_ingest_watch(inbox: bool, sweep_interval: int) -> None:
+    """Backup ingest watcher with periodic sweep (Slice 4C)."""
+    if not inbox:
+        raise click.ClickException("only --inbox is supported")
+    from agent_control.ingest_watch import ingest_watch_loop
+
+    settings = get_settings()
+    ingest_watch_loop(settings.agent_state_root, sweep_interval_seconds=sweep_interval)
+
+
 @main.group()
 def approvals() -> None:
     """Risk 2 approval handles (Slice 6A)."""

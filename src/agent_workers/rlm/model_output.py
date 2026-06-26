@@ -15,7 +15,7 @@ from agent_shared.models.plan import PlanResult
 from agent_shared.models.review import BlastRadiusContext, ReviewResult
 from agent_workers.rlm.normalizers import normalize_fix_dict, normalize_plan_dict, normalize_review_dict
 from agent_workers.rlm.premerge import premerge_platform_context
-from agent_workers.rlm.repair import attempt_repair
+from agent_workers.rlm.repair import attempt_json_only_retry, attempt_missing_json_repair, attempt_repair
 from agent_workers.rlm.json_extract import JsonExtractError, extract_json_blob
 
 
@@ -87,6 +87,7 @@ def validate_or_repair(
     run_id: str = "",
     repair_endpoint: ResolvedEndpoint | None = None,
     repair_timeout_seconds: float = 60.0,
+    json_retry_endpoint: ResolvedEndpoint | None = None,
     markdown_fallback: dict[str, Any] | None = None,
     allowed_files: list[str] | None = None,
 ) -> PlanResult | ReviewResult | FixResult:
@@ -111,6 +112,34 @@ def validate_or_repair(
         errors.append(str(exc))
         if markdown_fallback is not None:
             candidate_dict = markdown_fallback
+
+    if candidate_dict is None:
+        retry_endpoint = json_retry_endpoint or repair_endpoint
+        if retry_endpoint is not None:
+            try:
+                retried_raw = attempt_json_only_retry(
+                    kind=kind,
+                    raw_excerpt=raw,
+                    endpoint=retry_endpoint,
+                    timeout_seconds=repair_timeout_seconds,
+                )
+                candidate_dict = extract_json_blob(retried_raw)
+                raw = retried_raw
+            except (JsonExtractError, json.JSONDecodeError, Exception) as retry_exc:
+                errors.append(f"json retry failed: {retry_exc}")
+
+        if candidate_dict is None and repair_endpoint is not None:
+            try:
+                repaired_raw = attempt_missing_json_repair(
+                    kind=kind,
+                    raw_excerpt=raw,
+                    context_pack=context_pack,
+                    endpoint=repair_endpoint,
+                    timeout_seconds=repair_timeout_seconds,
+                )
+                candidate_dict = extract_json_blob(repaired_raw)
+            except (JsonExtractError, json.JSONDecodeError, Exception) as repair_exc:
+                errors.append(f"missing-json repair failed: {repair_exc}")
 
     if candidate_dict is None:
         raise StructuredParseFailure(

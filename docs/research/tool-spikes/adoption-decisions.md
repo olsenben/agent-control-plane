@@ -15,6 +15,8 @@
 | Ray | defer | Two-GPU lab uses RQ first |
 | OpenHands | spike | Sandbox reference |
 | MCP | defer | Read-only state/graph server after graph-lite |
+| Instructor | adopt (optional) | Structured output provider behind env flag; see instructor-structured-output.md |
+| watchfiles | adopt (optional) | Ingest-watch backup over NFS |
 | CodeQL, Joern, OpenRewrite, Chroma, OpenGrok, Neo4j | defer | See graph-oss-borrowing.md phases |
 
 No dependency may bypass webhook guard, reducer, policy gates, or closed-world diff checks.
