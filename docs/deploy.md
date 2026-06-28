@@ -228,7 +228,7 @@ See [architecture.md](architecture.md), [AGENT_CARD.md](AGENT_CARD.md), V4 §0.5
 CT104 `worker-report` writes `inbox/ct104-results/{run_id}.json` under shared agent-state, then enqueues **`results-ingest`** on CT103 Redis (primary). `worker-state` must consume `state,results-ingest`:
 
 ```yaml
-command: ["agentctl", "worker", "run", "--queues", "state,results-ingest", "--concurrency", "1"]
+command: ["agentctl", "worker", "run", "--queues", "state", "--queues", "results-ingest", "--concurrency", "1"]
 ```
 
 Manual ingest remains available as rollback/fallback:

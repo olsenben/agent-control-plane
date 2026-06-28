@@ -50,6 +50,7 @@ services:
         "run",
         "--queues",
         "state",
+        "--queues",
         "results-ingest",
         "--concurrency",
         "1",
