@@ -281,13 +281,32 @@ Example user crontab (every 2 minutes — **bridge only**):
 
 Redis-enqueued ingest is **primary**. Cron/manual ingest is **rollback only**. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md).
 
-Do not treat cron as the long-term architecture. **6D branch push requires 4C live.**
+Do not treat cron as the long-term architecture. **6D branch push requires 4C live.** See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md).
+
+### Slice 6D — branch push + PR (CT104)
+
+Enable only after Milestone 1 homelab sign-off (5.1 + 4C).
+
+```bash
+# CT104 .env
+FIX_REMOTE_PUBLISH_ENABLED=true
+GITEA_BOT_TOKEN=<push+PR scoped token>
+GITEA_AGENT_TOKEN=<comments only>
+```
+
+| Token | Scope |
+|-------|-------|
+| `GITEA_AGENT_TOKEN` | Issue comments only |
+| `GITEA_BOT_TOKEN` | `git push` + PR API only; no admin |
+
+See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) and [secrets-boundaries.md](secrets-boundaries.md).
 
 ## Defer until section 1.3+
 
 - [x] `GITEA_WEBHOOK_SECRET` and Gitea webhook registration (LAN `http://192.168.4.62:8080/webhooks/gitea`)
 - [x] CI deploy keeps **worker-state** (state queue) in sync via `--profile workers`
 - [x] **CT104 agent-worker** provision — see [ct104.md](ct104.md)
-- [ ] Scheduled `agentctl results ingest --inbox` on CT103 — **verify on host** (not in repo); replace with [Slice 4C](slice-4c-result-ingest-automation.md) before 6D
-- [ ] **Slice 5.1** engine reliability — mandatory before 6D ([slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md))
+- [x] **Slice 4C** event-driven ingest — see [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md)
+- [x] **Slice 5.1** engine reliability — see [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md)
+- [ ] **Slice 6D homelab sign-off** — `FIX_REMOTE_PUBLISH_ENABLED=true` on CT104; fake engine first
 - Do **not** run agent sandboxes or RQ repo workers on GPU Windows hosts

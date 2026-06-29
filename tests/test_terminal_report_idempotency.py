@@ -28,9 +28,11 @@ def test_terminal_report_idempotency(tmp_path: Path) -> None:
         agent_state_root=state,
         gitea_base_url="http://gitea",
         gitea_agent_token="",
+        gitea_bot_token="",
         gitea_agent_comment_enabled=False,
         git_ro_key_path=None,
         model_policy="fake",
+        fix_remote_publish_enabled=False,
     )
     job = RLMJob.model_validate(
         {

@@ -778,8 +778,20 @@ def repo_can_clone(project: str) -> None:
 
 
 @gitea.command("open-pr")
-def gitea_open_pr() -> None:
-    click.echo("stub")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--head", required=True, help="Head branch (agent/run-...)")
+@click.option("--base", default="main", show_default=True)
+@click.option("--title", required=True)
+@click.option("--body", default="")
+def gitea_open_pr(project: str, head: str, base: str, title: str, body: str) -> None:
+    from agent_control.config import get_settings
+    from agent_control.gitea_client import GiteaClient
+
+    settings = get_settings()
+    owner, repo = project.split("/", 1)
+    client = GiteaClient(settings)
+    result = client.create_pull_request(owner, repo, head=head, base=base, title=title, body=body)
+    click.echo(json.dumps(result, indent=2))
 
 
 # Export verify_hmac for tests

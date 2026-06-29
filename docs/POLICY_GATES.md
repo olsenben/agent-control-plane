@@ -70,7 +70,7 @@ Review findings are **hypotheses**, not verified truth.
 
 ## Risk 2 — fix
 
-Slice **6B+6C** (current): After approval, CT103 enqueues CT104 fix worker. CT104 applies workspace-local changes, runs closed-world diff gate, writes `raw_patch.diff` and promotes `patch.diff` only on gate pass. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) and [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md). Slice 6A: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md).
+Slice **6B+6C** (current): After approval, CT103 enqueues CT104 fix worker. CT104 applies workspace-local changes, runs closed-world diff gate, writes `raw_patch.diff` and promotes `patch.diff` only on gate pass. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) and [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md). Slice 6A: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md). Slice **6D** (planned): branch push + PR after gate pass — [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md).
 
 ```yaml
 repo_access: branch_write_only

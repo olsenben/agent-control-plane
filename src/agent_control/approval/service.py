@@ -13,6 +13,7 @@ from agent_control.approval.events import (
     append_fix_authorized,
     append_fix_requested,
 )
+from agent_control.approval.base_refs import resolve_approval_base_refs
 from agent_control.approval.plan_lookup import PlanResolutionError, PlanRunRecord, resolve_plan_for_target
 from agent_control.approval.storage import load_approval, save_approval
 from agent_control.project_identity import canonical_project
@@ -61,6 +62,7 @@ def build_approval_from_plan(
     command_text: str | None = None,
 ) -> WorkItemApproval:
     approval_id = f"appr-{uuid.uuid4().hex[:16]}"
+    approved_base_ref, approved_base = resolve_approval_base_refs(record.project)
     return WorkItemApproval(
         approval_id=approval_id,
         approval_target_id=record.approval_target_id,
@@ -75,6 +77,8 @@ def build_approval_from_plan(
         approved_at=_now_iso(),
         expires_at=_expires_at(),
         status="approved",
+        approved_base_ref=approved_base_ref,
+        approved_base_sha=approved_base,
         source_comment_id=source_comment_id,
         source_event_id=source_event_id,
         source_url=source_url,
@@ -184,6 +188,13 @@ def evaluate_fix_request(
         return FixEvaluation(
             policy_decision="blocked",
             reason="Approval already consumed",
+            approval=approval,
+            plan_record=record,
+        )
+    if approval.status == "reserved":
+        return FixEvaluation(
+            policy_decision="blocked",
+            reason="Approval reserved by an in-flight fix run",
             approval=approval,
             plan_record=record,
         )
@@ -297,6 +308,72 @@ def authorize_fix(
     )
     path, created = append_fix_authorized(state_root, body=body, comment_id=comment_id)
     return body, path, created
+
+
+def reserve_approval_for_fix(
+    state_root: Path,
+    approval: WorkItemApproval,
+    *,
+    fix_run_id: str,
+) -> WorkItemApproval:
+    updated = approval.model_copy(
+        update={
+            "status": "reserved",
+            "reserved_at": _now_iso(),
+            "reserved_by_fix_run_id": fix_run_id,
+        }
+    )
+    save_approval(state_root, updated)
+    return updated
+
+
+def release_approval_reservation(
+    state_root: Path,
+    approval: WorkItemApproval,
+    *,
+    fix_run_id: str,
+    reason: str,
+) -> WorkItemApproval:
+    if approval.status not in ("reserved", "approved"):
+        return approval
+    updated = approval.model_copy(
+        update={
+            "status": "approved",
+            "reserved_at": None,
+            "reserved_by_fix_run_id": None,
+            "publish_state": None,
+        }
+    )
+    save_approval(state_root, updated)
+    return updated
+
+
+def mark_branch_published(
+    state_root: Path,
+    approval: WorkItemApproval,
+    *,
+    fix_run_id: str,
+) -> WorkItemApproval:
+    updated = approval.model_copy(update={"publish_state": "branch_published"})
+    save_approval(state_root, updated)
+    return updated
+
+
+def consume_approval_on_pr_open(
+    state_root: Path,
+    approval: WorkItemApproval,
+    *,
+    fix_run_id: str,
+    consumed_event_id: str = "",
+) -> WorkItemApproval:
+    if approval.status == "consumed":
+        return approval
+    return consume_approval(
+        state_root,
+        approval,
+        consumed_by_run_id=fix_run_id,
+        consumed_event_id=consumed_event_id or f"ingest-{fix_run_id}",
+    )
 
 
 def consume_approval_for_fix(

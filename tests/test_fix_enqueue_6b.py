@@ -67,10 +67,11 @@ def test_enqueue_emits_fix_enqueued(mock_enqueue, tmp_path: Path) -> None:
     events = load_project_events(tmp_path, "ai-sdlc-lab/agent-control-plane")
     types = [e.get("type") for e in events]
     assert "agent.fix_enqueued" in types
-    assert "agent.approval_consumed" in types
+    assert "agent.approval_reserved" in types
+    assert "agent.approval_consumed" not in types
     stored = load_approval(tmp_path, "ai-sdlc-lab/agent-control-plane", target)
     assert stored is not None
-    assert stored.status == "consumed"
+    assert stored.status == "reserved"
 
 
 @patch("agent_control.approval.dispatch_fix.enqueue_rlm_root", return_value=None)

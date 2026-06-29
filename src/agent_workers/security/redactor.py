@@ -10,6 +10,8 @@ _ENV_KEY = re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*\S+")
 _SSH_KEY = re.compile(r"-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]+?-----END [A-Z ]+PRIVATE KEY-----")
 _BEARER = re.compile(r"(?i)bearer\s+[a-z0-9\-_.~+/]+=*")
 _GENERIC_TOKEN = re.compile(r"(?i)(glpat-|ghp_|gho_|sk-[a-z0-9]{10,})")
+_URL_BASIC_AUTH = re.compile(r"https?://[^\s:@/]+:[^\s/@]+@[^\s]+")
+_AUTH_HEADER = re.compile(r"(?i)authorization:\s*\S+")
 
 
 class SecretRedactor:
@@ -20,7 +22,7 @@ class SecretRedactor:
             if val:
                 secrets.append(val)
         self.known_secrets = [s for s in secrets if s]
-        self.rules_loaded = 4 + len(self.known_secrets)
+        self.rules_loaded = 6 + len(self.known_secrets)
 
     def redact_text(self, text: str) -> tuple[str, int]:
         if not text:
@@ -31,7 +33,7 @@ class SecretRedactor:
             if secret in result:
                 result = result.replace(secret, "[REDACTED]")
                 count += 1
-        for pattern in (_SSH_KEY, _BEARER, _GENERIC_TOKEN, _ENV_KEY):
+        for pattern in (_SSH_KEY, _BEARER, _GENERIC_TOKEN, _ENV_KEY, _URL_BASIC_AUTH, _AUTH_HEADER):
             new_result, n = pattern.subn("[REDACTED]", result)
             result = new_result
             count += n

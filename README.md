@@ -4,7 +4,7 @@ Reusable platform for the Gitea agentic SDLC homelab — a **persistent, auditab
 
 Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, result ingest, ADR compiler, Redis/RQ, Gitea integration, model routing, and CT103 memory (SQLite + FTS5 target). CT104 executes bounded workflows.
 
-**Status:** Review + Plan MVP done. **Slice 5** done. **Slice 6B/6C** done. **Slice 5.1 + 4C** implemented (Milestone 1 homelab sign-off pending). **6D blocked** until Milestone 1 acceptance passes. See `docs/architecture.md` roadmap.
+**Status:** Review + Plan MVP done. **Slice 5–6C** done. **Slice 5.1 + 4C** implemented. **Slice 6D** implemented (code; `FIX_REMOTE_PUBLISH_ENABLED=false` by default). Homelab sign-off pending for Milestone 1 + 6D. See `docs/architecture.md` roadmap.
 
 ## Documentation index
 
@@ -21,8 +21,9 @@ Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, resul
 | [slice-5-structured-output-hardening.md](docs/slice-5-structured-output-hardening.md) | Structured output boundary (complete) |
 | [slice-6b-local-patch-artifact.md](docs/slice-6b-local-patch-artifact.md) | Local patch artifact / fix worker (6B) |
 | [slice-6c-closed-world-diff-gate.md](docs/slice-6c-closed-world-diff-gate.md) | Closed-world diff gate (6C) |
-| [slice-5.1-engine-reliability.md](docs/slice-5.1-engine-reliability.md) | Engine I/O + parse-failure reporting (blocks 6D) |
-| [slice-4c-result-ingest-automation.md](docs/slice-4c-result-ingest-automation.md) | Event-driven result ingest (blocks 6D) |
+| [slice-6d-branch-push-pr.md](docs/slice-6d-branch-push-pr.md) | Branch push + PR (6D) |
+| [slice-5.1-engine-reliability.md](docs/slice-5.1-engine-reliability.md) | Engine I/O + parse-failure reporting |
+| [slice-4c-result-ingest-automation.md](docs/slice-4c-result-ingest-automation.md) | Event-driven result ingest |
 | [slice-5.2-plan-quality-gate.md](docs/slice-5.2-plan-quality-gate.md) | Plan quality gate |
 
 Target repos are thin clients; they declare contract versions via `.agent/contract.yaml` and must not copy schema files from this package.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from agent_shared.models.diff_gate import CiMatrixSelection, DiffGateResult
 from agent_shared.models.fix import FixResult
+from agent_shared.models.publish import RemotePublishResult
 
 
 def render_fix_comment(
@@ -59,6 +60,68 @@ def render_fix_comment(
         ]
     )
     return "\n".join(lines)
+
+
+def render_fix_published_comment(
+    fix: FixResult,
+    *,
+    publish: RemotePublishResult,
+    ci_matrix: CiMatrixSelection | None = None,
+) -> str:
+    lines: list[str] = ["## Agent Fix (published)", ""]
+    lines.extend(["### Scope", fix.scope_summary or "(none)", ""])
+    lines.extend(["### Files changed"])
+    for path in fix.files_changed or []:
+        lines.append(f"- `{path}`")
+    lines.extend(
+        [
+            "",
+            "### Remote publish",
+            f"- Branch: `{publish.agent_branch}`",
+            f"- Head SHA: `{publish.head_commit_sha or 'unknown'}`",
+        ]
+    )
+    if publish.opened_pr_number:
+        lines.append(f"- PR: #{publish.opened_pr_number}")
+    if publish.opened_pr_url:
+        lines.append(f"- PR URL: {publish.opened_pr_url}")
+    lines.extend(
+        [
+            "",
+            "### Verification",
+            "**Not verified.** CT102 CI truth pending (6E).",
+            "Patch published to agent branch — not verified until CT102 CI passes.",
+            f"Confidence: {fix.confidence}",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def render_fix_publish_failed(
+    *,
+    run_id: str,
+    stage: str,
+    message: str,
+    partial: RemotePublishResult | None = None,
+) -> str:
+    parts = [
+        "## Fix publish failed (Risk 2)",
+        "",
+        f"Run: `{run_id}`",
+        f"Stage: `{stage}`",
+        f"Reason: {message}",
+    ]
+    if partial and partial.head_commit_sha:
+        parts.extend(
+            [
+                "",
+                "### Partial remote state",
+                f"- Branch: `{partial.agent_branch}`",
+                f"- Head SHA: `{partial.head_commit_sha}`",
+                "- Reservation held — use resume-pr or operator cleanup.",
+            ]
+        )
+    return "\n".join(parts)
 
 
 def render_fix_failed(

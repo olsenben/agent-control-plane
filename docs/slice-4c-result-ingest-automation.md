@@ -90,6 +90,7 @@ Optional: CT103 internal HTTP hook from `worker-report` after inbox write (same-
 ## Related
 
 - [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) — failure inbox events must be ingested
+- [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) — blocked until this slice is live
 - [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md)
 - [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) — follow-up section (superseded by this doc)
 - [deploy.md](deploy.md#result-ingest-ct103)

@@ -1,12 +1,13 @@
-"""Build and enqueue Risk 2 fix RLM jobs (Slice 6B)."""
+"""Build and enqueue Risk 2 fix RLM jobs (Slice 6B + 6D)."""
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
-from agent_control.approval.events import append_approval_consumed, append_fix_enqueued
+from agent_control.approval.events import append_approval_reserved, append_fix_enqueued
 from agent_control.approval.plan_lookup import PlanRunRecord
-from agent_control.approval.service import consume_approval_for_fix
+from agent_control.approval.service import reserve_approval_for_fix
 from agent_control.config import Settings, get_settings
 from agent_control.graph.context_pack import compile_context_pack
 from agent_control.project_registry import (
@@ -19,7 +20,7 @@ from agent_shared.approval_ids import derive_approval_target_id, derive_plan_ali
 from agent_shared.constants import FLOW_VERSIONS, RiskClass
 from agent_shared.hash_utils import hash_blast_radius
 from agent_shared.models.approval import (
-    ApprovalConsumedEvent,
+    ApprovalReservedEvent,
     FixAuthorizationBinding,
     FixEnqueuedEvent,
     FixPlanStepBinding,
@@ -35,6 +36,14 @@ from agent_shared.project_ids import (
 )
 
 
+def fix_remote_publish_enabled(settings: Settings | None = None) -> bool:
+    settings = settings or get_settings()
+    env_val = os.environ.get("FIX_REMOTE_PUBLISH_ENABLED", "").lower()
+    if env_val in ("1", "true", "yes"):
+        return True
+    return getattr(settings, "fix_remote_publish_enabled", False)
+
+
 def _limits_for_fix() -> JobLimits:
     return JobLimits(
         max_depth=0,
@@ -45,14 +54,15 @@ def _limits_for_fix() -> JobLimits:
     )
 
 
-def _safety_for_fix() -> JobSafety:
+def _safety_for_fix(settings: Settings | None = None) -> JobSafety:
+    publish = fix_remote_publish_enabled(settings)
     return JobSafety(
         activation_required=True,
         command_scope="fix",
         allow_repo_write=True,
         allow_test_execution=False,
-        allow_network=False,
-        allow_push=False,
+        allow_network=publish,
+        allow_push=publish,
         allow_merge=False,
         sandbox_required=True,
         requires_manual_approval=False,
@@ -77,6 +87,8 @@ def build_fix_authorization_binding(
             for step in plan.steps
         ],
         ci_hints=list(plan.ci_hints),
+        approved_base_sha=approval.approved_base_sha,
+        approved_base_ref=approval.approved_base_ref,
     )
 
 
@@ -166,7 +178,7 @@ def build_fix_rlm_job(
         command_intent=intent,
         reporting=ReplyPolicy(),
         limits=_limits_for_fix(),
-        safety=_safety_for_fix(),
+        safety=_safety_for_fix(settings),
         model_policy=settings.model_routing_policy,
         state_path=state_path,
         context_pack=context_pack,
@@ -183,7 +195,7 @@ def enqueue_fix_after_authorization(
     comment_id: int | None,
     settings: Settings | None = None,
 ) -> dict[str, Any]:
-    """Build fix job, enqueue to CT104, consume approval, emit ledger events."""
+    """Build fix job, enqueue to CT104, reserve approval (consume on PR open via ingest)."""
     settings = settings or get_settings()
     job = build_fix_rlm_job(
         trigger_event=trigger_event,
@@ -208,6 +220,7 @@ def enqueue_fix_after_authorization(
         plan_run_id=plan_record.run_id,
         project=approval.project,
         issue_id=approval.issue_id,
+        approval_reserved=True,
     )
     enq_path, enq_created = append_fix_enqueued(
         state_root,
@@ -215,25 +228,23 @@ def enqueue_fix_after_authorization(
         comment_id=comment_id,
     )
 
-    consumed = consume_approval_for_fix(
+    reserved = reserve_approval_for_fix(
         state_root,
         approval,
         fix_run_id=job.run_id,
-        consumed_event_id=enq_path.stem if enq_path else "",
     )
 
-    consumed_body = ApprovalConsumedEvent(
-        approval_id=consumed.approval_id,
-        approval_target_id=consumed.approval_target_id,
+    reserved_body = ApprovalReservedEvent(
+        approval_id=reserved.approval_id,
+        approval_target_id=reserved.approval_target_id,
         plan_run_id=plan_record.run_id,
-        project=consumed.project,
-        issue_id=consumed.issue_id,
-        consumed_by_fix_run_id=job.run_id,
-        consumed_by_event_id=enq_path.stem if enq_path else None,
+        project=reserved.project,
+        issue_id=reserved.issue_id,
+        reserved_by_fix_run_id=job.run_id,
     )
-    append_approval_consumed(
+    append_approval_reserved(
         state_root,
-        body=consumed_body,
+        body=reserved_body,
         comment_id=comment_id,
     )
 
@@ -242,6 +253,7 @@ def enqueue_fix_after_authorization(
         "run_id": job.run_id,
         "job_id": job_id,
         "fix_enqueued_created": enq_created,
+        "approval_reserved": True,
         "approval_target_id": approval.approval_target_id,
         "plan_alias": derive_plan_alias(plan_record.run_id),
         "approval_target": derive_approval_target_id(

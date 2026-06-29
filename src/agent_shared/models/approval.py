@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-ApprovalStatus = Literal["approved", "rejected", "expired", "consumed"]
+ApprovalStatus = Literal["approved", "rejected", "expired", "reserved", "consumed"]
 
 
 class WorkItemApproval(BaseModel):
@@ -33,6 +33,11 @@ class WorkItemApproval(BaseModel):
     source_event_id: str | None = None
     source_url: str | None = None
     approval_command_text_hash: str | None = None
+    approved_base_sha: str | None = None
+    approved_base_ref: str | None = None
+    reserved_at: str | None = None
+    reserved_by_fix_run_id: str | None = None
+    publish_state: str | None = None
     consumed_at: str | None = None
     consumed_by_run_id: str | None = None
     consumed_event_id: str | None = None
@@ -89,6 +94,27 @@ class ApprovalConsumedEvent(BaseModel):
     consumed_by_event_id: str | None = None
 
 
+class ApprovalReservedEvent(BaseModel):
+    schema_version: str = "approval_reserved.v1"
+    approval_id: str
+    approval_target_id: str
+    plan_run_id: str
+    project: str
+    issue_id: int
+    reserved_by_fix_run_id: str
+
+
+class ApprovalReleasedEvent(BaseModel):
+    schema_version: str = "approval_released.v1"
+    approval_id: str
+    approval_target_id: str
+    plan_run_id: str
+    project: str
+    issue_id: int
+    released_by_fix_run_id: str
+    reason: str
+
+
 class FixEnqueuedEvent(BaseModel):
     schema_version: str = "fix_enqueued.v1"
     fix_run_id: str
@@ -100,6 +126,7 @@ class FixEnqueuedEvent(BaseModel):
     issue_id: int
     worker_enqueued: bool = True
     dispatch_target: str = "rlm-root"
+    approval_reserved: bool = True
 
 
 class FixPlanStepBinding(BaseModel):
@@ -121,3 +148,5 @@ class FixAuthorizationBinding(BaseModel):
     plan_summary: str = ""
     plan_steps: list[FixPlanStepBinding] = Field(default_factory=list)
     ci_hints: list[str] = Field(default_factory=list)
+    approved_base_sha: str | None = None
+    approved_base_ref: str | None = None

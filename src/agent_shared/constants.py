@@ -29,14 +29,25 @@ TERMINAL_STATUS_FAILED_PARSE = "failed_parse"
 TERMINAL_STATUS_FAILED_APPLY = "failed_apply"
 TERMINAL_STATUS_FAILED_GATE = "failed_gate"
 TERMINAL_STATUS_FAILED_INFRA = "failed_infra"
+TERMINAL_STATUS_FAILED_PUBLISH = "failed_publish"
+TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL = "failed_publish_partial"
 TERMINAL_FAILED_STATUSES = frozenset(
     {
         TERMINAL_STATUS_FAILED_PARSE,
         TERMINAL_STATUS_FAILED_APPLY,
         TERMINAL_STATUS_FAILED_GATE,
         TERMINAL_STATUS_FAILED_INFRA,
+        TERMINAL_STATUS_FAILED_PUBLISH,
+        TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL,
     }
 )
+
+# Slice 6D fix publish lifecycle (separate from terminal_status)
+FIX_STATUS_LOCAL_PATCH_PASSED = "local_patch_passed"
+FIX_STATUS_PUBLISH_FAILED = "publish_failed"
+FIX_STATUS_BRANCH_PUBLISHED_PR_FAILED = "branch_published_pr_failed"
+FIX_STATUS_PR_OPENED_PENDING_CI = "pr_opened_pending_ci"
+FIX_STATUS_CI_VERIFIED = "ci_verified"
 
 LEGACY_GPU_QUEUES: tuple[str, ...] = (
     "snapshot",
@@ -110,6 +121,19 @@ class SessionEventType(str, Enum):
     DIFF_GATE_FAILED = "diff_gate_failed"
     PATCH_ARTIFACT_WRITTEN = "patch_artifact_written"
     FIX_FAILED = "fix_failed"
+    STALE_BASE_CHECK_STARTED = "stale_base_check_started"
+    STALE_BASE_CHECK_PASSED = "stale_base_check_passed"
+    STALE_BASE_CHECK_FAILED = "stale_base_check_failed"
+    PRE_PUSH_GATE_STARTED = "pre_push_gate_started"
+    PRE_PUSH_GATE_PASSED = "pre_push_gate_passed"
+    PRE_PUSH_GATE_FAILED = "pre_push_gate_failed"
+    BRANCH_PUSH_STARTED = "branch_push_started"
+    BRANCH_PUSH_COMPLETED = "branch_push_completed"
+    BRANCH_PUSH_FAILED = "branch_push_failed"
+    PR_OPEN_STARTED = "pr_open_started"
+    PR_OPEN_COMPLETED = "pr_open_completed"
+    PR_OPEN_FAILED = "pr_open_failed"
+    PUBLISH_PARTIAL_FAILED = "publish_partial_failed"
     ARTIFACT_WRITTEN = "artifact_written"
     REPORT_STARTED = "report_started"
     REPORT_COMPLETED = "report_completed"

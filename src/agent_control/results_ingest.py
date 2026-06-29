@@ -42,6 +42,92 @@ def _enrich_event_payload(event_model: AgentRunCompletedEvent) -> dict:
     return payload
 
 
+def handle_fix_ingest_side_effects(
+    state_root: Path,
+    event: AgentRunCompletedEvent,
+) -> None:
+    """Consume or release approval based on fix ingest outcome (Slice 6D)."""
+    from agent_control.approval.events import append_approval_consumed, append_approval_released
+    from agent_control.approval.storage import load_approval
+    from agent_shared.constants import (
+        FIX_STATUS_BRANCH_PUBLISHED_PR_FAILED,
+        FIX_STATUS_PR_OPENED_PENDING_CI,
+        FIX_STATUS_PUBLISH_FAILED,
+    )
+    from agent_shared.models.approval import ApprovalConsumedEvent, ApprovalReleasedEvent
+
+    if event.command_kind != "fix" or not event.approval_id or not event.approval_target_id:
+        return
+    if event.project is None or event.issue_id is None:
+        return
+    approval = load_approval(state_root, event.project, event.approval_target_id)
+    if approval is None:
+        return
+
+    if event.fix_status == FIX_STATUS_PR_OPENED_PENDING_CI:
+        from agent_control.approval.service import consume_approval_on_pr_open
+
+        consumed = consume_approval_on_pr_open(
+            state_root,
+            approval,
+            fix_run_id=event.run_id,
+            consumed_event_id=f"ingest-{event.run_id}",
+        )
+        body = ApprovalConsumedEvent(
+            approval_id=consumed.approval_id,
+            approval_target_id=consumed.approval_target_id,
+            plan_run_id=approval.plan_run_id,
+            project=consumed.project,
+            issue_id=consumed.issue_id,
+            consumed_by_fix_run_id=event.run_id,
+            consumed_by_event_id=f"ingest-{event.run_id}",
+        )
+        append_approval_consumed(state_root, body=body, comment_id=None)
+        return
+
+    if event.fix_status in (FIX_STATUS_PUBLISH_FAILED, FIX_STATUS_BRANCH_PUBLISHED_PR_FAILED):
+        if event.fix_status == FIX_STATUS_PUBLISH_FAILED:
+            from agent_control.approval.service import release_approval_reservation
+
+            release_approval_reservation(
+                state_root,
+                approval,
+                fix_run_id=event.run_id,
+                reason=event.fix_status or "publish_failed",
+            )
+            body = ApprovalReleasedEvent(
+                approval_id=approval.approval_id,
+                approval_target_id=approval.approval_target_id,
+                plan_run_id=approval.plan_run_id,
+                project=approval.project,
+                issue_id=approval.issue_id,
+                released_by_fix_run_id=event.run_id,
+                reason=event.fix_status or "publish_failed",
+            )
+            append_approval_released(state_root, body=body, comment_id=None)
+        return
+
+    if event.status == "failed" and approval.status == "reserved":
+        from agent_control.approval.service import release_approval_reservation
+
+        release_approval_reservation(
+            state_root,
+            approval,
+            fix_run_id=event.run_id,
+            reason="fix_run_failed",
+        )
+        body = ApprovalReleasedEvent(
+            approval_id=approval.approval_id,
+            approval_target_id=approval.approval_target_id,
+            plan_run_id=approval.plan_run_id,
+            project=approval.project,
+            issue_id=approval.issue_id,
+            released_by_fix_run_id=event.run_id,
+            reason="fix_run_failed",
+        )
+        append_approval_released(state_root, body=body, comment_id=None)
+
+
 def ingest_result_file(
     state_root: Path,
     path: Path,
@@ -80,6 +166,7 @@ def ingest_result_file(
     ):
         writeback_from_completed(enriched, settings=settings)
     if created:
+        handle_fix_ingest_side_effects(state_root, enriched)
         processed = path.with_suffix(".json.processed")
         os.replace(path, processed)
     return stored_path, created

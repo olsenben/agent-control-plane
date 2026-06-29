@@ -77,6 +77,11 @@ class Settings(BaseSettings):
         alias="MODEL_ROUTING_POLICY",
         description="Platform-owned engine selection passed to CT104 jobs (fake, official, local, ...)",
     )
+    fix_remote_publish_enabled: bool = Field(
+        default=False,
+        alias="FIX_REMOTE_PUBLISH_ENABLED",
+        description="Slice 6D: enable agent branch push + PR after diff gate pass",
+    )
     graph_snapshot_repos: str = Field(
         default="",
         alias="GRAPH_SNAPSHOT_REPOS",

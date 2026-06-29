@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from agent_shared.constants import FIX_STATUS_PR_OPENED_PENDING_CI
 from agent_shared.hash_utils import hash_blast_radius, hash_plan_result
 from agent_shared.models.events import AgentRunCompletedEvent, RiskTagSourceEntry
 from agent_shared.models.fix import FixResult
@@ -187,6 +188,40 @@ def build_run_completed_event(
         if binding.get("plan_run_id"):
             plan_alias = derive_plan_alias(str(binding["plan_run_id"]))
 
+    fix_status = result.get("fix_status")
+    remote_publish = result.get("remote_publish_result")
+    if remote_publish is None:
+        pub_path = artifact_root / "remote_publish_result.json"
+        if pub_path.is_file():
+            try:
+                remote_publish = json.loads(pub_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                remote_publish = None
+    if remote_publish is None:
+        plan_path = artifact_root / "remote_publish_plan.json"
+        if plan_path.is_file():
+            try:
+                remote_publish = json.loads(plan_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                remote_publish = None
+    agent_branch = None
+    head_commit_sha = None
+    opened_pr_number = None
+    opened_pr_url = None
+    approved_base_sha = None
+    publish_state = None
+    if isinstance(remote_publish, dict):
+        agent_branch = remote_publish.get("agent_branch")
+        head_commit_sha = remote_publish.get("head_commit_sha")
+        opened_pr_number = remote_publish.get("opened_pr_number")
+        opened_pr_url = remote_publish.get("opened_pr_url")
+        publish_state = remote_publish.get("publish_state")
+    if command_kind == "fix":
+        binding = job.get("fix_authorization") or {}
+        approved_base_sha = binding.get("approved_base_sha")
+    if fix_status == FIX_STATUS_PR_OPENED_PENDING_CI:
+        policy_decision = "allow"
+
     repo_full_name = normalize_repo_full_name(project)
 
     event = AgentRunCompletedEvent(
@@ -231,6 +266,13 @@ def build_run_completed_event(
         diff_gate_violation_codes=diff_gate_violation_codes,
         diff_gate_policy_sources=diff_gate_policy_sources,
         approval_id=approval_id,
+        fix_status=fix_status,
+        agent_branch=agent_branch,
+        head_commit_sha=head_commit_sha,
+        opened_pr_number=opened_pr_number,
+        opened_pr_url=opened_pr_url,
+        approved_base_sha=approved_base_sha,
+        publish_state=publish_state,
     )
     return event
 

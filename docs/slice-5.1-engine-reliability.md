@@ -127,5 +127,6 @@ Homelab sign-off after 6C fake acceptance:
 
 - [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md)
 - [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) — ingest must process failure inbox events
+- [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) — first remote write slice (blocked until Milestone 1)
 - [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) — parse fail reporting gap (checklist #10)
 - [deploy.md](deploy.md)

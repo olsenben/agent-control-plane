@@ -38,6 +38,7 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) | Event-driven ingest + reconciliation (blocks 6D) |
 | [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) | Hollow-plan gate — no fixable WI without scoped files |
 | [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) | Post-apply closed-world diff gate (complete) |
+| [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) | Branch push + PR (6D — code complete; homelab pending) |
 | [graph-indexer.md](graph-indexer.md) | Graph-lite: Tree-sitter + SQLite + catalog-info |
 | [graph-oss-borrowing.md](research/tool-spikes/graph-oss-borrowing.md) | OSS borrow map and phases |
 
@@ -97,12 +98,11 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Slice 6A — approval plumbing** | **Done (CT103)** | Plan-scoped `WI-*` / `PLAN-run-*` handles; owner-only approve. See [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md) |
 | **Slice 6B — local patch artifact** | **Done (CT103+CT104)** | Enqueue fix worker; `fix_result.json` + `patch.diff` in run workspace only; post-apply diff subset assert. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) |
 | **Slice 6C — closed-world diff gate** | **Done (CT104)** | Post-apply policy gate; `raw_patch.diff` → promoted `patch.diff`; `diff_gate_result.json`. See [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) |
-| **Fix MVP (6D+)** | **Next** | 6D branch push, 6E CT102 (Risk 2) |
 | **Slice 5.1 — engine reliability** | **Done (code)** | Failure reporting, missing-JSON retry, `StructuredOutputClient`, RQ handler. Homelab sign-off pending. See [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
 | **Slice 4C — result ingest automation** | **Done (code)** | Redis-enqueued ingest, plan inbox fallback, ingest-watch backup. Homelab sign-off pending. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
 | **Slice 5.2 — plan quality gate** | **Planned** | No approval-ready WI for hollow plans. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
-| **6D — branch push + PR** | **Blocked** | Requires Milestone 1 homelab acceptance (5.1 failure visibility + 4C ingest). See slice docs |
-| **6E — CT102 CI truth loop** | **Planned** | After 6D |
+| **6D — branch push + PR** | **Done (code)** | `FIX_REMOTE_PUBLISH_ENABLED`; reserve→consume on PR; provenance trailers. Homelab sign-off pending. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
+| **6E — CT102 CI truth loop** | **Planned** | After 6D homelab sign-off |
 | Later | — | Command reconciliation (`agentctl commands reconcile`), AgentFacts-lite, replay console, drift detector, MCP graph |
 
 Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — review `run-be063cbd…` / plan `run-dc0b71e…` (issue #4); Slice 5 review `run-19a15588…` / plan `run-d71996d3…`.

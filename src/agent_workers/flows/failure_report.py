@@ -13,6 +13,8 @@ from agent_shared.constants import (
     TERMINAL_STATUS_FAILED_GATE,
     TERMINAL_STATUS_FAILED_INFRA,
     TERMINAL_STATUS_FAILED_PARSE,
+    TERMINAL_STATUS_FAILED_PUBLISH,
+    TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL,
 )
 from agent_shared.models.jobs import RLMJob
 from agent_shared.models.runs import AgentError, RLMResult
@@ -25,6 +27,18 @@ from agent_workers.security.redactor import SecretRedactor
 from agent_workers.settings import WorkerSettings
 
 
+def _stage_terminal_status(stage: str) -> str | None:
+    if stage in ("diff_gate", "pre_push_gate"):
+        return TERMINAL_STATUS_FAILED_GATE
+    if stage in ("stale_approval_base", "branch_push", "pr_open"):
+        return TERMINAL_STATUS_FAILED_PUBLISH
+    if stage == "publish_partial":
+        return TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL
+    if stage:
+        return TERMINAL_STATUS_FAILED_APPLY
+    return None
+
+
 def classify_terminal_status(run_path: Path, exc: Exception) -> str:
     if (run_path / "parse_failure.json").exists():
         return TERMINAL_STATUS_FAILED_PARSE
@@ -35,11 +49,9 @@ def classify_terminal_status(run_path: Path, exc: Exception) -> str:
     if error_path.is_file():
         try:
             data = json.loads(error_path.read_text(encoding="utf-8"))
-            stage = str(data.get("stage", ""))
-            if stage == "diff_gate":
-                return TERMINAL_STATUS_FAILED_GATE
-            if stage:
-                return TERMINAL_STATUS_FAILED_APPLY
+            mapped = _stage_terminal_status(str(data.get("stage", "")))
+            if mapped:
+                return mapped
         except (json.JSONDecodeError, OSError, TypeError):
             pass
     return TERMINAL_STATUS_FAILED_INFRA
@@ -54,11 +66,17 @@ def infer_terminal_status_from_artifacts(run_path: Path, result_status: str) -> 
     if error_path.is_file():
         try:
             data = json.loads(error_path.read_text(encoding="utf-8"))
-            stage = str(data.get("stage", ""))
-            if stage == "diff_gate":
-                return TERMINAL_STATUS_FAILED_GATE
-            if stage:
-                return TERMINAL_STATUS_FAILED_APPLY
+            mapped = _stage_terminal_status(str(data.get("stage", "")))
+            if mapped:
+                return mapped
+        except (json.JSONDecodeError, OSError, TypeError):
+            pass
+    publish_path = run_path / "remote_publish_result.json"
+    if publish_path.is_file():
+        try:
+            pub = json.loads(publish_path.read_text(encoding="utf-8"))
+            if pub.get("publish_state") == "publish_failed_partial":
+                return TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL
         except (json.JSONDecodeError, OSError, TypeError):
             pass
     return TERMINAL_STATUS_FAILED_INFRA
@@ -87,7 +105,20 @@ def build_failed_rlm_result(job: RLMJob, message: str, terminal_status: str) -> 
     )
 
 
+def publish_resume_allowed(run_path: Path) -> bool:
+    publish_path = run_path / "remote_publish_result.json"
+    if not publish_path.is_file():
+        return False
+    try:
+        pub = json.loads(publish_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    return pub.get("publish_state") in ("publish_failed_partial", "branch_published")
+
+
 def terminal_report_exists(run_path: Path, state_root: Path, run_id: str) -> bool:
+    if publish_resume_allowed(run_path):
+        return False
     inbox = state_root / "inbox" / "ct104-results" / f"{run_id}.json"
     return (run_path / "result.json").is_file() and inbox.is_file()
 

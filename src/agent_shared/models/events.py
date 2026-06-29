@@ -63,6 +63,13 @@ class AgentRunCompletedEvent(BaseModel):
     diff_gate_violation_codes: list[str] = Field(default_factory=list)
     diff_gate_policy_sources: list[str] = Field(default_factory=list)
     approval_id: str | None = None
+    fix_status: str | None = None
+    agent_branch: str | None = None
+    head_commit_sha: str | None = None
+    opened_pr_number: int | None = None
+    opened_pr_url: str | None = None
+    approved_base_sha: str | None = None
+    publish_state: str | None = None
 
 
 class SessionEvent(BaseModel):

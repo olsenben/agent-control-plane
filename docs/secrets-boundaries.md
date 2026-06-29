@@ -18,6 +18,15 @@ See [gitea-secrets.md](gitea-secrets.md).
 
 Live in `/opt/ai-sdlc-lab/agent-control-plane/.env` on each host. Created at bootstrap from `.env.example`; edited out-of-band. Deploy workflows check `test -f .env` but do not read or overwrite it.
 
+### Slice 6D token separation (CT104)
+
+| Token | Host | Scope |
+|-------|------|-------|
+| `GITEA_AGENT_TOKEN` | CT104 | Issue comments only |
+| `GITEA_BOT_TOKEN` | CT104 | Branch `git push` + PR API only; scoped to target repos; **no** admin, repo delete, or org management |
+
+Never use one token for both comment and push. `GITEA_BOT_TOKEN` is required only when `FIX_REMOTE_PUBLISH_ENABLED=true`. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md).
+
 ## Git credentials on deploy hosts
 
 HTTPS pull credentials live on the `deploy` user (`~/.git-credentials`) on CT103 and CT104. Separate from deployment SSH keys. Not in Gitea secrets.

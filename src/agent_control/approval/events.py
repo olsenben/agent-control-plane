@@ -11,6 +11,8 @@ from agent_control.project_identity import canonical_project
 from agent_shared.models.approval import (
     ApprovalConsumedEvent,
     ApprovalRejected,
+    ApprovalReleasedEvent,
+    ApprovalReservedEvent,
     FixAuthorizedEvent,
     FixEnqueuedEvent,
     FixRequestedEvent,
@@ -127,6 +129,42 @@ def append_fix_authorized(
     return append_approval_event(
         state_root,
         event_type="agent.fix_authorized",
+        project=body.project,
+        comment_id=comment_id,
+        command_kind="fix",
+        issue_id=body.issue_id,
+        approval_target=body.approval_target_id,
+        payload=body.model_dump(mode="json"),
+    )
+
+
+def append_approval_reserved(
+    state_root: Path,
+    *,
+    body: ApprovalReservedEvent,
+    comment_id: str | int | None,
+) -> tuple[Path, bool]:
+    return append_approval_event(
+        state_root,
+        event_type="agent.approval_reserved",
+        project=body.project,
+        comment_id=comment_id,
+        command_kind="fix",
+        issue_id=body.issue_id,
+        approval_target=body.approval_target_id,
+        payload=body.model_dump(mode="json"),
+    )
+
+
+def append_approval_released(
+    state_root: Path,
+    *,
+    body: ApprovalReleasedEvent,
+    comment_id: str | int | None,
+) -> tuple[Path, bool]:
+    return append_approval_event(
+        state_root,
+        event_type="agent.approval_released",
         project=body.project,
         comment_id=comment_id,
         command_kind="fix",

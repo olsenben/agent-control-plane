@@ -58,6 +58,8 @@ class RLMResult(BaseModel):
     plan_result: PlanResult | None = None
     fix_result: FixResult | None = None
     diff_gate_result: dict[str, Any] | None = None
+    fix_status: str | None = None
+    remote_publish_result: dict[str, Any] | None = None
 
 
 class AgentError(BaseModel):

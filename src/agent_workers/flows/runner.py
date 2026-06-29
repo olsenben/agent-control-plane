@@ -9,10 +9,14 @@ from pathlib import Path
 from typing import Any
 
 from agent_shared.constants import (
+    FIX_STATUS_LOCAL_PATCH_PASSED,
+    FIX_STATUS_PUBLISH_FAILED,
     GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
     TERMINAL_STATUS_COMPLETED,
     TERMINAL_STATUS_FAILED_APPLY,
     TERMINAL_STATUS_FAILED_GATE,
+    TERMINAL_STATUS_FAILED_PUBLISH,
+    TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL,
     RunStatus,
     SessionEventType,
 )
@@ -33,16 +37,129 @@ from agent_workers.flows.failure_report import (
     finalize_failed_run,
     infer_terminal_status_from_artifacts,
 )
-from agent_workers.formatters.fix_comment import render_fix_comment, render_fix_failed, render_fix_gate_failed
+from agent_workers.formatters.fix_comment import (
+    render_fix_comment,
+    render_fix_failed,
+    render_fix_gate_failed,
+    render_fix_publish_failed,
+    render_fix_published_comment,
+)
 from agent_workers.gates.runner import APPROVED_PATCH_NAME, DiffGateError, run_closed_world_diff_gate
 from agent_workers.patch.apply import ApplyFixError, apply_fix_to_workspace
 from agent_workers.rlm.budget import fit_summary_for_comment
-from agent_workers.repo.policy_loader import clone_repo, load_policy, write_policy_artifacts
+from agent_workers.publish.remote import PublishError, fix_status_for_publish_result, publish_fix_branch_and_pr
+from agent_control.config import Settings
+from agent_control.gitea_client import GiteaClient
 from agent_workers.rlm.engine import get_engine
 from agent_workers.runtime.capabilities import detect_capabilities, python_version
 from agent_workers.security.redactor import SecretRedactor
 from agent_workers.settings import WorkerSettings, get_worker_settings
+from agent_workers.artifacts.errors import write_error
+from agent_workers.repo.policy_loader import clone_repo, load_policy, write_policy_artifacts
 from agent_workers.tools.registry import make_registry
+
+
+def _gitea_client_for_worker(settings: WorkerSettings) -> GiteaClient:
+    cfg = Settings()
+    cfg.gitea_base_url = settings.gitea_base_url
+    cfg.gitea_bot_token = settings.gitea_bot_token
+    return GiteaClient(cfg)
+
+
+def _attempt_remote_publish(
+    *,
+    repo_workspace: Path,
+    policy_workspace: Path,
+    run_path: Path,
+    job: RLMJob,
+    result,
+    settings: WorkerSettings,
+    session: SessionEventWriter,
+    gate_result,
+) -> None:
+    if not settings.fix_remote_publish_enabled or not job.safety.allow_push:
+        result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
+        return
+    if result.fix_result is None:
+        return
+    session.emit(SessionEventType.STALE_BASE_CHECK_STARTED)
+    try:
+        publish = publish_fix_branch_and_pr(
+            repo_workspace=repo_workspace,
+            policy_workspace=policy_workspace,
+            artifact_root=run_path,
+            job=job,
+            fix_result=result.fix_result,
+            settings=settings,
+            gitea_client=_gitea_client_for_worker(settings),
+        )
+        session.emit(SessionEventType.STALE_BASE_CHECK_PASSED)
+        result.remote_publish_result = publish.model_dump(mode="json")
+        result.fix_status = fix_status_for_publish_result(publish)
+        if publish.dry_run:
+            result.summary = fit_summary_for_comment(
+                render_fix_comment(
+                    result.fix_result,
+                    patch_artifact="patch.diff",
+                    ci_matrix=gate_result.selected_ci_matrix,
+                ),
+                GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+            )
+            return
+        session.emit(SessionEventType.PRE_PUSH_GATE_PASSED)
+        session.emit(SessionEventType.BRANCH_PUSH_COMPLETED)
+        session.emit(SessionEventType.PR_OPEN_COMPLETED)
+        result.summary = fit_summary_for_comment(
+            render_fix_published_comment(
+                result.fix_result,
+                publish=publish,
+                ci_matrix=gate_result.selected_ci_matrix,
+            ),
+            GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+        )
+    except PublishError as pub_exc:
+        from agent_workers.publish.safe_write import redact_publish_text, write_redacted_json
+
+        partial = pub_exc.partial.model_dump(mode="json") if pub_exc.partial else None
+        if partial:
+            result.remote_publish_result = partial
+            write_redacted_json(run_path / "remote_publish_result.json", partial)
+        write_redacted_json(
+            run_path / "error.json",
+            {
+                "stage": pub_exc.stage,
+                "message": redact_publish_text(str(pub_exc)),
+                "partial": partial,
+            },
+        )
+        if pub_exc.stage == "stale_approval_base":
+            session.emit(SessionEventType.STALE_BASE_CHECK_FAILED, message=redact_publish_text(str(pub_exc)))
+            if pub_exc.partial and pub_exc.partial.publish_state == "publish_failed_partial":
+                result.status = "failed"
+                result.fix_status = fix_status_for_publish_result(pub_exc.partial)
+                result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL
+                session.emit(SessionEventType.PUBLISH_PARTIAL_FAILED, message=redact_publish_text(str(pub_exc)))
+            else:
+                result.status = "failed"
+                result.fix_status = FIX_STATUS_PUBLISH_FAILED
+                result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH
+                session.emit(SessionEventType.BRANCH_PUSH_FAILED, message=redact_publish_text(str(pub_exc)))
+        elif pub_exc.partial and pub_exc.partial.publish_state == "publish_failed_partial":
+            result.status = "failed"
+            result.fix_status = fix_status_for_publish_result(pub_exc.partial)
+            result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL
+            session.emit(SessionEventType.PUBLISH_PARTIAL_FAILED, message=redact_publish_text(str(pub_exc)))
+        else:
+            result.status = "failed"
+            result.fix_status = "publish_failed"
+            result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH
+            session.emit(SessionEventType.BRANCH_PUSH_FAILED, message=redact_publish_text(str(pub_exc)))
+        result.summary = render_fix_publish_failed(
+            run_id=job.run_id,
+            stage=pub_exc.stage,
+            message=redact_publish_text(str(pub_exc)),
+            partial=pub_exc.partial,
+        )
 
 
 def _context_sources_from_trace(trace_path: Path) -> list[str]:
@@ -205,7 +322,25 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                     session.emit(SessionEventType.DIFF_GATE_PASSED)
                     result.patch_path = APPROVED_PATCH_NAME
                     result.diff_gate_result = gate_result.model_dump(mode="json")
-                    if result.fix_result is not None:
+                    session.emit(SessionEventType.PATCH_ARTIFACT_WRITTEN, artifact=APPROVED_PATCH_NAME)
+                    session.emit(SessionEventType.FIX_APPLY_COMPLETED)
+                    _attempt_remote_publish(
+                        repo_workspace=repo_workspace,
+                        policy_workspace=policy_workspace,
+                        run_path=run_path,
+                        job=job,
+                        result=result,
+                        settings=settings,
+                        session=session,
+                        gate_result=gate_result,
+                    )
+                    if result.fix_status is None:
+                        result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
+                    if (
+                        result.fix_status == FIX_STATUS_LOCAL_PATCH_PASSED
+                        and result.fix_result is not None
+                        and result.summary is None
+                    ):
                         result.summary = fit_summary_for_comment(
                             render_fix_comment(
                                 result.fix_result,
@@ -214,8 +349,6 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                             ),
                             GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
                         )
-                    session.emit(SessionEventType.PATCH_ARTIFACT_WRITTEN, artifact=APPROVED_PATCH_NAME)
-                    session.emit(SessionEventType.FIX_APPLY_COMPLETED)
                 except DiffGateError as gate_exc:
                     gate_result = gate_exc.result
                     result.diff_gate_result = gate_result.model_dump(mode="json")

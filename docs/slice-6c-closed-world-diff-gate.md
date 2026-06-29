@@ -152,5 +152,6 @@ yes Gitea failure comment (violation codes only, secrets redacted)
 ## Related
 
 - [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md)
+- [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) — next slice
 - [POLICY_GATES.md](POLICY_GATES.md)
 - [THREAT_MODEL.md](THREAT_MODEL.md) — `secret_exposure` tag
