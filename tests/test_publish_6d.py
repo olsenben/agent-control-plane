@@ -9,24 +9,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent_control.approval.dispatch_fix import build_fix_authorization_binding
 from agent_control.approval.service import reserve_approval_for_fix
 from agent_control.results_ingest import ingest_result_file
 from agent_shared.constants import FIX_STATUS_BRANCH_PUBLISHED_PR_FAILED, FIX_STATUS_PR_OPENED_PENDING_CI
-from agent_shared.models.approval import FixAuthorizationBinding, WorkItemApproval
+from agent_shared.models.approval import FixAuthorizationBinding
 from agent_shared.models.fix import FixResult
 from agent_shared.models.jobs import RLMJob
 from agent_workers.publish.formatters import build_commit_message
 from agent_workers.publish.remote import (
     PublishError,
     _stage_allowed_files,
-    _validate_push_destination,
     _validate_remote_url,
     publish_fix_branch_and_pr,
     verify_workspace_base_equals_approved,
 )
 from agent_workers.settings import WorkerSettings
-from conftest import sample_plan, seed_plan_completed
+from conftest import seed_plan_completed
 from agent_control.approval.service import grant_approval
 
 

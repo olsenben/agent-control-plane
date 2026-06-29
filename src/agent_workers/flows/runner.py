@@ -54,7 +54,6 @@ from agent_workers.rlm.engine import get_engine
 from agent_workers.runtime.capabilities import detect_capabilities, python_version
 from agent_workers.security.redactor import SecretRedactor
 from agent_workers.settings import WorkerSettings, get_worker_settings
-from agent_workers.artifacts.errors import write_error
 from agent_workers.repo.policy_loader import clone_repo, load_policy, write_policy_artifacts
 from agent_workers.tools.registry import make_registry
 

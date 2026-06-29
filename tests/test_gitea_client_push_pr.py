@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import httpx
-
 from agent_control.gitea_client import GiteaClient
 
 

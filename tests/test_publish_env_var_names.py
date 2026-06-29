@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from agent_control.approval.dispatch_fix import fix_remote_publish_enabled, _safety_for_fix
