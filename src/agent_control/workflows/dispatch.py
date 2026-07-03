@@ -6,6 +6,7 @@ from typing import Any
 
 from agent_control.config import Settings, get_settings
 from agent_control.graph.context_pack import compile_context_pack
+from agent_control.workflows.issue_task_backfill import maybe_backfill_command_intent
 from agent_control.project_registry import (
     build_trigger_context,
     resolve_project,
@@ -105,6 +106,13 @@ def build_rlm_job(
             settings=settings,
             command_kind=kind,
         )
+
+    intent = maybe_backfill_command_intent(
+        intent,
+        kind=kind,
+        context_pack=context_pack,
+        issue_number=trigger_context.issue_number,
+    )
 
     return RLMJob(
         run_id=run_id,

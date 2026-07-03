@@ -1,6 +1,6 @@
 # Slice 5.2 — Plan Quality Gate
 
-**Status:** planned  
+**Status:** implemented  
 **Prerequisite:** [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) (complete)  
 **Recommended before:** official-engine fix testing at scale; **before 6D**
 
@@ -10,7 +10,13 @@ Empty or hollow plans that parse successfully are a **plan validation problem**,
 
 ## Problem (observed)
 
-Homelab issue #9: plan parsed with `(none)` steps/files → approve granted with `Allowed files: (none)` → fix blocked at enqueue. Confusing UX; wasted approval cycle when combined with consume-on-enqueue semantics.
+| Homelab | Shape | Outcome |
+|---------|-------|---------|
+| Issue #9 | Empty steps/files | Approve with `Allowed files: (none)` → fix blocked at enqueue |
+| Issue #13 | Bare `/agent plan`; empty `natural_language_task` | Empty scope/steps (see [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md)) |
+| Issue #14 | Steps present but **no** `steps[].files` (human workflow prose) | Scope summary OK; `allowed_files` empty → same fix block |
+
+Confusing UX; wasted approval cycle when a plan comment looks fixable (WI block emitted) but enqueue is blocked.
 
 ## PlanQualityGate
 
@@ -44,15 +50,17 @@ Run after Slice 5 parse/normalize, before plan comment render and memory writeba
 1. Hollow plan → Gitea comment states not fixable; no `WI-*` approval block
 2. Good plan → unchanged approval-ready output
 3. `/agent approve` on hollow plan target blocked or warned at CT103 (if WI still emitted for audit, fix remains blocked)
-4. Unit tests cover issue #9-shaped empty plan fixture
+4. Unit tests cover issue #9-shaped empty plan fixture and issue #14-shaped steps-without-files fixture
 
 ## Out of scope
 
 - Re-plan automation
 - Model prompt changes (see Slice 5.1 Phase 7)
+- Empty `natural_language_task` on bare `/agent plan` (see [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md))
 
 ## Related
 
+- [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md)
 - [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md)
 - [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md)
 - [POLICY_GATES.md](POLICY_GATES.md)

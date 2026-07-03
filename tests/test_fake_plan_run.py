@@ -35,14 +35,30 @@ def runs_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return runs
 
 
-def test_fake_plan_end_to_end(runs_env: Path) -> None:
+def test_fake_plan_end_to_end(runs_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from agent_shared.models.context_pack import ContextPack
+    from agent_shared.models.review import BlastRadiusContext
+
+    def _fake_context_pack(*_args, **_kwargs) -> ContextPack:
+        return ContextPack(
+            project="ai-sdlc-lab/demo-app",
+            issue_number=2,
+            issue_text="# Plan next steps\n\nPlan next steps after review",
+            blast_radius=BlastRadiusContext(),
+        )
+
+    monkeypatch.setattr(
+        "agent_control.workflows.dispatch.compile_context_pack",
+        _fake_context_pack,
+    )
+
     state = VerificationState(
         project="ai-sdlc-lab/demo-app",
         command_intent=CommandIntent(
             activated=True,
             activation="/agent",
             kind="plan",
-            natural_language_task="Plan next steps after review",
+            natural_language_task="",
             confidence=1.0,
         ),
         dispatch_recommended=True,
@@ -60,6 +76,7 @@ def test_fake_plan_end_to_end(runs_env: Path) -> None:
     assert job.agent == "planner"
     assert job.risk_class == "planning_only"
     assert job.context_pack is not None
+    assert job.command_intent.natural_language_task == "Plan next steps after review"
 
     root_result = process_rlm_root(job.model_dump(mode="json"))
     assert root_result["status"] == "completed"

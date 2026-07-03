@@ -129,7 +129,7 @@ Before writing any of: `remote_publish_result.json`, `remote_publish_plan.json`,
 
 ## Homelab acceptance
 
-Deploy with `FIX_REMOTE_PUBLISH_ENABLED=true` after Milestone 1 (5.1 + 4C) sign-off. Fake engine first; then one official-engine trivial fix on a single allowed file.
+Deploy with `FIX_REMOTE_PUBLISH_ENABLED=true` after Milestone 1 (5.1 + 4C) sign-off. Recommended before official-engine 6D runs: [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) and [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) (homelab issues #13–#14). Fake engine first; then one official-engine trivial fix on a single allowed file.
 
 ## Related
 

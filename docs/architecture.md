@@ -37,6 +37,7 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) | Engine I/O: Instructor adapter, parse-failure reporting (blocks 6D) |
 | [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) | Event-driven ingest + reconciliation (blocks 6D) |
 | [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) | Hollow-plan gate — no fixable WI without scoped files |
+| [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) | Bare review/plan: backfill task from issue body on dispatch |
 | [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) | Post-apply closed-world diff gate (complete) |
 | [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) | Branch push + PR (6D — code complete; homelab pending) |
 | [graph-indexer.md](graph-indexer.md) | Graph-lite: Tree-sitter + SQLite + catalog-info |
@@ -100,8 +101,9 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Slice 6C — closed-world diff gate** | **Done (CT104)** | Post-apply policy gate; `raw_patch.diff` → promoted `patch.diff`; `diff_gate_result.json`. See [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) |
 | **Slice 5.1 — engine reliability** | **Done (code)** | Failure reporting, missing-JSON retry, `StructuredOutputClient`, RQ handler. Homelab sign-off pending. See [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
 | **Slice 4C — result ingest automation** | **Done (code)** | Redis-enqueued ingest, plan inbox fallback, ingest-watch backup. Homelab sign-off pending. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
-| **Slice 5.2 — plan quality gate** | **Planned** | No approval-ready WI for hollow plans. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
-| **6D — branch push + PR** | **Done (code)** | `FIX_REMOTE_PUBLISH_ENABLED`; reserve→consume on PR; provenance trailers. Homelab sign-off pending. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
+| **Slice 5.2 — plan quality gate** | **Done (code)** | No approval-ready WI for hollow plans or steps without scoped files. Deploy CT104 after CT103. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
+| **Slice 5.3 — issue-task backfill** | **Done (code)** | Bare `/agent review` / `/agent plan` on issues: populate `natural_language_task` from `context_pack.issue_text`. Deploy CT103 first. See [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) |
+| **6D — branch push + PR** | **Done (code)** | `FIX_REMOTE_PUBLISH_ENABLED`; reserve→consume on PR; provenance trailers. Homelab sign-off pending (recommended after **5.2** + **5.3**). See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
 | **6E — CT102 CI truth loop** | **Planned** | After 6D homelab sign-off |
 | Later | — | Command reconciliation (`agentctl commands reconcile`), AgentFacts-lite, replay console, drift detector, MCP graph |
 

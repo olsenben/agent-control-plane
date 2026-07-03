@@ -26,6 +26,9 @@ _MENTION_TO_KIND: dict[str, str] = {
 }
 
 _BARE_COMMAND_KINDS = frozenset({"inspect", "explain", "review", "plan"})
+# Bare review/plan on issue threads rely on issue-task backfill (slice 5.3) in dispatch
+# to populate natural_language_task from context_pack.issue_text. Inspect intentionally
+# does not backfill — it stays bounded to explicit comment text only.
 _APPROVAL_COMMAND_KINDS = frozenset({"approve", "reject", "fix"})
 _FINDING_PATTERN = re.compile(r"^F-\d+$", re.IGNORECASE)
 _REASON_PATTERN = re.compile(r"\breason=(.+)$", re.IGNORECASE | re.DOTALL)

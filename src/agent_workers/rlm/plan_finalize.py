@@ -11,6 +11,7 @@ from agent_shared.models.review import stub_blast_radius
 from agent_workers.formatters.plan_comment import render_plan_comment
 from agent_workers.rlm.budget import fit_summary_for_comment
 from agent_workers.rlm.plan_parser import apply_path_validation
+from agent_workers.rlm.plan_quality import REPLAN_COMMAND, evaluate_plan_quality
 
 
 def finalize_plan_result(
@@ -77,10 +78,18 @@ def finalize_plan_result(
 
     validated, warnings = apply_path_validation(plan, known)
 
+    quality = evaluate_plan_quality(validated, path_validation_warnings=warnings)
+    validated = validated.model_copy(
+        update={
+            "fixable": quality.fixable,
+            "quality_gate_reasons": quality.reasons,
+        }
+    )
+
     run_id = str(job.get("run_id") or "")
     trigger_context = job.get("trigger_context") or {}
     issue_number = trigger_context.get("issue_number")
-    if run_id and issue_number is not None:
+    if quality.fixable and run_id and issue_number is not None:
         approval_target_id = derive_approval_target_id(
             issue_id=int(issue_number),
             plan_run_id=run_id,
@@ -91,6 +100,14 @@ def finalize_plan_result(
                 "approval_target_id": approval_target_id,
                 "plan_alias": plan_alias,
                 "recommended_next_command": f"/agent fix {approval_target_id}",
+            }
+        )
+    elif not quality.fixable:
+        validated = validated.model_copy(
+            update={
+                "approval_target_id": None,
+                "plan_alias": None,
+                "recommended_next_command": REPLAN_COMMAND,
             }
         )
 

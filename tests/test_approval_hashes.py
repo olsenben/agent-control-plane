@@ -24,3 +24,24 @@ def test_plan_hash_excludes_volatile_fields() -> None:
     assert h1 == h2
     assert "approval_target_id" not in plan_result_for_hash(base)
     assert "recommended_next_command" not in plan_result_for_hash(base)
+
+
+def test_plan_hash_excludes_derived_quality_fields() -> None:
+    base = PlanResult(
+        scope_summary="scope",
+        steps=[PlanStep(id="S1", summary="step", files=["src/a.py"])],
+        fixable=True,
+        quality_gate_reasons=[],
+    )
+    h1 = hash_plan_result(base)
+    mutated = base.model_copy(
+        update={
+            "fixable": False,
+            "quality_gate_reasons": ["Plan has no steps.", "Re-run planning..."],
+        }
+    )
+    h2 = hash_plan_result(mutated)
+    assert h1 == h2
+    hashed = plan_result_for_hash(base)
+    assert "fixable" not in hashed
+    assert "quality_gate_reasons" not in hashed

@@ -33,3 +33,5 @@ class PlanResult(BaseModel):
     prior_memory_used: list[PriorMemoryUsed] = Field(default_factory=list)
     approval_target_id: str | None = None
     plan_alias: str | None = None
+    fixable: bool = True
+    quality_gate_reasons: list[str] = Field(default_factory=list)

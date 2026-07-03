@@ -26,6 +26,8 @@ def plan_result_for_hash(plan: PlanResult) -> dict[str, Any]:
     data.pop("prior_memory_used", None)
     data.pop("approval_target_id", None)
     data.pop("plan_alias", None)
+    data.pop("fixable", None)
+    data.pop("quality_gate_reasons", None)
     return data
 
 

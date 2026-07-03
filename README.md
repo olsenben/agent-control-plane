@@ -4,7 +4,7 @@ Reusable platform for the Gitea agentic SDLC homelab — a **persistent, auditab
 
 Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, result ingest, ADR compiler, Redis/RQ, Gitea integration, model routing, and CT103 memory (SQLite + FTS5 target). CT104 executes bounded workflows.
 
-**Status:** Review + Plan MVP done. **Slice 5–6C** done. **Slice 5.1 + 4C** implemented. **Slice 6D** implemented (code; `FIX_REMOTE_PUBLISH_ENABLED=false` by default). Homelab sign-off pending for Milestone 1 + 6D. See `docs/architecture.md` roadmap.
+**Status:** Review + Plan MVP done. **Slice 5–6C** done. **Slice 5.1 + 4C** implemented. **Slice 6D** implemented (code; `FIX_REMOTE_PUBLISH_ENABLED=false` by default). **Slice 5.2 + 5.3** implemented (deploy CT103 then CT104). Homelab sign-off pending for Milestone 1 + 6D. See `docs/architecture.md` roadmap.
 
 ## Documentation index
 
@@ -25,6 +25,8 @@ Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, resul
 | [slice-5.1-engine-reliability.md](docs/slice-5.1-engine-reliability.md) | Engine I/O + parse-failure reporting |
 | [slice-4c-result-ingest-automation.md](docs/slice-4c-result-ingest-automation.md) | Event-driven result ingest |
 | [slice-5.2-plan-quality-gate.md](docs/slice-5.2-plan-quality-gate.md) | Plan quality gate |
+| [slice-5.3-issue-task-backfill.md](docs/slice-5.3-issue-task-backfill.md) | Bare review/plan issue-task backfill |
+| [slice-5.2-5.3-bundle-plan.md](docs/slice-5.2-5.3-bundle-plan.md) | 5.2 + 5.3 bundle plan and homelab verification |
 
 Target repos are thin clients; they declare contract versions via `.agent/contract.yaml` and must not copy schema files from this package.
 

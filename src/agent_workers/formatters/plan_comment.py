@@ -55,6 +55,11 @@ def render_plan_comment(plan: PlanResult) -> str:
     if plan.risk_tags:
         lines.extend(["", f"Risk tags: {', '.join(plan.risk_tags)}"])
 
+    if not plan.fixable and plan.quality_gate_reasons:
+        lines.extend(["", "### Plan not fixable"])
+        for reason in plan.quality_gate_reasons:
+            lines.append(f"- {reason}")
+
     lines.extend(
         [
             "",
@@ -66,7 +71,7 @@ def render_plan_comment(plan: PlanResult) -> str:
         ]
     )
 
-    if plan.approval_target_id and plan.plan_alias:
+    if plan.fixable and plan.approval_target_id and plan.plan_alias:
         lines.extend(
             [
                 "",

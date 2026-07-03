@@ -119,6 +119,7 @@ Homelab pain points from 6B sign-off are now explicit roadmap slices. **6D branc
 | Ingest lag / plan lookup false negatives | **4C** | [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
 | Official-engine prose / silent parse failures | **5.1** | [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
 | Hollow plans look fixable | **5.2** | [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
+| Bare review/plan leaves `Task:` empty on issues | **5.3** | [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) |
 | Approval consumed on enqueue | **6C polish** | [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) — reservation lifecycle before 6D |
 
 **Interim (homelab):** cron or manual ingest ([deploy.md](deploy.md#result-ingest-ct103)); `MODEL_ROUTING_POLICY=fake` for fix/6C acceptance runs.
