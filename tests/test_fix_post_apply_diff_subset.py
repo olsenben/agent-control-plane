@@ -65,7 +65,7 @@ def test_post_apply_diff_subset_fails_on_extra_write(
     def _fake_diff(_repo: Path) -> list[str]:
         return ["src/allowed.py", "src/other.py"]
 
-    monkeypatch.setattr("agent_workers.patch.apply._git_diff_name_only", _fake_diff)
+    monkeypatch.setattr("agent_workers.patch.apply.collect_changed_files", _fake_diff)
     with pytest.raises(ApplyFixError) as exc:
         apply_fix_to_workspace(git_repo, fix, allowed, tmp_path)
     assert exc.value.stage == "post_apply_diff_assert"

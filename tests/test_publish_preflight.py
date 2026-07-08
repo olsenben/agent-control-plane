@@ -35,8 +35,8 @@ def _init_git_repo(path: Path, *, with_identity: bool = True) -> None:
     if with_identity:
         subprocess.run(["git", "config", "user.email", "t@t"], cwd=path, check=True, capture_output=True)
         subprocess.run(["git", "config", "user.name", "t"], cwd=path, check=True, capture_output=True)
-    subprocess.run(["git", "add", "-A"], cwd=path, check=True, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "init"], cwd=path, check=True, capture_output=True)
+        subprocess.run(["git", "add", "-A"], cwd=path, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=path, check=True, capture_output=True)
 
 
 def _job(allow_push: bool = True) -> RLMJob:

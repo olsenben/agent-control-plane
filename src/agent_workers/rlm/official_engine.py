@@ -25,7 +25,7 @@ from agent_workers.rlm.fix_finalize import finalize_fix_result
 from agent_workers.rlm.fix_parser import parse_fix_output
 from agent_workers.rlm.model_output import StructuredParseFailure
 from agent_workers.rlm.plan_finalize import finalize_plan_result
-from agent_workers.rlm.plan_parser import parse_plan_output
+from agent_workers.rlm.plan_parser import PlanParseError, parse_plan_output
 from agent_workers.rlm.prompts import (
     build_fix_system_preamble,
     build_plan_system_preamble,
@@ -438,13 +438,23 @@ class OfficialRLMEngine:
             warnings.extend(review_warnings)
         elif kind in PLAN_KINDS:
             def _parse_plan(raw: str, repair_endpoint) -> tuple[str, Any, list[str]]:
-                parsed = parse_plan_output(
-                    raw,
-                    context_pack=pack,
-                    run_id=job["run_id"],
-                    repair_endpoint=repair_endpoint,
-                    repair_timeout_seconds=min(completion_timeout, 60.0),
-                )
+                try:
+                    parsed = parse_plan_output(
+                        raw,
+                        context_pack=pack,
+                        run_id=job["run_id"],
+                        repair_endpoint=repair_endpoint,
+                        repair_timeout_seconds=min(completion_timeout, 60.0),
+                    )
+                except PlanParseError as exc:
+                    if isinstance(exc.__cause__, StructuredParseFailure):
+                        failure = exc.__cause__.artifact
+                        if artifact_dir:
+                            write_json(
+                                Path(artifact_dir) / "parse_failure.json",
+                                failure.model_dump(mode="json"),
+                            )
+                    raise ValueError(f"Failed to parse plan output: {exc}") from exc
                 return finalize_plan_result(
                     parsed,
                     known_sources=sources,

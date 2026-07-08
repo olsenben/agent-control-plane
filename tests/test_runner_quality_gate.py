@@ -220,12 +220,12 @@ def test_empty_patch_never_calls_attempt_remote_publish(
 
     from agent_shared.models.diff_gate import DiffGateResult
 
-    def _gate_without_patch(*_args, **_kwargs):
+    def _gate_pass_no_patch(**_kwargs):
         return DiffGateResult(passed=True)
 
     monkeypatch.setattr(
         "agent_workers.flows.runner.run_closed_world_diff_gate",
-        _gate_without_patch,
+        _gate_pass_no_patch,
     )
 
     with patch("agent_workers.flows.runner._attempt_remote_publish") as mock_publish:

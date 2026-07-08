@@ -123,6 +123,8 @@ def run_quality_gated_attempts(
         cp_endpoint = to_control_plane_endpoint(endpoint)
         try:
             summary, parsed, warnings = parse_and_finalize(raw, cp_endpoint)
+        except ValueError:
+            raise
         except Exception:
             continue
         if kind == "plan":

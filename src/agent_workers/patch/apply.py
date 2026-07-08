@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 from agent_shared.models.fix import FixFileChange, FixResult
 from agent_shared.patch_paths import PatchPathError, validate_allowed_patch_path
+from agent_workers.gates.runner import collect_changed_files, read_unified_diff
 
 
 class ApplyFixError(Exception):
@@ -24,23 +24,6 @@ class ApplyFixError(Exception):
         self.allowed_files = allowed_files
         self.changed_files_so_far = changed_files_so_far or []
         super().__init__(message)
-
-
-def _git_diff_name_only(repo_root: Path) -> list[str]:
-    proc = subprocess.run(
-        ["git", "diff", "--name-only"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise ApplyFixError(
-            "post_apply_diff_assert",
-            proc.stderr.strip() or "git diff --name-only failed",
-            allowed_files=[],
-        )
-    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
 
 
 def _validate_change_path(change: FixFileChange, allowed_files: list[str]) -> str:
@@ -97,7 +80,7 @@ def apply_fix_to_workspace(
             _apply_single_change(repo_root, change, normalized)
             changed_so_far.append(normalized)
 
-        changed_files = _git_diff_name_only(repo_root)
+        changed_files = collect_changed_files(repo_root)
         allowed_set = set(allowed_files)
         extra = sorted(set(changed_files) - allowed_set)
         if extra:
@@ -108,23 +91,8 @@ def apply_fix_to_workspace(
                 changed_files_so_far=changed_files,
             )
 
-        proc = subprocess.run(
-            ["git", "diff"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if proc.returncode != 0:
-            raise ApplyFixError(
-                "artifact_write",
-                proc.stderr.strip() or "git diff failed",
-                allowed_files=allowed_files,
-                changed_files_so_far=changed_files,
-            )
-
         patch_path = artifact_root / "raw_patch.diff"
-        patch_path.write_text(proc.stdout, encoding="utf-8")
+        patch_path.write_text(read_unified_diff(repo_root), encoding="utf-8")
         return "raw_patch.diff"
     except ApplyFixError:
         raise

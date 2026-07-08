@@ -6,12 +6,42 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent_control.model_router import ResolvedEndpoint
+from agent_workers.rlm.model_routing import WorkerResolvedEndpoint
 from agent_shared.models.context_pack import ContextPack
 from agent_shared.models.review import BlastRadiusContext
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
 from agent_workers.rlm.engine import get_engine
 from agent_workers.rlm.official_engine import OfficialRLMEngine, gather_read_only_context
+
+
+from contextlib import contextmanager
+
+
+def _gpu_endpoint() -> WorkerResolvedEndpoint:
+    return WorkerResolvedEndpoint(
+        provider="gpu",
+        base_url="http://127.0.0.1:11434",
+        model="llama3",
+        api_key="",
+    )
+
+
+@contextmanager
+def _patch_gpu_endpoint():
+    ep = _gpu_endpoint()
+    targets = (
+        "agent_workers.rlm.official_engine.resolve_rlm_gpu_endpoint",
+        "agent_workers.rlm.model_routing.resolve_rlm_gpu_endpoint",
+        "agent_workers.rlm.quality_loop.resolve_rlm_gpu_endpoint",
+    )
+    active = [patch(target, return_value=ep) for target in targets]
+    for item in active:
+        item.start()
+    try:
+        yield
+    finally:
+        for item in reversed(active):
+            item.stop()
 
 
 def _inspect_job() -> dict:
@@ -101,21 +131,11 @@ def test_official_engine_review_mock(tmp_path: Path) -> None:
         '"confidence":"medium","recommended_next_command":"/agent plan","risk_tags":[]}'
     )
 
-    endpoint = ResolvedEndpoint(
-        role="rlm",
-        tier="3080",
-        provider="gpu",
-        base_url="http://127.0.0.1:11434",
-        model="llama3",
-        api_key="",
-        primary_provider="gpu",
-    )
-
     with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
-        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+        with _patch_gpu_endpoint():
             with patch(
                 "agent_workers.rlm.official_engine.chat_completion",
-                return_value={"content": review_json, "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+                return_value={"content": review_json, "provider": "gpu", "base_url": _gpu_endpoint().base_url, "usage": {}},
             ):
                 result = engine.run(
                     _review_job(),
@@ -146,21 +166,11 @@ def test_official_engine_single_shot_mock(tmp_path: Path) -> None:
     workspace.mkdir()
     (workspace / "README.md").write_text("# Demo\nService idle because worker offline.", encoding="utf-8")
 
-    endpoint = ResolvedEndpoint(
-        role="rlm",
-        tier="3080",
-        provider="gpu",
-        base_url="http://127.0.0.1:11434",
-        model="llama3",
-        api_key="",
-        primary_provider="gpu",
-    )
-
     with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
-        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+        with _patch_gpu_endpoint():
             with patch(
                 "agent_workers.rlm.official_engine.chat_completion",
-                return_value={"content": "Worker state is idle.", "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+                return_value={"content": "Worker state is idle.", "provider": "gpu", "base_url": _gpu_endpoint().base_url, "usage": {}},
             ) as mock_chat:
                 result = engine.run(
                     _inspect_job(),
@@ -194,21 +204,11 @@ def test_official_engine_plan_parse_failure_writes_artifact(tmp_path: Path) -> N
     job = _plan_job()
     job["context_pack"] = pack.model_dump(mode="json")
 
-    endpoint = ResolvedEndpoint(
-        role="rlm",
-        tier="3080",
-        provider="gpu",
-        base_url="http://127.0.0.1:11434",
-        model="llama3",
-        api_key="",
-        primary_provider="gpu",
-    )
-
     with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
-        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+        with _patch_gpu_endpoint():
             with patch(
                 "agent_workers.rlm.official_engine.chat_completion",
-                return_value={"content": '{"scope_summary": 123}', "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+                return_value={"content": '{"scope_summary": 123}', "provider": "gpu", "base_url": _gpu_endpoint().base_url, "usage": {}},
             ):
                 with patch(
                     "agent_workers.rlm.model_output.attempt_repair",
@@ -252,21 +252,11 @@ def test_official_engine_single_shot_uses_job_timeout(tmp_path: Path) -> None:
     job = _inspect_job()
     job["limits"]["time_budget_seconds"] = 300
 
-    endpoint = ResolvedEndpoint(
-        role="rlm",
-        tier="3080",
-        provider="gpu",
-        base_url="http://127.0.0.1:11434",
-        model="llama3",
-        api_key="",
-        primary_provider="gpu",
-    )
-
     with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
-        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+        with _patch_gpu_endpoint():
             with patch(
                 "agent_workers.rlm.official_engine.chat_completion",
-                return_value={"content": "ok", "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+                return_value={"content": "ok", "provider": "gpu", "base_url": _gpu_endpoint().base_url, "usage": {}},
             ) as mock_chat:
                 engine.run(job, workspace, {}, artifact_dir=str(tmp_path))
 
@@ -280,22 +270,13 @@ def test_official_engine_clamps_long_summary(tmp_path: Path) -> None:
     workspace.mkdir()
     (workspace / "README.md").write_text("# Demo", encoding="utf-8")
 
-    endpoint = ResolvedEndpoint(
-        role="rlm",
-        tier="3080",
-        provider="gpu",
-        base_url="http://127.0.0.1:11434",
-        model="llama3",
-        api_key="",
-        primary_provider="gpu",
-    )
     long_summary = "x" * 5000
 
     with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
-        with patch("agent_workers.rlm.official_engine.resolve_role_primary", return_value=endpoint):
+        with _patch_gpu_endpoint():
             with patch(
                 "agent_workers.rlm.official_engine.chat_completion",
-                return_value={"content": long_summary, "provider": "gpu", "base_url": endpoint.base_url, "usage": {}},
+                return_value={"content": long_summary, "provider": "gpu", "base_url": _gpu_endpoint().base_url, "usage": {}},
             ):
                 result = engine.run(_inspect_job(), workspace, {}, artifact_dir=str(tmp_path))
 

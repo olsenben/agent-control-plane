@@ -135,8 +135,8 @@ def run_closed_world_diff_gate(
     approved_path = artifact_root / APPROVED_PATCH_NAME
 
     if result.passed:
-        if raw_path.is_file() and not approved_path.exists():
-            shutil.copy2(raw_path, approved_path)
+        if unified_diff:
+            approved_path.write_text(unified_diff, encoding="utf-8")
         elif raw_path.is_file():
             shutil.copy2(raw_path, approved_path)
         return result
