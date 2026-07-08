@@ -1,6 +1,6 @@
 # Slice 4C — Event-Driven Result Ingest / Reconciliation
 
-**Status:** implemented (homelab sign-off pending)  
+**Status:** implemented (homelab sign-off 2026-07-06; cron fallback still active on CT103)  
 **Prerequisite:** CT104 `worker-report` inbox writes (live)  
 **Blocks:** [6D branch push + PR](#related) — **mandatory before any remote write**
 

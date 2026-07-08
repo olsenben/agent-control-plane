@@ -1,0 +1,42 @@
+"""Gitea comment formatter tests (Slice 6D.1)."""
+
+import ast
+from pathlib import Path
+
+from agent_control.gitea_comments import format_fix_started
+
+
+def test_format_fix_started_6d_when_remote_publish_enabled() -> None:
+    body = format_fix_started(
+        run_id="run-abc",
+        approval_target_id="WI-0001",
+        allowed_files=["README.md"],
+        remote_publish_enabled=True,
+    )
+    assert "Slice 6D" in body
+    assert "agent/run-abc" in body
+    assert "push branch" in body.lower() or "open PR" in body
+
+
+def test_format_fix_started_6b_when_remote_publish_disabled() -> None:
+    body = format_fix_started(
+        run_id="run-abc",
+        approval_target_id="WI-0001",
+        allowed_files=["README.md"],
+        remote_publish_enabled=False,
+    )
+    assert "6B" in body
+    assert "no push" in body.lower() or "workspace-local" in body.lower()
+
+
+def test_gitea_comments_does_not_import_dispatch_fix() -> None:
+    path = Path(__file__).resolve().parents[1] / "src" / "agent_control" / "gitea_comments.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imports = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.append(node.module)
+    assert "agent_control.approval.dispatch_fix" not in imports
+    assert "agent_control.workflows.dispatch_fix" not in imports

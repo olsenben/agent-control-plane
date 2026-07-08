@@ -2,3 +2,7 @@
 # Requires host file at GIT_CREDENTIALS_HOST_PATH (default /home/deploy/.git-credentials).
 [credential]
 	helper = store --file=/root/.git-credentials
+
+[user]
+	name = Agent Control Plane
+	email = agent-control-plane@local

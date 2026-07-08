@@ -296,14 +296,16 @@ No new env vars for 5.2/5.3.
 4. Approve → `Allowed files: README.md` (fake uses first source)
 5. `/agent fix WI-*` → enqueue, patch, 6C gate
 
-### Tier 4 — Sign-offs still required (not part of this PR)
+### Tier 4 — Sign-offs (homelab 2026-07-06, issue #16)
 
-| Item | Verify |
-|------|--------|
-| **4C** | Plan comment → ledger `agent.run_completed` within seconds **without** manual `agentctl results ingest` |
-| **5.1** | Induced parse failure → Gitea failure comment + inbox + ledger (not silent RQ fail) |
-| **6B/6C** | Fake fix on single allowed file → `patch.diff`, `diff_gate_result.json`, no push |
-| **6D** | After above: `FIX_REMOTE_PUBLISH_ENABLED=true`, fake fix → branch + PR |
+| Item | Status | Evidence |
+|------|--------|----------|
+| **4C** | **Pass** (cron still active) | inbox `.processed`, ledger events; disable cron to prove Redis-only |
+| **5.3** | **Pass** | `run-cca5ddc0…` — `natural_language_task` backfilled |
+| **5.2** | **Pass** | `run-cca5ddc0…` — Plan not fixable, no WI block |
+| **6B/6C** | **Pass** (weak content) | `run-cfdb799a…`, `run-0ef720ec…` — gate pass, empty `patch.diff` |
+| **5.1 failure path** | **Not re-run** | Official fix completed; no induced parse failure |
+| **6D** | **Pending** | issue #17 |
 
 ### Tier 5 — Official engine (after fake path green)
 

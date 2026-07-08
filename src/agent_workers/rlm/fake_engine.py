@@ -11,8 +11,9 @@ from agent_shared.models.review import ReviewFinding, ReviewResult, stub_blast_r
 from agent_shared.models.runs import RLMResult
 from agent_workers.rlm.constants import ENGINE_FAKE
 from agent_workers.rlm.official_engine import gather_read_only_context
-from agent_workers.rlm.fix_finalize import finalize_fix_result
+from agent_workers.rlm.task_scope import pick_plan_step_files
 from agent_workers.rlm.plan_finalize import finalize_plan_result
+from agent_workers.rlm.fix_finalize import finalize_fix_result
 from agent_workers.rlm.review_finalize import finalize_review_result
 from agent_workers.rlm.trace import append_trace_event
 
@@ -116,13 +117,15 @@ def _build_fake_plan_result(
         blast = pack.blast_radius
         ci_hints = list(blast.affected_tests[:3])
 
+    step_files = pick_plan_step_files(task, sources)
+
     plan = PlanResult(
         scope_summary=f"Fake plan for {job['project']}: {task or 'plan from prior review context'}.{prior_note}",
         steps=[
             PlanStep(
                 id="S-001",
                 summary="Implement scoped changes with tests",
-                files=sources[:1],
+                files=step_files,
             )
         ],
         ci_hints=ci_hints or ["pytest -q"],

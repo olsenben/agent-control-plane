@@ -15,6 +15,8 @@ from agent_shared.constants import (
     TERMINAL_STATUS_FAILED_PARSE,
     TERMINAL_STATUS_FAILED_PUBLISH,
     TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL,
+    TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK,
+    TERMINAL_STATUS_FAILED_QUALITY_GATE,
 )
 from agent_shared.models.jobs import RLMJob
 from agent_shared.models.runs import AgentError, RLMResult
@@ -28,6 +30,10 @@ from agent_workers.settings import WorkerSettings
 
 
 def _stage_terminal_status(stage: str) -> str | None:
+    if stage in ("quality_gate", "patch_quality_gate"):
+        return TERMINAL_STATUS_FAILED_QUALITY_GATE
+    if stage in ("publish_preflight",):
+        return TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK
     if stage in ("diff_gate", "pre_push_gate"):
         return TERMINAL_STATUS_FAILED_GATE
     if stage in ("stale_approval_base", "branch_push", "pr_open"):
@@ -60,6 +66,16 @@ def classify_terminal_status(run_path: Path, exc: Exception) -> str:
 def infer_terminal_status_from_artifacts(run_path: Path, result_status: str) -> str:
     if result_status == "completed":
         return TERMINAL_STATUS_COMPLETED
+    if (run_path / "quality_gate_result.json").exists():
+        try:
+            qg = json.loads((run_path / "quality_gate_result.json").read_text(encoding="utf-8"))
+            if not qg.get("passed"):
+                stage = str(qg.get("stage") or "")
+                if stage == "publish_preflight":
+                    return TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK
+                return TERMINAL_STATUS_FAILED_QUALITY_GATE
+        except (json.JSONDecodeError, OSError, TypeError):
+            pass
     if (run_path / "parse_failure.json").exists():
         return TERMINAL_STATUS_FAILED_PARSE
     error_path = run_path / "error.json"

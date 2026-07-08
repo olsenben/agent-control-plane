@@ -52,10 +52,16 @@ def format_fix_started(
     run_id: str,
     approval_target_id: str,
     allowed_files: list[str],
+    remote_publish_enabled: bool = False,
 ) -> str:
     files_line = ", ".join(f"`{f}`" for f in allowed_files[:8])
     if len(allowed_files) > 8:
         files_line += f" (+{len(allowed_files) - 8} more)"
+    tail = (
+        f"CT104 will apply patch, push branch `agent/{run_id}`, and open PR (Slice 6D)."
+        if remote_publish_enabled
+        else "CT104 is generating a workspace-local patch (no push/PR in 6B)."
+    )
     return "\n".join(
         [
             "## Fix started (Risk 2)",
@@ -64,7 +70,7 @@ def format_fix_started(
             f"Target: `{approval_target_id}`",
             f"Allowed files: {files_line or '(none)'}",
             "",
-            "CT104 is generating a workspace-local patch (no push/PR in 6B).",
+            tail,
         ]
     )
 

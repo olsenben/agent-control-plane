@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from agent_control.approval.dispatch_fix import enqueue_fix_after_authorization
+from agent_control.approval.dispatch_fix import enqueue_fix_after_authorization, fix_remote_publish_enabled
 from agent_control.approval.service import (
     authorize_fix,
     evaluate_fix_request,
@@ -187,6 +187,7 @@ def handle_approval_commands(
                     run_id=str(enqueue_result["run_id"]),
                     approval_target_id=evaluation.approval.approval_target_id,
                     allowed_files=evaluation.approval.allowed_files,
+                    remote_publish_enabled=fix_remote_publish_enabled(settings),
                 ),
                 settings=settings,
             )

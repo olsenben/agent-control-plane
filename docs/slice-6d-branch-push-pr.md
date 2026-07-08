@@ -2,7 +2,7 @@
 
 After Slice 6C closed-world diff gate passes, CT104 may publish an approved patch to a deterministic `agent/{run_id}` branch and open a structured Gitea PR. **Nothing is verified until Slice 6E (CT102 CI).**
 
-**Prerequisite:** [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md), [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md), [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md)
+**Prerequisite:** [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md), [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md), [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md), [slice-6d1-hollow-artifact-guardrails.md](slice-6d1-hollow-artifact-guardrails.md)
 
 **Progression:** 6A approval → 6B local patch → 6C diff gate → **6D push/PR** → 6E CT102 CI
 
@@ -56,6 +56,8 @@ If the default branch advances after the agent branch was pushed but before PR o
 
 ```text
 diff_gate_passed
+  → evaluate_patch_artifact (6D.1 — blocks empty patch)
+  → run_publish_preflight (6D.1 — identity, diff --check)
   → verify workspace HEAD == approved_base_sha
   → re-run run_closed_world_diff_gate
   → git checkout -B agent/{run_id}

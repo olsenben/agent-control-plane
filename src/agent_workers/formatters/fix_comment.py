@@ -124,6 +124,31 @@ def render_fix_publish_failed(
     return "\n".join(parts)
 
 
+def render_fix_quality_failed(
+    *,
+    run_id: str,
+    reasons: list[str],
+    fallback_attempted: bool,
+) -> str:
+    lines = [
+        "## Fix failed quality gate (Risk 2)",
+        "",
+        "Model returned valid JSON but no usable file changes.",
+        f"Run: `{run_id}`",
+        "",
+    ]
+    for reason in reasons[:6]:
+        lines.append(f"- {reason}")
+    if fallback_attempted:
+        lines.append("")
+        lines.append("Retried once on GPU, then attempted external fixer fallback.")
+    else:
+        lines.append("")
+        lines.append("Retried once on GPU. External fixer fallback was not configured.")
+    lines.extend(["", "No patch was applied. Approval may be retried after replan."])
+    return "\n".join(lines)
+
+
 def render_fix_failed(
     *,
     run_id: str,

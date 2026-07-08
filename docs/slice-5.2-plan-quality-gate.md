@@ -1,6 +1,6 @@
 # Slice 5.2 — Plan Quality Gate
 
-**Status:** implemented  
+**Status:** implemented (homelab sign-off 2026-07-06, issue #16 — `run-cca5ddc0…`)  
 **Prerequisite:** [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) (complete)  
 **Recommended before:** official-engine fix testing at scale; **before 6D**
 

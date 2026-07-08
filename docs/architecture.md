@@ -8,8 +8,8 @@ See [gitea_agentic_sdlc_cursor_step_plan_v4.md](../../gitea_agentic_sdlc_cursor_
 
 Persistent, auditable engineering control plane with optional recurrent-memory experiments — not a bet that recurrent models replace transformer coders on consumer hardware.
 
-- **3080 / Qwen-class** — primary reasoning, review, plan, patch authoring
-- **2070 / recurrent-SSM** — memory specialist: compression, failure fingerprints, retrieval hints
+- **3080 / Qwen Coder 14B** — primary generator: plans, patches, repair attempts, final synthesis
+- **2070 / recurrent-SSM** — recursive inference wrapper: memory preflight, critique packets, failure summarization, belief state, writeback after verification (not primary patch author)
 - **CT102** — authoritative CI truth; model self-review is not an acceptance gate
 - **Near-term:** memory retrieval, traceability, policy gates, minimal cross-repo graph — not more autonomy
 
@@ -40,6 +40,7 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) | Bare review/plan: backfill task from issue body on dispatch |
 | [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) | Post-apply closed-world diff gate (complete) |
 | [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) | Branch push + PR (6D — code complete; homelab pending) |
+| [slice-6d1-hollow-artifact-guardrails.md](slice-6d1-hollow-artifact-guardrails.md) | Quality gates, fallback, preflight — no hollow `completed` |
 | [graph-indexer.md](graph-indexer.md) | Graph-lite: Tree-sitter + SQLite + catalog-info |
 | [graph-oss-borrowing.md](research/tool-spikes/graph-oss-borrowing.md) | OSS borrow map and phases |
 
@@ -71,9 +72,13 @@ Detail: [POLICY_GATES.md](POLICY_GATES.md).
 
 No model output is true until: deterministic checks → tests → CT102 CI → human approval (Risk 2+).
 
+## Recursive inference (Qwen 14B + 2070)
+
+The 2070 lane improves Qwen 14B **effective** performance via structured recursive calls (same weights, better scaffolding). It does not replace Qwen as patch author. Bounded loops use memory preflight, graph context, diff gate, and CI/tests as required external feedback — not self-confidence alone. Config: `recursive_qwen_loop` in `.agent/project.yaml` (see V4 plan §0.4).
+
 ## Specialist roles (bounded)
 
-Reviewer, planner, patch author, memory worker — four roles max unless measurable need.
+Reviewer, planner, patch author, memory worker (recursive support) — four roles max unless measurable need.
 
 Agent identity / AgentFacts-lite before A2A/MCP protocol glue.
 
@@ -99,15 +104,15 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Slice 6A — approval plumbing** | **Done (CT103)** | Plan-scoped `WI-*` / `PLAN-run-*` handles; owner-only approve. See [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md) |
 | **Slice 6B — local patch artifact** | **Done (CT103+CT104)** | Enqueue fix worker; `fix_result.json` + `patch.diff` in run workspace only; post-apply diff subset assert. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) |
 | **Slice 6C — closed-world diff gate** | **Done (CT104)** | Post-apply policy gate; `raw_patch.diff` → promoted `patch.diff`; `diff_gate_result.json`. See [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) |
-| **Slice 5.1 — engine reliability** | **Done (code)** | Failure reporting, missing-JSON retry, `StructuredOutputClient`, RQ handler. Homelab sign-off pending. See [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
-| **Slice 4C — result ingest automation** | **Done (code)** | Redis-enqueued ingest, plan inbox fallback, ingest-watch backup. Homelab sign-off pending. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
-| **Slice 5.2 — plan quality gate** | **Done (code)** | No approval-ready WI for hollow plans or steps without scoped files. Deploy CT104 after CT103. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
-| **Slice 5.3 — issue-task backfill** | **Done (code)** | Bare `/agent review` / `/agent plan` on issues: populate `natural_language_task` from `context_pack.issue_text`. Deploy CT103 first. See [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) |
-| **6D — branch push + PR** | **Done (code)** | `FIX_REMOTE_PUBLISH_ENABLED`; reserve→consume on PR; provenance trailers. Homelab sign-off pending (recommended after **5.2** + **5.3**). See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
+| **Slice 5.1 — engine reliability** | **Done (code)** | Failure reporting, missing-JSON retry, `StructuredOutputClient`, RQ handler. Homelab failure-path re-check optional. See [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
+| **Slice 4C — result ingest automation** | **Done (homelab)** | Ingest + ledger on issue #16; cron fallback still on CT103. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
+| **Slice 5.2 — plan quality gate** | **Done (homelab)** | issue #16 `run-cca5ddc0…` not fixable / no WI. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
+| **Slice 5.3 — issue-task backfill** | **Done (homelab)** | issue #16 bare plan backfills `natural_language_task`. See [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) |
+| **6D — branch push + PR** | **Done (code); homelab pending** | issue #17 publish test. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
 | **6E — CT102 CI truth loop** | **Planned** | After 6D homelab sign-off |
 | Later | — | Command reconciliation (`agentctl commands reconcile`), AgentFacts-lite, replay console, drift detector, MCP graph |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — review `run-be063cbd…` / plan `run-dc0b71e…` (issue #4); Slice 5 review `run-19a15588…` / plan `run-d71996d3…`.
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; 6D → issue #17.
 
 ### Review MVP acceptance (full)
 

@@ -143,6 +143,12 @@ Model self-review is **not** an acceptance gate.
 | **Slice 5 — structured output boundary** | **2026-06-21** | review `run-19a15588a6bc82d0104ee78006e4febf` → plan `run-d71996d36fca5c54e3f54cc50a4a6f35`; no `parse_failure.json`; pack blast_radius in `plan_result.json` |
 | **Slice 6A — Risk 2 approval plumbing** | **2026-06-21** | issue #6 initial (`WI-0006-d4c92e62`, CLI grant); issue #7 retest (`WI-0007-68922c7f`, Gitea `/agent approve` via `GITEA_APPROVER_LOGINS`) |
 | **Slice 6B — local patch artifact** | **2026-06-22** | issue #8 fake E2E (`run-025ff111…`, approval consumed); issue #9 official review/plan + `README.md` scope + enqueue (`run-2fc4eff…` official fix parse fail); pytest 6B green; see [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) |
+| **Slice 4C — result ingest** | **2026-07-06** | issue #16; inbox → `.processed` + ledger events for plan/fix runs (`run-87f0892…`, `run-cfdb799a…`, `run-0ef720ec…`); **note:** 2-min cron still active on CT103 — disable to prove Redis-only ingest |
+| **Slice 5.2 — plan quality gate** | **2026-07-06** | issue #16 bare plan `run-cca5ddc0…`: "Plan not fixable", no WI block; scoped plan `run-5fc4e1a…`: `Allowed files: README.md` |
+| **Slice 5.3 — issue-task backfill** | **2026-07-06** | issue #16 bare `/agent plan` `run-cca5ddc0…`: `natural_language_task` backfilled from issue body on CT104 |
+| **Slice 6B+6C — fix E2E (official)** | **2026-07-06** | issue #16; plan `run-5fc4e1a…` / fix `run-cfdb799a…` and plan `run-c482b39…` / fix `run-0ef720ec…`; gate passed, no publish; **caveat:** `patch.diff` empty (0 bytes), `files_changed: (none)` — pipeline green, content weak |
+| **Slice 5.1 — engine reliability** | **partial** | Official fix completes without parse fail but empty patch; induced failure path not re-verified on this run |
+| **Slice 6D — branch push + PR** | **pending** | See issue #17 (6D publish test) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

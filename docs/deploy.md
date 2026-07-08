@@ -306,7 +306,8 @@ See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) and [secrets-bounda
 - [x] `GITEA_WEBHOOK_SECRET` and Gitea webhook registration (LAN `http://192.168.4.62:8080/webhooks/gitea`)
 - [x] CI deploy keeps **worker-state** (state queue) in sync via `--profile workers`
 - [x] **CT104 agent-worker** provision — see [ct104.md](ct104.md)
-- [x] **Slice 4C** event-driven ingest — see [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md)
-- [x] **Slice 5.1** engine reliability — see [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md)
-- [ ] **Slice 6D homelab sign-off** — `FIX_REMOTE_PUBLISH_ENABLED=true` on CT104; fake engine first
+- [x] **Slice 4C** event-driven ingest — homelab 2026-07-06 (issue #16); disable cron to prove Redis-only
+- [x] **Slice 5.1** engine reliability — code live; failure-path homelab re-check optional
+- [x] **Slice 5.2 + 5.3** — homelab 2026-07-06 (issue #16)
+- [ ] **Slice 6D homelab sign-off** — `FIX_REMOTE_PUBLISH_ENABLED=true` on CT104; issue #17; fake engine first
 - Do **not** run agent sandboxes or RQ repo workers on GPU Windows hosts

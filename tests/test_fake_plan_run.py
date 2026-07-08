@@ -110,3 +110,53 @@ def test_fake_plan_end_to_end(runs_env: Path, monkeypatch: pytest.MonkeyPatch) -
     stored, created = ingest_result_file(Path(os.environ["AGENT_STATE_ROOT"]), inbox)
     assert created is True
     assert stored.exists()
+
+
+def test_fake_plan_scopes_explicit_readme_from_task(
+    runs_env: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from agent_shared.models.context_pack import ContextPack
+    from agent_shared.models.review import BlastRadiusContext
+    from agent_workers.jobs.rlm_root import process_rlm_root
+
+    def _fake_context_pack(*_args, **_kwargs) -> ContextPack:
+        return ContextPack(
+            project="ai-sdlc-lab/demo-app",
+            issue_number=18,
+            issue_text='# Issue\n\nfiles must be ["README.md"]',
+            blast_radius=BlastRadiusContext(),
+        )
+
+    monkeypatch.setattr(
+        "agent_control.workflows.dispatch.compile_context_pack",
+        _fake_context_pack,
+    )
+
+    state = VerificationState(
+        project="ai-sdlc-lab/demo-app",
+        command_intent=CommandIntent(
+            activated=True,
+            activation="/agent",
+            kind="plan",
+            natural_language_task='files must be ["README.md"]',
+            confidence=1.0,
+        ),
+        dispatch_recommended=True,
+    )
+    trigger = {
+        "event_id": "plan-readme",
+        "delivery_id": "d-readme",
+        "type": "gitea.issue_comment",
+        "project": "ai-sdlc-lab/demo-app",
+        "payload": {"comment": {"body": "/agent plan", "id": 1}, "issue": {"number": 18}},
+    }
+    job = build_rlm_job(state, trigger)
+    assert job is not None
+    root_result = process_rlm_root(job.model_dump(mode="json"))
+    assert root_result["status"] == "completed"
+    run_path = Path(root_result["artifact_root"])
+    plan_data = json.loads((run_path / "plan_result.json").read_text(encoding="utf-8"))
+    assert plan_data["steps"]
+    assert "README.md" in plan_data["steps"][0]["files"]
+    assert "gitea_issue" not in plan_data["steps"][0]["files"]

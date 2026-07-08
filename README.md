@@ -4,7 +4,7 @@ Reusable platform for the Gitea agentic SDLC homelab — a **persistent, auditab
 
 Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, result ingest, ADR compiler, Redis/RQ, Gitea integration, model routing, and CT103 memory (SQLite + FTS5 target). CT104 executes bounded workflows.
 
-**Status:** Review + Plan MVP done. **Slice 5–6C** done. **Slice 5.1 + 4C** implemented. **Slice 6D** implemented (code; `FIX_REMOTE_PUBLISH_ENABLED=false` by default). **Slice 5.2 + 5.3** implemented (deploy CT103 then CT104). Homelab sign-off pending for Milestone 1 + 6D. See `docs/architecture.md` roadmap.
+**Status:** Review + Plan MVP done. **Slice 5–6C** done. **4C + 5.2 + 5.3** homelab signed off (issue #16, 2026-07-06). **6D** homelab pending (issue #17). See `docs/AGENT_CARD.md` and `docs/architecture.md`.
 
 ## Documentation index
 

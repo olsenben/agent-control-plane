@@ -17,6 +17,8 @@ from agent_shared.constants import (
     TERMINAL_STATUS_FAILED_GATE,
     TERMINAL_STATUS_FAILED_PUBLISH,
     TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL,
+    TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK,
+    TERMINAL_STATUS_FAILED_QUALITY_GATE,
     RunStatus,
     SessionEventType,
 )
@@ -43,18 +45,25 @@ from agent_workers.formatters.fix_comment import (
     render_fix_gate_failed,
     render_fix_publish_failed,
     render_fix_published_comment,
+    render_fix_quality_failed,
 )
 from agent_workers.gates.runner import APPROVED_PATCH_NAME, DiffGateError, run_closed_world_diff_gate
 from agent_workers.patch.apply import ApplyFixError, apply_fix_to_workspace
 from agent_workers.rlm.budget import fit_summary_for_comment
-from agent_workers.publish.remote import PublishError, fix_status_for_publish_result, publish_fix_branch_and_pr
+from agent_workers.publish.preflight import PublishPreflightError, run_publish_preflight
+from agent_workers.rlm.output_quality import (
+    QualityVerdict,
+    evaluate_patch_artifact,
+    write_quality_gate_result,
+)
 from agent_control.config import Settings
 from agent_control.gitea_client import GiteaClient
+from agent_workers.publish.remote import PublishError, fix_status_for_publish_result, publish_fix_branch_and_pr
 from agent_workers.rlm.engine import get_engine
 from agent_workers.runtime.capabilities import detect_capabilities, python_version
 from agent_workers.security.redactor import SecretRedactor
-from agent_workers.settings import WorkerSettings, get_worker_settings
 from agent_workers.repo.policy_loader import clone_repo, load_policy, write_policy_artifacts
+from agent_workers.settings import WorkerSettings, get_worker_settings
 from agent_workers.tools.registry import make_registry
 
 
@@ -80,6 +89,36 @@ def _attempt_remote_publish(
         result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
         return
     if result.fix_result is None:
+        return
+    session.emit(SessionEventType.PUBLISH_PREFLIGHT_STARTED)
+    try:
+        run_publish_preflight(
+            repo_workspace=repo_workspace,
+            artifact_root=run_path,
+            job=job,
+            settings=settings,
+            allowed_files=list(job.fix_authorization.allowed_files) if job.fix_authorization else [],
+        )
+        session.emit(SessionEventType.PUBLISH_PREFLIGHT_PASSED)
+    except PublishPreflightError as pre_exc:
+        write_quality_gate_result(
+            run_path,
+            QualityVerdict(passed=False, reasons=[str(pre_exc)], stage="publish_preflight"),
+        )
+        write_json(
+            run_path / "error.json",
+            {"stage": "publish_preflight", "message": str(pre_exc)},
+        )
+        result.status = "failed"
+        result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK
+        result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
+        result.summary = render_fix_publish_failed(
+            run_id=job.run_id,
+            stage="publish_preflight",
+            message=str(pre_exc),
+            partial=None,
+        )
+        session.emit(SessionEventType.PUBLISH_PREFLIGHT_FAILED, message=str(pre_exc))
         return
     session.emit(SessionEventType.STALE_BASE_CHECK_STARTED)
     try:
@@ -295,7 +334,7 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         result.trace_path = str(run_path / "rlm_trace.jsonl")
         result.context_receipt_path = str(run_path / "context_receipt.json")
 
-        if result.fix_result is not None:
+        if result.fix_result is not None and result.status == "completed":
             write_json(run_path / "fix_result.json", result.fix_result.model_dump(mode="json"))
             binding = job.fix_authorization
             allowed_files = list(binding.allowed_files) if binding is not None else []
@@ -322,32 +361,57 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                     result.patch_path = APPROVED_PATCH_NAME
                     result.diff_gate_result = gate_result.model_dump(mode="json")
                     session.emit(SessionEventType.PATCH_ARTIFACT_WRITTEN, artifact=APPROVED_PATCH_NAME)
-                    session.emit(SessionEventType.FIX_APPLY_COMPLETED)
-                    _attempt_remote_publish(
-                        repo_workspace=repo_workspace,
-                        policy_workspace=policy_workspace,
-                        run_path=run_path,
-                        job=job,
-                        result=result,
-                        settings=settings,
-                        session=session,
-                        gate_result=gate_result,
+                    patch_verdict = evaluate_patch_artifact(
+                        run_path,
+                        repo_workspace,
+                        allowed_files,
                     )
-                    if result.fix_status is None:
-                        result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
-                    if (
-                        result.fix_status == FIX_STATUS_LOCAL_PATCH_PASSED
-                        and result.fix_result is not None
-                        and result.summary is None
-                    ):
-                        result.summary = fit_summary_for_comment(
-                            render_fix_comment(
-                                result.fix_result,
-                                patch_artifact=APPROVED_PATCH_NAME,
-                                ci_matrix=gate_result.selected_ci_matrix,
-                            ),
-                            GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+                    if not patch_verdict.passed:
+                        write_quality_gate_result(run_path, patch_verdict)
+                        write_json(
+                            run_path / "error.json",
+                            {
+                                "stage": "patch_quality_gate",
+                                "message": "; ".join(patch_verdict.reasons),
+                                "allowed_files": allowed_files,
+                            },
                         )
+                        result.status = "failed"
+                        result.terminal_status = TERMINAL_STATUS_FAILED_QUALITY_GATE
+                        result.summary = render_fix_quality_failed(
+                            run_id=job.run_id,
+                            reasons=patch_verdict.reasons,
+                            fallback_attempted=False,
+                        )
+                        session.emit(SessionEventType.FIX_QUALITY_GATE_FAILED, message="patch quality gate failed")
+                        session.emit(SessionEventType.FIX_FAILED, message="patch quality gate failed")
+                    else:
+                        session.emit(SessionEventType.FIX_APPLY_COMPLETED)
+                        _attempt_remote_publish(
+                            repo_workspace=repo_workspace,
+                            policy_workspace=policy_workspace,
+                            run_path=run_path,
+                            job=job,
+                            result=result,
+                            settings=settings,
+                            session=session,
+                            gate_result=gate_result,
+                        )
+                        if result.fix_status is None:
+                            result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
+                        if (
+                            result.fix_status == FIX_STATUS_LOCAL_PATCH_PASSED
+                            and result.fix_result is not None
+                            and result.summary is None
+                        ):
+                            result.summary = fit_summary_for_comment(
+                                render_fix_comment(
+                                    result.fix_result,
+                                    patch_artifact=APPROVED_PATCH_NAME,
+                                    ci_matrix=gate_result.selected_ci_matrix,
+                                ),
+                                GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+                            )
                 except DiffGateError as gate_exc:
                     gate_result = gate_exc.result
                     result.diff_gate_result = gate_result.model_dump(mode="json")

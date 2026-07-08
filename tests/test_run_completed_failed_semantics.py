@@ -61,3 +61,35 @@ def test_ingest_preserves_terminal_status(tmp_path: Path) -> None:
     assert created is True
     stored_data = json.loads(stored.read_text(encoding="utf-8"))
     assert stored_data["payload"]["terminal_status"] == "failed_parse"
+
+
+def test_ingest_preserves_failed_quality_gate_terminal_status(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    inbox_dir = state / "inbox" / "ct104-results"
+    inbox_dir.mkdir(parents=True)
+    inbox = inbox_dir / "run-qg.json"
+    payload = {
+        "schema_version": "agent_run_completed.v1",
+        "run_id": "run-qg",
+        "job_id": "j1",
+        "workflow_id": "run-qg",
+        "session_id": "run-qg",
+        "trigger_event_id": "t1",
+        "project": "ai-sdlc-lab/demo",
+        "flow": "planner",
+        "agent": "planner",
+        "risk_class": "planning_only",
+        "status": "failed",
+        "terminal_status": "failed_quality_gate",
+        "summary": "hollow plan",
+        "artifact_root": "/tmp",
+        "command_kind": "plan",
+    }
+    inbox.write_text(json.dumps(payload), encoding="utf-8")
+
+    with patch("agent_control.results_ingest.writeback_from_completed") as mock_wb:
+        stored, created = ingest_result_file(state, inbox)
+        mock_wb.assert_not_called()
+    assert created is True
+    stored_data = json.loads(stored.read_text(encoding="utf-8"))
+    assert stored_data["payload"]["terminal_status"] == "failed_quality_gate"

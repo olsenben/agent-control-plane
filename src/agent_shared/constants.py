@@ -31,6 +31,8 @@ TERMINAL_STATUS_FAILED_GATE = "failed_gate"
 TERMINAL_STATUS_FAILED_INFRA = "failed_infra"
 TERMINAL_STATUS_FAILED_PUBLISH = "failed_publish"
 TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL = "failed_publish_partial"
+TERMINAL_STATUS_FAILED_QUALITY_GATE = "failed_quality_gate"
+TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK = "failed_publish_precheck"
 TERMINAL_FAILED_STATUSES = frozenset(
     {
         TERMINAL_STATUS_FAILED_PARSE,
@@ -39,6 +41,8 @@ TERMINAL_FAILED_STATUSES = frozenset(
         TERMINAL_STATUS_FAILED_INFRA,
         TERMINAL_STATUS_FAILED_PUBLISH,
         TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL,
+        TERMINAL_STATUS_FAILED_QUALITY_GATE,
+        TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK,
     }
 )
 
@@ -119,6 +123,12 @@ class SessionEventType(str, Enum):
     DIFF_GATE_STARTED = "diff_gate_started"
     DIFF_GATE_PASSED = "diff_gate_passed"
     DIFF_GATE_FAILED = "diff_gate_failed"
+    PLAN_QUALITY_GATE_FAILED = "plan_quality_gate_failed"
+    FIX_QUALITY_GATE_FAILED = "fix_quality_gate_failed"
+    MODEL_FALLBACK_ATTEMPTED = "model_fallback_attempted"
+    PUBLISH_PREFLIGHT_STARTED = "publish_preflight_started"
+    PUBLISH_PREFLIGHT_FAILED = "publish_preflight_failed"
+    PUBLISH_PREFLIGHT_PASSED = "publish_preflight_passed"
     PATCH_ARTIFACT_WRITTEN = "patch_artifact_written"
     FIX_FAILED = "fix_failed"
     STALE_BASE_CHECK_STARTED = "stale_base_check_started"

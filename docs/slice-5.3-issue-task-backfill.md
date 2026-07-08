@@ -1,6 +1,6 @@
 # Slice 5.3 — Issue-Task Backfill (Bare Review/Plan)
 
-**Status:** implemented  
+**Status:** implemented (homelab sign-off 2026-07-06, issue #16 — `run-cca5ddc0…`)  
 **Prerequisite:** [Plan MVP](architecture.md) (complete), `compile_context_pack` on issue threads (complete)  
 **Recommended before:** official-engine homelab sign-off at scale; **before 6D** (with [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md))
 

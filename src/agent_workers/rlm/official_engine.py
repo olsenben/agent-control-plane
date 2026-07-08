@@ -5,7 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from agent_control.model_router import resolve_role_primary
+from agent_workers.rlm.quality_loop import run_quality_gated_attempts
+from agent_workers.rlm.model_routing import resolve_rlm_gpu_endpoint, to_control_plane_endpoint
+from agent_shared.models.fix import FixResult
+from agent_shared.models.plan import PlanResult
 from agent_shared.models.runs import RLMResult
 from agent_workers.config.execution_strategy import ExecutionStrategy, get_execution_strategy
 from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS
@@ -19,10 +22,10 @@ from agent_workers.rlm.budget import (
 from agent_workers.rlm.completion import chat_completion
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
 from agent_workers.rlm.fix_finalize import finalize_fix_result
-from agent_workers.rlm.fix_parser import FixParseError, parse_fix_output
+from agent_workers.rlm.fix_parser import parse_fix_output
 from agent_workers.rlm.model_output import StructuredParseFailure
 from agent_workers.rlm.plan_finalize import finalize_plan_result
-from agent_workers.rlm.plan_parser import PlanParseError, parse_plan_output
+from agent_workers.rlm.plan_parser import parse_plan_output
 from agent_workers.rlm.prompts import (
     build_fix_system_preamble,
     build_plan_system_preamble,
@@ -308,7 +311,7 @@ class OfficialRLMEngine:
         risk_class = str(job.get("risk_class", "read_only"))
         _validate_kind_and_risk(kind, risk_class)
 
-        endpoint = resolve_role_primary("rlm")
+        endpoint = resolve_rlm_gpu_endpoint()
         if not endpoint.base_url:
             raise ValueError("OfficialRLMEngine requires configured MODEL_3080_BASE_URL (rlm role endpoint)")
 
@@ -371,46 +374,50 @@ class OfficialRLMEngine:
         max_iterations = capped_iterations(job, strategy.rlms_max_iterations_cap)
         max_depth = capped_depth(job, strategy.rlms_max_depth_cap)
         completion_timeout = completion_timeout_seconds(job)
-
-        if _rlms_available():
-            raw_response, _trace = _run_rlms(
-                preamble=preamble,
-                task=task,
-                context_text=context_text,
-                endpoint=endpoint,
-                max_iterations=max_iterations,
-                max_depth=max_depth,
-                artifact_dir=artifact_dir,
-                run_id=job["run_id"],
-            )
-            mode_note = "rlms"
-        else:
-            raw_response, _trace = _run_single_shot(
-                preamble=preamble,
-                task=task,
-                context_text=context_text,
-                endpoint=endpoint,
-                artifact_dir=artifact_dir,
-                run_id=job["run_id"],
-                timeout_seconds=completion_timeout,
-                kind=kind,
-            )
-            mode_note = "single_shot_openai_compatible"
-
         warnings = list(policy.get("warnings") or [])
-        if mode_note == "single_shot_openai_compatible":
+        use_rlms = _rlms_available()
+        if not use_rlms:
             warnings.append("rlms package not installed; used OpenAI-compatible single-shot completion")
+
+        def _call_model(worker_endpoint, suffix: str) -> str:
+            cp_endpoint = to_control_plane_endpoint(worker_endpoint)
+            task_text = f"{task}{suffix}"
+            if use_rlms:
+                raw_response, _trace = _run_rlms(
+                    preamble=preamble,
+                    task=task_text,
+                    context_text=context_text,
+                    endpoint=cp_endpoint,
+                    max_iterations=max_iterations,
+                    max_depth=max_depth,
+                    artifact_dir=artifact_dir,
+                    run_id=job["run_id"],
+                )
+            else:
+                raw_response, _trace = _run_single_shot(
+                    preamble=preamble,
+                    task=task_text,
+                    context_text=context_text,
+                    endpoint=cp_endpoint,
+                    artifact_dir=artifact_dir,
+                    run_id=job["run_id"],
+                    timeout_seconds=completion_timeout,
+                    kind=kind,
+                )
+            return raw_response
 
         review_result = None
         plan_result = None
         fix_result = None
+        summary = ""
         if kind in REVIEW_KINDS:
+            raw_response = _call_model(resolve_rlm_gpu_endpoint(), "")
             try:
                 parsed = parse_review_output(
                     raw_response,
                     context_pack=pack,
                     run_id=job["run_id"],
-                    repair_endpoint=endpoint,
+                    repair_endpoint=to_control_plane_endpoint(resolve_rlm_gpu_endpoint()),
                     repair_timeout_seconds=min(completion_timeout, 60.0),
                 )
             except ReviewParseError as exc:
@@ -430,61 +437,73 @@ class OfficialRLMEngine:
             )
             warnings.extend(review_warnings)
         elif kind in PLAN_KINDS:
-            try:
+            def _parse_plan(raw: str, repair_endpoint) -> tuple[str, Any, list[str]]:
                 parsed = parse_plan_output(
-                    raw_response,
+                    raw,
                     context_pack=pack,
                     run_id=job["run_id"],
-                    repair_endpoint=endpoint,
+                    repair_endpoint=repair_endpoint,
                     repair_timeout_seconds=min(completion_timeout, 60.0),
                 )
-            except PlanParseError as exc:
-                if isinstance(exc.__cause__, StructuredParseFailure):
-                    failure = exc.__cause__.artifact
-                    if artifact_dir:
-                        write_json(
-                            Path(artifact_dir) / "parse_failure.json",
-                            failure.model_dump(mode="json"),
-                        )
-                raise ValueError(f"Failed to parse plan output: {exc}") from exc
-            summary, plan_result, plan_warnings = finalize_plan_result(
-                parsed,
-                known_sources=sources,
+                return finalize_plan_result(
+                    parsed,
+                    known_sources=sources,
+                    job=job,
+                    engine=self.name,
+                )
+
+            failed, success = run_quality_gated_attempts(
+                kind="plan",
                 job=job,
-                engine=self.name,
+                artifact_dir=artifact_dir,
+                engine_name=self.name,
+                call_model=_call_model,
+                parse_and_finalize=_parse_plan,
             )
-            warnings.extend(plan_warnings)
+            if failed is not None:
+                return failed
+            assert success is not None and isinstance(success.parsed, PlanResult)
+            summary = success.summary or ""
+            plan_result = success.parsed
+            warnings.extend(success.warnings)
         elif kind in FIX_KINDS:
             binding = job.get("fix_authorization") or {}
             allowed_files = list(binding.get("allowed_files") or [])
-            try:
+
+            def _parse_fix(raw: str, repair_endpoint) -> tuple[str, Any, list[str]]:
                 parsed = parse_fix_output(
-                    raw_response,
+                    raw,
                     context_pack=pack,
                     run_id=job["run_id"],
-                    repair_endpoint=endpoint,
+                    repair_endpoint=repair_endpoint,
                     repair_timeout_seconds=min(completion_timeout, 60.0),
                     allowed_files=allowed_files,
                 )
-            except FixParseError as exc:
-                if isinstance(exc.__cause__, StructuredParseFailure):
-                    failure = exc.__cause__.artifact
-                    if artifact_dir:
-                        write_json(
-                            Path(artifact_dir) / "parse_failure.json",
-                            failure.model_dump(mode="json"),
-                        )
-                raise ValueError(f"Failed to parse fix output: {exc}") from exc
-            summary, fix_result, fix_warnings = finalize_fix_result(
-                parsed,
+                return finalize_fix_result(
+                    parsed,
+                    job=job,
+                    engine=self.name,
+                )
+
+            failed, success = run_quality_gated_attempts(
+                kind="fix",
                 job=job,
-                engine=self.name,
+                artifact_dir=artifact_dir,
+                engine_name=self.name,
+                call_model=_call_model,
+                parse_and_finalize=_parse_fix,
             )
-            warnings.extend(fix_warnings)
+            if failed is not None:
+                return failed
+            assert success is not None and isinstance(success.parsed, FixResult)
+            summary = success.summary or ""
+            fix_result = success.parsed
+            warnings.extend(success.warnings)
         else:
+            raw_response = _call_model(resolve_rlm_gpu_endpoint(), "")
             summary = raw_response
             if not summary:
-                summary = f"Read-only {kind} completed for '{task}' via {mode_note}; model returned empty content."
+                summary = f"Read-only {kind} completed for '{task}'; model returned empty content."
             else:
                 summary = fit_summary_for_comment(summary, GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS)
 
