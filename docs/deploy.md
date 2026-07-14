@@ -325,5 +325,6 @@ See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md).
 - [x] **Slice 5.1** engine reliability — code live; failure-path homelab re-check optional
 - [x] **Slice 5.2 + 5.3** — homelab 2026-07-06 (issue #16); 5.2 harden 2026-07-13
 - [x] **Slice 6D homelab sign-off** — issue #19 (2026-07-13) fake engine → PR #20; optional official-engine retest
-- [ ] **Slice 6E** — code ready; enable `FIX_CI_OBSERVE_ENABLED` on CT103 and verify on agent PR #20 (or successor)
+- [x] **Slice 6E** — 2026-07-14; `FIX_CI_OBSERVE_ENABLED=true`; PR #20 / `run-cf4c2b2e…` → `verified` + `ci_verified` memory
+- [ ] **Slice 6F** — CI failure → repair evidence loop (optional hardening: official-engine 6D+6E)
 - Do **not** run agent sandboxes or RQ repo workers on GPU Windows hosts

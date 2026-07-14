@@ -148,9 +148,9 @@ Model self-review is **not** an acceptance gate.
 | **Slice 5.3 — issue-task backfill** | **2026-07-06** | issue #16 bare `/agent plan` `run-cca5ddc0…`: `natural_language_task` backfilled from issue body on CT104 |
 | **Slice 6B+6C — fix E2E (official)** | **2026-07-06** | issue #16; plan `run-5fc4e1a…` / fix `run-cfdb799a…` and plan `run-c482b39…` / fix `run-0ef720ec…`; gate passed, no publish; **caveat:** `patch.diff` empty (0 bytes), `files_changed: (none)` — pipeline green, content weak |
 | **Slice 5.1 — engine reliability** | **partial** | Official fix completes without parse fail but empty patch; induced failure path not re-verified on this run |
-| **Slice 6D — branch push + PR** | **2026-07-13** | issue #19 fake E2E: plan `run-1b0a7162…` → fix `run-cf4c2b2e…` → branch `agent/run-cf4c2b2e…` → [PR #20](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/20); `main` untouched; 6E CI pending |
+| **Slice 6D — branch push + PR** | **2026-07-13** | issue #19 fake E2E: plan `run-1b0a7162…` → fix `run-cf4c2b2e…` → branch `agent/run-cf4c2b2e…` → [PR #20](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/20); `main` untouched |
 | **Slice 5.2 harden** | **2026-07-13** | Nested `plan_quality`, CT103 fail-closed (empty `allowed_files` / not fixable), per-mutating-step files; see [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
-| **Slice 6E.1 / 6E.2 — CI truth** | **2026-07-13 (code)** | Pending index + exact-SHA correlate + API confirm + aggregate verdict + verified-only memory; enable with `FIX_CI_OBSERVE_ENABLED=true`; see [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
+| **Slice 6E.1 / 6E.2 — CI truth** | **2026-07-14** | issue #19 / PR #20 / `run-cf4c2b2e…` @ `ef22f721…`: reconcile → `verdict=verified`; comment `rev1`; memory `ci_verified`; append-only `agent.fix_ci_*`; see [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

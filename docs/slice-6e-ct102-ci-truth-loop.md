@@ -1,8 +1,9 @@
 # Slice 6E — CT102 CI Truth Loop (6E.1 observe/aggregate + 6E.2 verified memory)
 
-**Status:** implemented (feature-flagged; default off)  
+**Status:** implemented + homelab signed off (2026-07-14)  
 **Prerequisite:** [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) (`pr_opened_pending_ci` + immutable `head_commit_sha`)  
-**Host:** CT102 (Gitea Actions) observed by CT103
+**Host:** CT102 (Gitea Actions) observed by CT103  
+**Homelab:** issue #19 / [PR #20](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/20) / fix `run-cf4c2b2e…` @ `ef22f721…` → verdict=`verified`, memory `ci_verified`, comment `rev1`
 
 ## Thesis
 
@@ -163,6 +164,22 @@ Startup / periodic / CLI `ci-reconcile` polls Actions API for pending records (w
 | Register on ingest | `src/agent_control/results_ingest.py` |
 | State worker hook | `src/agent_control/jobs/state.py` |
 | Gitea Actions client | `GiteaClient.get_workflow_run` / `list_workflow_runs` |
+
+## Homelab acceptance (2026-07-14)
+
+| Gate | Result |
+|------|--------|
+| `FIX_CI_OBSERVE_ENABLED=true` on CT103 | Pass |
+| Pending index (backfill for pre-6E PR #20) | Pass — exact SHA `ef22f721…` |
+| `ci-reconcile` Actions API confirm | Pass — runs 449/450 success |
+| Path match (`ci.yaml@refs/…` ↔ `.gitea/workflows/ci.yaml`) | Pass after path-normalize fix |
+| Verdict `verified` / `missing_workflows=[]` | Pass |
+| Comment `<!-- agent-ci-status:…:rev1 -->` on issue #19 | Pass |
+| Memory `memory_quality=ci_verified` | Pass — `mem-run-cf4c2b2e…-ef22f72179c7` |
+| Append-only `agent.fix_ci_*`; run_completed still `pr_opened_pending_ci` | Pass |
+| Agent did not merge | Pass |
+
+**Next:** Slice **6F** — CI failure → repair evidence loop (when `verdict=failing`, attach CT102 failure summary + optional re-fix path). Alternate hardening: official-engine 6D+6E once-through; land remaining 5.2 harden WIP.
 
 ## Related
 

@@ -110,11 +110,12 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Slice 5.2 — plan quality gate** | **Done (hardened)** | Nested `plan_quality`, CT103 fail-closed, per-mutating-step files. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
 | **Slice 5.3 — issue-task backfill** | **Done (homelab)** | issue #16 bare plan backfills `natural_language_task`. See [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) |
 | **6D — branch push + PR** | **Done (homelab fake)** | issue #19 → PR #20. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
-| **6E.1 — CI observe / aggregate** | **Done (code)** | Exact-SHA pending index, API confirm, multi-workflow verdict, append-only events, reconciler/CLI. Flag: `FIX_CI_OBSERVE_ENABLED`. See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
-| **6E.2 — verified memory + UX** | **Done (code)** | Memory upsert only when verdict=`verified` (`memory_quality=ci_verified`). See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
-| Later | — | Command reconciliation (`agentctl commands reconcile`), AgentFacts-lite, replay console, drift detector, MCP graph |
+| **6E.1 — CI observe / aggregate** | **Done (homelab)** | Exact-SHA pending index, API confirm, multi-workflow verdict, append-only events, reconciler/CLI. See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
+| **6E.2 — verified memory + UX** | **Done (homelab)** | Memory upsert only when verdict=`verified` (`memory_quality=ci_verified`). See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
+| **6F — CI failure repair loop** | **Next** | When `verdict=failing`, attach CT102 failure evidence + repair/re-fix path (V4 agent-PR CI fail → repair event) |
+| Later | — | Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20. 6E awaiting CT102 enablement on agent PRs.
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20; **2026-07-14: 6E CI truth on PR #20** (`verdict=verified`, memory `ci_verified`).
 
 ### Review MVP acceptance (full)
 
