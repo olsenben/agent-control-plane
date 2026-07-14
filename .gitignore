@@ -14,3 +14,7 @@ ct103_deploy
 ct103_deploy.pub
 ct104_deploy
 ct104_deploy.pub
+
+# Local debug / scratch runs
+.tmp-debug/
+

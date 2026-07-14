@@ -41,30 +41,57 @@ def normalize_conclusion(raw: str | None, *, status: str | None = None) -> Norma
     return mapping.get(value, "unknown")
 
 
-def _workflow_key(obs: WorkflowObservation) -> str:
-    if obs.workflow_id:
-        return f"id:{obs.workflow_id}"
-    if obs.path:
-        return f"path:{obs.path.replace(chr(92), '/')}"
-    return f"name:{obs.display_name.lower()}"
+def normalize_workflow_path(path: str | None) -> str:
+    """Normalize Gitea/Actions workflow identity paths for comparison.
+
+    Gitea often returns ``ci.yaml@refs/pull/20/head`` while our required matrix
+    uses ``.gitea/workflows/ci.yaml``.
+    """
+    text = (path or "").replace("\\", "/").strip()
+    if not text:
+        return ""
+    if "@" in text:
+        text = text.split("@", 1)[0].strip()
+    return text.strip("/")
 
 
-def _required_key(req: RequiredWorkflow) -> str:
-    if req.workflow_id:
-        return f"id:{req.workflow_id}"
-    if req.path:
-        return f"path:{req.path.replace(chr(92), '/')}"
-    return f"name:{req.display_name.lower()}"
+def workflow_paths_match(required: str | None, observed: str | None) -> bool:
+    """True when required and observed path refer to the same workflow file."""
+    req = normalize_workflow_path(required)
+    obs = normalize_workflow_path(observed)
+    if not req or not obs:
+        return False
+    if req == obs:
+        return True
+    if req.endswith("/" + obs) or obs.endswith("/" + req):
+        return True
+    return False
 
 
-def _latest_by_workflow(observations: list[WorkflowObservation]) -> dict[str, WorkflowObservation]:
-    latest: dict[str, WorkflowObservation] = {}
-    for obs in observations:
-        key = _workflow_key(obs)
-        prev = latest.get(key)
-        if prev is None or obs.run_attempt >= prev.run_attempt:
-            latest[key] = obs
-    return latest
+def _obs_matches_required(req: RequiredWorkflow, obs: WorkflowObservation) -> bool:
+    if req.workflow_id and obs.workflow_id and req.workflow_id == obs.workflow_id:
+        return True
+    if req.path and obs.path and workflow_paths_match(req.path, obs.path):
+        return True
+    if (
+        req.display_name
+        and obs.display_name
+        and req.display_name.lower() == obs.display_name.lower()
+        and not req.path
+        and not obs.path
+    ):
+        return True
+    return False
+
+
+def _latest_for_required(
+    req: RequiredWorkflow,
+    observations: list[WorkflowObservation],
+) -> WorkflowObservation | None:
+    matches = [o for o in observations if _obs_matches_required(req, o)]
+    if not matches:
+        return None
+    return max(matches, key=lambda o: (o.run_attempt, str(o.workflow_run_id)))
 
 
 def merge_observation(
@@ -80,8 +107,8 @@ def merge_observation(
             and existing.status == observation.status
             and existing.conclusion == observation.conclusion
         ):
-            # Exact duplicate — keep first (idempotent)
-            return result
+            # Exact duplicate payload — still re-evaluate (matcher/rules may have improved)
+            return evaluate_aggregate(result)
         if (
             existing.workflow_run_id == observation.workflow_run_id
             and existing.run_attempt == observation.run_attempt
@@ -124,29 +151,14 @@ def evaluate_aggregate(result: CiVerificationResult) -> CiVerificationResult:
         for o in result.observations
         if o.head_sha == result.expected_head_commit_sha
     ]
-    latest = _latest_by_workflow(sha_obs)
 
     missing: list[str] = []
     any_failing = False
     all_success = True
 
     for req in required:
-        key = _required_key(req)
-        label = req.path or req.display_name or req.workflow_id or key
-        obs = latest.get(key)
-        # Also try matching by path/name loosely if id missing
-        if obs is None:
-            for candidate in latest.values():
-                if req.path and candidate.path.replace("\\", "/") == req.path.replace("\\", "/"):
-                    obs = candidate
-                    break
-                if (
-                    req.display_name
-                    and candidate.display_name.lower() == req.display_name.lower()
-                    and (not req.path or not candidate.path)
-                ):
-                    obs = candidate
-                    break
+        label = req.path or req.display_name or req.workflow_id or "required"
+        obs = _latest_for_required(req, sha_obs)
         if obs is None:
             missing.append(label)
             all_success = False

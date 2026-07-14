@@ -9,9 +9,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from agent_control.ci.aggregate import (
+    evaluate_aggregate,
     merge_observation,
     normalize_conclusion,
     result_from_pending,
+    workflow_paths_match,
 )
 from agent_control.ci.artifacts import load_verification_current, write_observation_artifact
 from agent_control.ci.memory import memory_record_from_ci_verified, writeback_fix_ci_verified
@@ -166,6 +168,45 @@ def test_failed_then_successful_rerun_verified() -> None:
         ),
     )
     assert result.verdict == "verified"
+
+
+def test_gitea_path_ref_suffix_matches_repo_default() -> None:
+    """Gitea Actions returns ``ci.yaml@refs/...``; required uses ``.gitea/workflows/ci.yaml``."""
+    assert workflow_paths_match(
+        ".gitea/workflows/ci.yaml",
+        "ci.yaml@refs/pull/20/head",
+    )
+    assert workflow_paths_match(
+        ".gitea/workflows/ci.yaml",
+        "ci.yaml@refs/heads/agent/run-cf4c2b2edaf8643b833456660b0a2f85",
+    )
+    assert not workflow_paths_match(
+        ".gitea/workflows/ci.yaml",
+        "lint.yaml@refs/pull/20/head",
+    )
+    result = CiVerificationResult(
+        fix_run_id="run-1",
+        repository="ai-sdlc-lab/agent-control-plane",
+        expected_head_commit_sha="ef22",
+        required_workflows=[_req(".gitea/workflows/ci.yaml")],
+        observations=[
+            _obs(
+                path="ci.yaml@refs/heads/agent/run-x",
+                conclusion="success",
+                sha="ef22",
+                run_id="450",
+            ),
+            _obs(
+                path="ci.yaml@refs/pull/20/head",
+                conclusion="success",
+                sha="ef22",
+                run_id="449",
+            ),
+        ],
+    )
+    result = evaluate_aggregate(result)
+    assert result.verdict == "verified"
+    assert result.missing_workflows == []
 
 
 def test_duplicate_observation_idempotent(tmp_path: Path) -> None:
