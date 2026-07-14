@@ -301,6 +301,21 @@ GITEA_AGENT_TOKEN=<comments only>
 
 See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) and [secrets-boundaries.md](secrets-boundaries.md).
 
+### Slice 6E — CT102 CI truth (CT103)
+
+Enable after 6D sign-off when agent PRs run Actions workflows.
+
+```bash
+# CT103 .env
+FIX_CI_OBSERVE_ENABLED=true
+FIX_CI_REQUIRE_MATRIX_MATCH=true
+FIX_CI_REPO_DEFAULT_WORKFLOW=.gitea/workflows/ci.yaml
+```
+
+CLI: `agentctl fix pending-ci`, `agentctl fix ci-status --run-id … --repo …`, `agentctl fix ci-reconcile --repo …`.
+
+See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md).
+
 ## Defer until section 1.3+
 
 - [x] `GITEA_WEBHOOK_SECRET` and Gitea webhook registration (LAN `http://192.168.4.62:8080/webhooks/gitea`)
@@ -308,6 +323,7 @@ See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) and [secrets-bounda
 - [x] **CT104 agent-worker** provision — see [ct104.md](ct104.md)
 - [x] **Slice 4C** event-driven ingest — homelab 2026-07-06 (issue #16); disable cron to prove Redis-only
 - [x] **Slice 5.1** engine reliability — code live; failure-path homelab re-check optional
-- [x] **Slice 5.2 + 5.3** — homelab 2026-07-06 (issue #16)
-- [ ] **Slice 6D homelab sign-off** — `FIX_REMOTE_PUBLISH_ENABLED=true` on CT104; issue #17; fake engine first
+- [x] **Slice 5.2 + 5.3** — homelab 2026-07-06 (issue #16); 5.2 harden 2026-07-13
+- [x] **Slice 6D homelab sign-off** — issue #19 (2026-07-13) fake engine → PR #20; optional official-engine retest
+- [ ] **Slice 6E** — code ready; enable `FIX_CI_OBSERVE_ENABLED` on CT103 and verify on agent PR #20 (or successor)
 - Do **not** run agent sandboxes or RQ repo workers on GPU Windows hosts

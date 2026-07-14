@@ -82,6 +82,21 @@ class Settings(BaseSettings):
         alias="FIX_REMOTE_PUBLISH_ENABLED",
         description="Slice 6D: enable agent branch push + PR after diff gate pass",
     )
+    fix_ci_observe_enabled: bool = Field(
+        default=False,
+        alias="FIX_CI_OBSERVE_ENABLED",
+        description="Slice 6E.1: observe/correlate/aggregate CT102 workflow runs for agent PRs",
+    )
+    fix_ci_require_matrix_match: bool = Field(
+        default=True,
+        alias="FIX_CI_REQUIRE_MATRIX_MATCH",
+        description="Slice 6E.1: enforce required_workflows from matrix / repo default",
+    )
+    fix_ci_repo_default_workflow: str = Field(
+        default=".gitea/workflows/ci.yaml",
+        alias="FIX_CI_REPO_DEFAULT_WORKFLOW",
+        description="Repo-default CI workflow path when matrix is empty and require_matrix=true",
+    )
     graph_snapshot_repos: str = Field(
         default="",
         alias="GRAPH_SNAPSHOT_REPOS",

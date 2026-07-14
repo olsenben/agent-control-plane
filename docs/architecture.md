@@ -36,10 +36,11 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) | Structured output boundary (complete) |
 | [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) | Engine I/O: Instructor adapter, parse-failure reporting (blocks 6D) |
 | [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) | Event-driven ingest + reconciliation (blocks 6D) |
-| [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) | Hollow-plan gate — no fixable WI without scoped files |
+| [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) | Hollow-plan gate — nested quality schema + CT103 fail-closed |
 | [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) | Bare review/plan: backfill task from issue body on dispatch |
 | [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) | Post-apply closed-world diff gate (complete) |
-| [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) | Branch push + PR (6D — code complete; homelab pending) |
+| [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) | Branch push + PR (6D — homelab fake sign-off 2026-07-13) |
+| [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) | CT102 CI observe/aggregate (6E.1) + verified memory (6E.2) |
 | [slice-6d1-hollow-artifact-guardrails.md](slice-6d1-hollow-artifact-guardrails.md) | Quality gates, fallback, preflight — no hollow `completed` |
 | [graph-indexer.md](graph-indexer.md) | Graph-lite: Tree-sitter + SQLite + catalog-info |
 | [graph-oss-borrowing.md](research/tool-spikes/graph-oss-borrowing.md) | OSS borrow map and phases |
@@ -106,13 +107,14 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Slice 6C — closed-world diff gate** | **Done (CT104)** | Post-apply policy gate; `raw_patch.diff` → promoted `patch.diff`; `diff_gate_result.json`. See [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) |
 | **Slice 5.1 — engine reliability** | **Done (code)** | Failure reporting, missing-JSON retry, `StructuredOutputClient`, RQ handler. Homelab failure-path re-check optional. See [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md) |
 | **Slice 4C — result ingest automation** | **Done (homelab)** | Ingest + ledger on issue #16; cron fallback still on CT103. See [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md) |
-| **Slice 5.2 — plan quality gate** | **Done (homelab)** | issue #16 `run-cca5ddc0…` not fixable / no WI. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
+| **Slice 5.2 — plan quality gate** | **Done (hardened)** | Nested `plan_quality`, CT103 fail-closed, per-mutating-step files. See [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
 | **Slice 5.3 — issue-task backfill** | **Done (homelab)** | issue #16 bare plan backfills `natural_language_task`. See [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) |
-| **6D — branch push + PR** | **Done (code); homelab pending** | issue #17 publish test. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
-| **6E — CT102 CI truth loop** | **Planned** | After 6D homelab sign-off |
+| **6D — branch push + PR** | **Done (homelab fake)** | issue #19 → PR #20. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
+| **6E.1 — CI observe / aggregate** | **Done (code)** | Exact-SHA pending index, API confirm, multi-workflow verdict, append-only events, reconciler/CLI. Flag: `FIX_CI_OBSERVE_ENABLED`. See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
+| **6E.2 — verified memory + UX** | **Done (code)** | Memory upsert only when verdict=`verified` (`memory_quality=ci_verified`). See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
 | Later | — | Command reconciliation (`agentctl commands reconcile`), AgentFacts-lite, replay console, drift detector, MCP graph |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; 6D → issue #17.
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20. 6E awaiting CT102 enablement on agent PRs.
 
 ### Review MVP acceptance (full)
 

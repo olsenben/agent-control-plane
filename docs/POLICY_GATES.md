@@ -70,7 +70,7 @@ Review findings are **hypotheses**, not verified truth.
 
 ## Risk 2 — fix
 
-Slice **6B+6C** (current): After approval, CT103 enqueues CT104 fix worker. CT104 applies workspace-local changes, runs closed-world diff gate, writes `raw_patch.diff` and promotes `patch.diff` only on gate pass. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) and [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md). Slice 6A: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md). Slice **6D** (planned): branch push + PR after gate pass — [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md).
+Slice **6B+6C**: After approval, CT103 enqueues CT104 fix worker. CT104 applies workspace-local changes, runs closed-world diff gate, writes `raw_patch.diff` and promotes `patch.diff` only on gate pass. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) and [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md). Slice 6A: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md). Slice **6D**: branch push + PR after gate pass — [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md). Slice **6E**: CT102 CI aggregate truth (webhook signal + Actions API confirm; append-only `agent.fix_ci_*` events; memory only when verdict=`verified`) — [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md).
 
 ```yaml
 repo_access: branch_write_only
@@ -78,6 +78,8 @@ auto_run: false
 human_approval_event: human.approval_granted
 fix_authorized_event: agent.fix_authorized   # before enqueue
 fix_enqueued_event: agent.fix_enqueued       # CT104 job created (6B)
+fix_ci_observed_event: agent.fix_ci_observed           # 6E.1
+fix_ci_verdict_changed_event: agent.fix_ci_verdict_changed  # 6E.1
 required_before_dispatch:
   - prior_review_or_plan_memory
   - blast_radius_acknowledged
@@ -87,14 +89,15 @@ allowed_side_effects:
   - agent_branch_push
   - gitea_comment
   - pr_open
-  - memory_writeback
+  - memory_writeback   # fix: only after CI verdict=verified (6E.2)
 blocked:
   - push_to_protected_main
   - workflow_file_edit_without_hitl
   - adr_modification_without_hitl
+  - fix_memory_before_ci_verified
 ```
 
-Success means: branch, diff, logs, test output, **CT102 CI status** — not model self-assessment.
+Success means: branch, diff, logs, test output, **CT102 CI aggregate status** (all required workflows green for the exact head SHA) — not model self-assessment.
 
 ## Risk 3 — deploy / migrate / secrets
 

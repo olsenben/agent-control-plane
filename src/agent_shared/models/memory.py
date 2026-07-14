@@ -9,7 +9,12 @@ from pydantic import BaseModel, Field
 from agent_shared.models.plan import PlanResult
 from agent_shared.models.review import BlastRadiusContext, ReviewFinding, ReviewResult
 
-MemoryQuality = Literal["model_generated", "structured_result", "human_verified"]
+MemoryQuality = Literal[
+    "model_generated",
+    "structured_result",
+    "human_verified",
+    "ci_verified",
+]
 PromptHashSource = Literal["final_prompt", "not_available"]
 RiskTagSourceKind = Literal["model_output", "policy_gate", "semgrep", "human"]
 SourceCommand = Literal["inspect", "explain", "review", "plan", "fix"]

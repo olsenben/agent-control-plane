@@ -35,6 +35,7 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
 
     dispatch_result: dict[str, Any] = {"dispatched": False}
     approval_result: dict[str, Any] = {"handled": False}
+    ci_result: dict[str, Any] = {"handled": False}
     if events:
         trigger = next((e for e in reversed(events) if e.get("event_id") == event_id), events[-1])
         trigger_intent, trigger_dispatch, trigger_kind = dispatch_for_event(trigger)
@@ -66,6 +67,25 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
             except Exception as exc:
                 dispatch_result = {"dispatched": False, "error": str(exc)}
 
+        # Slice 6E.1: correlate terminal workflow events to pending fixes
+        if str(trigger.get("type", "")).startswith("gitea.workflow_"):
+            from agent_control.ci.observe import handle_workflow_event
+
+            try:
+                ci_result = handle_workflow_event(root, trigger, settings=settings)
+            except Exception as exc:
+                ci_result = {"handled": False, "error": str(exc)}
+            # Soft reconcile same repo (catch dropped webhooks; idempotent)
+            if settings.fix_ci_observe_enabled:
+                try:
+                    from agent_control.ci.reconcile import reconcile_pending_ci
+
+                    ci_result["reconcile"] = reconcile_pending_ci(
+                        root, project=project, settings=settings
+                    )
+                except Exception as exc:
+                    ci_result["reconcile_error"] = str(exc)
+
     intent = state.command_intent
     return {
         "trigger_event_id": event_id,
@@ -77,4 +97,5 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
         "snapshot_required": state.snapshot_required,
         "dispatch": dispatch_result,
         "approval": approval_result,
+        "ci": ci_result,
     }

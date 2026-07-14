@@ -1,5 +1,7 @@
 # Slice 6D — Branch Push + PR
 
+**Status:** implemented (homelab fake sign-off 2026-07-13, issue #19 → PR #20)
+
 After Slice 6C closed-world diff gate passes, CT104 may publish an approved patch to a deterministic `agent/{run_id}` branch and open a structured Gitea PR. **Nothing is verified until Slice 6E (CT102 CI).**
 
 **Prerequisite:** [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md), [slice-5.1-engine-reliability.md](slice-5.1-engine-reliability.md), [slice-4c-result-ingest-automation.md](slice-4c-result-ingest-automation.md), [slice-6d1-hollow-artifact-guardrails.md](slice-6d1-hollow-artifact-guardrails.md)
@@ -133,9 +135,12 @@ Before writing any of: `remote_publish_result.json`, `remote_publish_plan.json`,
 
 Deploy with `FIX_REMOTE_PUBLISH_ENABLED=true` after Milestone 1 (5.1 + 4C) sign-off. Recommended before official-engine 6D runs: [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) and [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) (homelab issues #13–#14). Fake engine first; then one official-engine trivial fix on a single allowed file.
 
+**Next:** [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) — observe CT102 on the agent PR (`FIX_CI_OBSERVE_ENABLED`).
+
 ## Related
 
 - [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md)
+- [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md)
 - [POLICY_GATES.md](POLICY_GATES.md)
 - [deploy.md](deploy.md)
 - [secrets-boundaries.md](secrets-boundaries.md)

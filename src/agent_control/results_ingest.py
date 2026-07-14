@@ -46,7 +46,10 @@ def handle_fix_ingest_side_effects(
     state_root: Path,
     event: AgentRunCompletedEvent,
 ) -> None:
-    """Consume or release approval based on fix ingest outcome (Slice 6D)."""
+    """Consume or release approval based on fix ingest outcome (Slice 6D).
+
+    Also registers pending CI observation when ``fix_status=pr_opened_pending_ci`` (6E.1).
+    """
     from agent_control.approval.events import append_approval_consumed, append_approval_released
     from agent_control.approval.storage import load_approval
     from agent_shared.constants import (
@@ -55,6 +58,9 @@ def handle_fix_ingest_side_effects(
         FIX_STATUS_PUBLISH_FAILED,
     )
     from agent_shared.models.approval import ApprovalConsumedEvent, ApprovalReleasedEvent
+
+    if event.command_kind == "fix" and event.fix_status == FIX_STATUS_PR_OPENED_PENDING_CI:
+        _register_pending_ci_from_event(state_root, event)
 
     if event.command_kind != "fix" or not event.approval_id or not event.approval_target_id:
         return
@@ -126,6 +132,42 @@ def handle_fix_ingest_side_effects(
             reason="fix_run_failed",
         )
         append_approval_released(state_root, body=body, comment_id=None)
+
+
+def _register_pending_ci_from_event(
+    state_root: Path,
+    event: AgentRunCompletedEvent,
+) -> None:
+    if not event.head_commit_sha or not event.project:
+        return
+    from agent_control.ci.observe import required_workflows_from_hints
+    from agent_control.ci.pending import register_pending_ci
+    from agent_control.config import get_settings
+
+    settings = get_settings()
+    workflow_hints: list[str] = []
+    if event.fix_result is not None:
+        workflow_hints = list(getattr(event.fix_result, "ci_hints", None) or [])
+    required = required_workflows_from_hints(
+        workflow_hints,
+        require_matrix=settings.fix_ci_require_matrix_match,
+        repo_default=(
+            settings.fix_ci_repo_default_workflow
+            if settings.fix_ci_require_matrix_match
+            else None
+        ),
+    )
+    register_pending_ci(
+        state_root,
+        fix_run_id=event.run_id,
+        repository=event.project,
+        expected_head_commit_sha=event.head_commit_sha,
+        opened_pr_number=event.opened_pr_number,
+        issue_id=event.issue_id,
+        agent_branch=event.agent_branch,
+        required_workflows=required,
+        artifact_root=event.artifact_root,
+    )
 
 
 def ingest_result_file(

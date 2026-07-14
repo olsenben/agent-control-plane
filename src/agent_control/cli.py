@@ -476,10 +476,76 @@ def review(repo: Path | None) -> None:
     click.echo(json.dumps(review_wf.review({"repo": str(repo) if repo else None})))
 
 
-@main.command()
+@main.command("fix-cmd")
 @click.option("--finding-id", required=True)
 def fix_cmd(finding_id: str) -> None:
     click.echo(json.dumps(fix_wf.fix({}, finding_id)))
+
+
+@main.group("fix")
+def fix_group() -> None:
+    """Fix CI observation and status (Slice 6E)."""
+
+
+@fix_group.command("pending-ci")
+@click.option("--repo", "project", default=None, help="owner/repo filter")
+@click.option("--include-terminal", is_flag=True, default=False)
+def fix_pending_ci(project: str | None, include_terminal: bool) -> None:
+    """List pending CI records (pr_opened_pending_ci awaiting aggregate verdict)."""
+    from agent_control.ci.pending import list_pending_ci
+
+    settings = get_settings()
+    items = list_pending_ci(
+        settings.agent_state_root,
+        project,
+        include_terminal=include_terminal,
+    )
+    click.echo(
+        json.dumps([r.model_dump(mode="json") for r in items], indent=2)
+    )
+
+
+@fix_group.command("ci-status")
+@click.option("--run-id", "fix_run_id", required=True)
+@click.option("--repo", "project", required=True, help="owner/repo")
+def fix_ci_status(fix_run_id: str, project: str) -> None:
+    """Show current CI aggregate verdict for a fix run."""
+    from agent_control.ci.artifacts import load_verification_current
+    from agent_control.ci.observe import rebuild_result_from_ledger
+    from agent_control.ci.pending import load_pending_ci
+    from pathlib import Path
+
+    settings = get_settings()
+    pending = load_pending_ci(settings.agent_state_root, project, fix_run_id)
+    if pending is None:
+        raise click.ClickException(f"no pending_ci for run_id={fix_run_id}")
+    result = None
+    if pending.artifact_root:
+        result = load_verification_current(Path(pending.artifact_root))
+    if result is None:
+        result = rebuild_result_from_ledger(
+            settings.agent_state_root, project, fix_run_id
+        )
+    payload = {
+        "pending": pending.model_dump(mode="json"),
+        "verification": result.model_dump(mode="json") if result else None,
+    }
+    click.echo(json.dumps(payload, indent=2))
+
+
+@fix_group.command("ci-reconcile")
+@click.option("--repo", "project", default=None, help="owner/repo filter")
+def fix_ci_reconcile(project: str | None) -> None:
+    """Force sweep: poll Gitea Actions API for pending CI records."""
+    from agent_control.ci.reconcile import reconcile_pending_ci
+
+    settings = get_settings()
+    results = reconcile_pending_ci(
+        settings.agent_state_root,
+        project=project,
+        settings=settings,
+    )
+    click.echo(json.dumps(results, indent=2))
 
 
 @main.command()

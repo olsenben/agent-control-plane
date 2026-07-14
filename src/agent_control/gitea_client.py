@@ -112,3 +112,37 @@ class GiteaClient:
             resp = await client.post(url, json={"body": body}, headers=self._headers())
             resp.raise_for_status()
             return resp.json()
+
+    def get_workflow_run(self, owner: str, repo: str, run_id: str | int) -> dict[str, Any]:
+        """GET /repos/{owner}/{repo}/actions/runs/{run} — authoritative Actions state."""
+        return self._get(f"/repos/{owner}/{repo}/actions/runs/{run_id}")
+
+    def list_workflow_runs(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        head_sha: str | None = None,
+        status: str | None = None,
+        branch: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """GET /repos/{owner}/{repo}/actions/runs with optional head_sha filter."""
+        from urllib.parse import urlencode
+
+        params: dict[str, str | int] = {"limit": limit}
+        if head_sha:
+            params["head_sha"] = head_sha
+        if status:
+            params["status"] = status
+        if branch:
+            params["branch"] = branch
+        query = urlencode(params)
+        data = self._get(f"/repos/{owner}/{repo}/actions/runs?{query}")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            runs = data.get("workflow_runs") or data.get("runs") or []
+            if isinstance(runs, list):
+                return runs
+        return []
