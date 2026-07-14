@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+_ADR_FILE = re.compile(r"^\d{4}-.+\.md$", re.IGNORECASE)
 
 
 def parse_adr_front_matter(path: Path) -> dict[str, Any]:
@@ -21,6 +24,9 @@ def compile_adrs(adr_dir: Path) -> list[dict[str, Any]]:
     if not adr_dir.is_dir():
         return facts
     for path in sorted(adr_dir.glob("*.md")):
+        # Index/README files (e.g. summary.md) are not ADRs
+        if not _ADR_FILE.match(path.name):
+            continue
         meta = parse_adr_front_matter(path)
         if meta.get("status") in ("superseded", "withdrawn", "deprecated"):
             continue
