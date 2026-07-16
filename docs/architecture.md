@@ -41,6 +41,10 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) | Post-apply closed-world diff gate (complete) |
 | [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) | Branch push + PR (6D — homelab fake sign-off 2026-07-13) |
 | [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) | CT102 CI observe/aggregate (6E.1) + verified memory (6E.2) |
+| [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) | 6F.1 failure evidence + 6F.2 gated repair |
+| [slice-6f-gitea-actions-contract.md](slice-6f-gitea-actions-contract.md) | Live Gitea jobs/logs API contract |
+| [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) | CT104 SRT/Bubblewrap spike — gate before `/agent fix` |
+| [adr/0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md) | Anthropic SRT as initial SandboxBackend (fail closed) |
 | [slice-6d1-hollow-artifact-guardrails.md](slice-6d1-hollow-artifact-guardrails.md) | Quality gates, fallback, preflight — no hollow `completed` |
 | [graph-indexer.md](graph-indexer.md) | Graph-lite: Tree-sitter + SQLite + catalog-info |
 | [graph-oss-borrowing.md](research/tool-spikes/graph-oss-borrowing.md) | OSS borrow map and phases |
@@ -64,7 +68,7 @@ Gitea
 |------|----------|----------|
 | 0 | inspect, explain | Read-only; auto-run |
 | 1 | review, plan | Read-only; selective memory; graph blast-radius required |
-| 2 | fix | Branch only; human approval; CT102 verifies |
+| 2 | fix | Branch only; human approval; **OS sandbox required (SRT preferred, fallback deny)**; CT102 verifies |
 | 3 | deploy/secrets | Blocked by default |
 
 Detail: [POLICY_GATES.md](POLICY_GATES.md).
@@ -112,8 +116,10 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **6D — branch push + PR** | **Done (homelab fake)** | issue #19 → PR #20. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
 | **6E.1 — CI observe / aggregate** | **Done (homelab)** | Exact-SHA pending index, API confirm, multi-workflow verdict, append-only events, reconciler/CLI. See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
 | **6E.2 — verified memory + UX** | **Done (homelab)** | Memory upsert only when verdict=`verified` (`memory_quality=ci_verified`). See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
-| **6F — CI failure repair loop** | **Next** | When `verdict=failing`, attach CT102 failure evidence + repair/re-fix path (V4 agent-PR CI fail → repair event) |
-| Later | — | Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
+| **6F.1 — CI failure evidence** | **Code** | Idempotent evidence + hostile logs; live contract probe harness. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
+| **Sandbox attestation** | **Code** | SRT/bwrap backend + canary probes; CT104 live spike pending. See [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) |
+| **6F.2 — CI repair loop** | **Gated off** | `repair_allowed` + PR locks; enable after attestation + official-engine once-through |
+| Later | — | **Invocation ack + bot identity** (started → success/failure comments as `agent-bot`; record `invoked_by` for audit — never act as human PAT). Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
 
 Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20; **2026-07-14: 6E CI truth on PR #20** (`verdict=verified`, memory `ci_verified`).
 

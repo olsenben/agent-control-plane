@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -97,6 +97,36 @@ class Settings(BaseSettings):
         alias="FIX_CI_REPO_DEFAULT_WORKFLOW",
         description="Repo-default CI workflow path when matrix is empty and require_matrix=true",
     )
+    fix_ci_failure_evidence_enabled: bool = Field(
+        default=False,
+        alias="FIX_CI_FAILURE_EVIDENCE_ENABLED",
+        description="Slice 6F.1: pull CT102 job logs and persist failure evidence",
+    )
+    fix_ci_repair_enabled: bool = Field(
+        default=False,
+        alias="FIX_CI_REPAIR_ENABLED",
+        description="Slice 6F.2: gated automatic repair (requires observe + evidence)",
+    )
+    fix_ci_repair_max_attempts: int = Field(
+        default=3,
+        alias="FIX_CI_REPAIR_MAX_ATTEMPTS",
+        description="Repair sessions after the initial fix (infra retries excluded)",
+    )
+    sandbox_backend: str = Field(
+        default="srt",
+        alias="SANDBOX_BACKEND",
+        description="OS sandbox backend id (srt); nested/weak mode never accepted",
+    )
+    sandbox_expected_policy_hash: str = Field(
+        default="",
+        alias="SANDBOX_EXPECTED_POLICY_HASH",
+        description="Required policy_hash for strong sandbox attestation",
+    )
+    sandbox_require_attestation: bool = Field(
+        default=True,
+        alias="SANDBOX_REQUIRE_ATTESTATION",
+        description="Risk 2 / repair require strong attestation when true",
+    )
     graph_snapshot_repos: str = Field(
         default="",
         alias="GRAPH_SNAPSHOT_REPOS",
@@ -146,6 +176,17 @@ class Settings(BaseSettings):
 
     def external_roles_set(self) -> set[str]:
         return {r.strip() for r in self.model_external_roles.split(",") if r.strip()}
+
+    @model_validator(mode="after")
+    def validate_fix_ci_flag_combo(self) -> Settings:
+        if self.fix_ci_repair_enabled and not (
+            self.fix_ci_observe_enabled and self.fix_ci_failure_evidence_enabled
+        ):
+            raise ValueError(
+                "FIX_CI_REPAIR_ENABLED requires FIX_CI_OBSERVE_ENABLED and "
+                "FIX_CI_FAILURE_EVIDENCE_ENABLED"
+            )
+        return self
 
 
 def get_settings() -> Settings:

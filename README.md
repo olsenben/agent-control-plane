@@ -4,7 +4,7 @@ Reusable platform for the Gitea agentic SDLC homelab — a **persistent, auditab
 
 Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, result ingest, ADR compiler, Redis/RQ, Gitea integration, model routing, and CT103 memory (SQLite + FTS5 target). CT104 executes bounded workflows.
 
-**Status:** Review + Plan MVP done. **Slice 5–6E** done (6E CI truth homelab sign-off 2026-07-14 on PR #20). **Next: 6F** CI failure repair loop. See `docs/AGENT_CARD.md` and `docs/architecture.md`.
+**Status:** Review + Plan MVP done. **Slice 5–6E** done (6E CI truth homelab sign-off 2026-07-14 on PR #20). **6F.1** failure evidence in-tree (flag off); **6F.2** repair gated on sandbox attestation. See `docs/AGENT_CARD.md`, `docs/architecture.md`, `docs/slice-6f-ci-failure-repair.md`.
 
 ## Documentation index
 
@@ -26,7 +26,9 @@ Owns canonical JSON schemas, `agentctl`, webhook guard, reducer, dispatch, resul
 | [slice-4c-result-ingest-automation.md](docs/slice-4c-result-ingest-automation.md) | Event-driven result ingest |
 | [slice-5.2-plan-quality-gate.md](docs/slice-5.2-plan-quality-gate.md) | Plan quality gate |
 | [slice-5.3-issue-task-backfill.md](docs/slice-5.3-issue-task-backfill.md) | Bare review/plan issue-task backfill |
-| [slice-5.2-5.3-bundle-plan.md](docs/slice-5.2-5.3-bundle-plan.md) | 5.2 + 5.3 bundle plan and homelab verification |
+| [slice-6e-ct102-ci-truth-loop.md](docs/slice-6e-ct102-ci-truth-loop.md) | CT102 CI truth (6E) |
+| [slice-6f-ci-failure-repair.md](docs/slice-6f-ci-failure-repair.md) | CI failure evidence + gated repair (6F) |
+| [slice-5.6a-srt-sandbox-spike.md](docs/slice-5.6a-srt-sandbox-spike.md) | SRT sandbox spike / attestation |
 
 Target repos are thin clients; they declare contract versions via `.agent/contract.yaml` and must not copy schema files from this package.
 

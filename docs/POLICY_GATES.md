@@ -70,7 +70,7 @@ Review findings are **hypotheses**, not verified truth.
 
 ## Risk 2 — fix
 
-Slice **6B+6C**: After approval, CT103 enqueues CT104 fix worker. CT104 applies workspace-local changes, runs closed-world diff gate, writes `raw_patch.diff` and promotes `patch.diff` only on gate pass. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) and [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md). Slice 6A: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md). Slice **6D**: branch push + PR after gate pass — [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md). Slice **6E**: CT102 CI aggregate truth (webhook signal + Actions API confirm; append-only `agent.fix_ci_*` events; memory only when verdict=`verified`) — [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md).
+Slice **6B+6C**: After approval, CT103 enqueues CT104 fix worker. CT104 applies workspace-local changes, runs closed-world diff gate, writes `raw_patch.diff` and promotes `patch.diff` only on gate pass. See [slice-6b-local-patch-artifact.md](slice-6b-local-patch-artifact.md) and [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md). Slice 6A: [slice-6a-approval-plumbing.md](slice-6a-approval-plumbing.md). Slice **6D**: branch push + PR after gate pass — [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md). Slice **6E**: CT102 CI aggregate truth (webhook signal + Actions API confirm; append-only `agent.fix_ci_*` events; memory only when verdict=`verified`) — [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md). Slice **6F.1**: failure evidence (hostile logs, idempotent observation ids). Slice **6F.2**: repair gated by `repair_allowed` + sandbox attestation — [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md).
 
 ```yaml
 repo_access: branch_write_only
@@ -153,6 +153,13 @@ agent_identity:
 ```
 
 Future: CT103-signed capability manifest per worker role. See §0.5 in V4 plan.
+
+### Deferred — Gitea acting principal vs invoker
+
+- **Acting identity:** dedicated Gitea user `agent-bot` owns `GITEA_AGENT_TOKEN` / `GITEA_BOT_TOKEN`. Do not use a human personal PAT for agent comments, pushes, or PRs.
+- **Invoker:** webhook author (or approving human) recorded as `invoked_by` on session events, ledger, and comment footers for auditability.
+- **Ack protocol:** accepted command → started comment; terminal outcome → success/failure/blocked comment (same `run_id`). Policy denials still get a visible failure/blocked ack.
+- Approvals and owner checks bind to the **human** invoker/approver, not the bot account.
 
 ## Related docs
 

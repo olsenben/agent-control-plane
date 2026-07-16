@@ -96,3 +96,162 @@ class FixCiVerdictChangedEvent(BaseModel):
     verdict_revision: int
     reason_codes: list[str] = Field(default_factory=list)
     evaluated_at: str = ""
+
+
+# --- Slice 6F.1 failure evidence ---
+
+EvidenceStatus = Literal["collected", "unavailable", "contract_mismatch"]
+FailureClass = Literal[
+    "test_failure",
+    "lint_failure",
+    "build_failure",
+    "deterministic_typecheck_failure",
+    "runner_unavailable",
+    "infrastructure_failure",
+    "checkout_failure",
+    "dependency_registry_unavailable",
+    "api_unavailable",
+    "cancelled_or_superseded",
+    "sandbox_failure",
+    "unknown",
+]
+
+AUTO_REPAIRABLE_FAILURE_CLASSES: frozenset[str] = frozenset(
+    {
+        "test_failure",
+        "lint_failure",
+        "build_failure",
+        "deterministic_typecheck_failure",
+    }
+)
+
+REDACTION_POLICY_VERSION = "ci_log_redaction.v1"
+TRUNCATION_STRATEGY = "head_error_windows_tail.v1"
+
+
+class EvidenceJobRecord(BaseModel):
+    job_id: str
+    name: str = ""
+    status: str = ""
+    conclusion: str = ""
+    retained_path: str = ""
+    retained_sha256: str = ""
+    bytes_retained: int = 0
+    lines_retained: int = 0
+    window_offsets: list[tuple[int, int]] = Field(default_factory=list)
+
+
+class FailureEvidenceManifest(BaseModel):
+    schema_version: str = "ci_failure_evidence.v1"
+    evidence_observation_id: str
+    status: EvidenceStatus
+    fix_run_id: str
+    repository: str
+    expected_head_commit_sha: str
+    pr_number: int | None = None
+    workflow_run_id: str
+    run_number: int | None = None
+    workflow_run_attempt: int = 1
+    workflow_path: str = ""
+    workflow_display_name: str = ""
+    redaction_policy_version: str = REDACTION_POLICY_VERSION
+    redaction_count: int = 0
+    bytes_received: int = 0
+    bytes_retained: int = 0
+    lines_retained: int = 0
+    truncation_strategy: str = TRUNCATION_STRATEGY
+    retained_sha256: str = ""
+    source_content_length: int | None = None
+    jobs: list[EvidenceJobRecord] = Field(default_factory=list)
+    failure_class: FailureClass = "unknown"
+    reason_codes: list[str] = Field(default_factory=list)
+    collected_at: str = ""
+    has_terminal_failed_job: bool = False
+
+
+class FixCiFailureEvidenceCollectedEvent(BaseModel):
+    schema_version: str = "agent_fix_ci_failure_evidence_collected.v1"
+    type: str = "agent.fix_ci_failure_evidence_collected"
+    fix_run_id: str
+    repository: str
+    expected_head_commit_sha: str
+    pr_number: int | None = None
+    evidence_observation_id: str
+    workflow_run_id: str
+    workflow_run_attempt: int = 1
+    status: EvidenceStatus = "collected"
+    failure_class: FailureClass = "unknown"
+    has_terminal_failed_job: bool = False
+
+
+class FixCiFailureEvidenceUnavailableEvent(BaseModel):
+    schema_version: str = "agent_fix_ci_failure_evidence_unavailable.v1"
+    type: str = "agent.fix_ci_failure_evidence_unavailable"
+    fix_run_id: str
+    repository: str
+    expected_head_commit_sha: str
+    pr_number: int | None = None
+    evidence_observation_id: str
+    workflow_run_id: str
+    workflow_run_attempt: int = 1
+    status: EvidenceStatus
+    reason_codes: list[str] = Field(default_factory=list)
+
+
+# --- Slice 6F.2 repair lineage ---
+
+class FixCiRepairRequestedEvent(BaseModel):
+    schema_version: str = "agent_fix_ci_repair_requested.v1"
+    type: str = "agent.fix_ci_repair_requested"
+    fix_run_id: str
+    repository: str
+    expected_head_commit_sha: str
+    pr_number: int | None = None
+    evidence_observation_id: str
+    repair_attempt: int
+    repair_key: str = ""
+
+
+class FixCiRepairBlockedEvent(BaseModel):
+    schema_version: str = "agent_fix_ci_repair_blocked.v1"
+    type: str = "agent.fix_ci_repair_blocked"
+    fix_run_id: str
+    repository: str
+    expected_head_commit_sha: str
+    pr_number: int | None = None
+    reason_codes: list[str] = Field(default_factory=list)
+    label: str = "agent:blocked"
+
+
+class FixCiRepairStartedEvent(BaseModel):
+    schema_version: str = "agent_fix_ci_repair_started.v1"
+    type: str = "agent.fix_ci_repair_started"
+    fix_run_id: str
+    repository: str
+    expected_head_commit_sha: str
+    pr_number: int | None = None
+    repair_attempt: int
+    repair_key: str = ""
+
+
+class FixCiRepairPushedEvent(BaseModel):
+    schema_version: str = "agent_fix_ci_repair_pushed.v1"
+    type: str = "agent.fix_ci_repair_pushed"
+    fix_run_id: str
+    repository: str
+    previous_head_commit_sha: str
+    new_head_commit_sha: str
+    pr_number: int | None = None
+    repair_attempt: int
+    repair_key: str = ""
+
+
+class FixCiRepairExhaustedEvent(BaseModel):
+    schema_version: str = "agent_fix_ci_repair_exhausted.v1"
+    type: str = "agent.fix_ci_repair_exhausted"
+    fix_run_id: str
+    repository: str
+    expected_head_commit_sha: str
+    pr_number: int | None = None
+    repair_attempt: int
+    max_attempts: int = 3

@@ -5,8 +5,11 @@ Index of architecture decisions. Full records live in this directory.
 | ID | Title | Status | Date | Decision (one line) |
 |----|-------|--------|------|---------------------|
 | ADR-0001 | CT102 CI aggregate truth before fix memory | proposed | 2026-07-14 | Webhook signals + Actions API confirm; memory only when aggregate verdict=`verified` |
+| ADR-0002 | Anthropic SRT as initial OS sandbox backend | proposed | 2026-07-14 | SRT via SandboxBackend; attestation + fallback deny; CT104 spike gates fix/repair |
 
 ## Review log
 
 - 2026-07-14 `00234bb` — ADR-0001 proposed for slice 6E CI truth loop
 - 2026-07-14 — 6E homelab sign-off (PR #20 / `run-cf4c2b2e…`): verdict=`verified`, memory `ci_verified`; ADR-0001 remains `proposed` pending human accept
+- 2026-07-14 — ADR-0002 proposed: SRT as initial sandbox backend; Slice 5.6a CT104 spike before `/agent fix`
+- 2026-07-14 — Slice 6F.1 evidence + SandboxBackend scaffolding; 6F.2 gated; 5.2 WIP parked in stash `wip-5.2-harden-parked`

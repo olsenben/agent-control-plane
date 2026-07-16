@@ -616,7 +616,7 @@ Do not bypass session_events.jsonl.
 Do not bypass redaction.
 Do not bypass EffectivePolicy.
 Do not bypass risk_class restrictions.
-Do not enable /agent fix before verify sandbox exists.
+Do not enable /agent fix before OS-enforced sandbox exists (Slice 5.6a SRT spike + SandboxBackend wiring; allowlist alone is not enough).
 Do not enable direct non-RLM backend execution except admin-only spikes.
 Do not dynamically install Aider/OpenHands/SWE-agent/LangGraph/CrewAI during normal CT104 runs. Worker images should be prebuilt with approved tool versions.
 Do not let tool-specific raw logs replace session_events.jsonl.

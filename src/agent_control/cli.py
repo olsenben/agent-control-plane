@@ -550,7 +550,23 @@ def fix_ci_reconcile(project: str | None) -> None:
 
 @main.command()
 def repair() -> None:
-    click.echo(json.dumps({"status": "stub", "workflow": "repair"}))
+    """6F.2 repair status — automatic dispatch is gated; see slice-6f docs."""
+    settings = get_settings()
+    click.echo(
+        json.dumps(
+            {
+                "status": "gated",
+                "workflow": "repair",
+                "fix_ci_observe_enabled": settings.fix_ci_observe_enabled,
+                "fix_ci_failure_evidence_enabled": settings.fix_ci_failure_evidence_enabled,
+                "fix_ci_repair_enabled": settings.fix_ci_repair_enabled,
+                "note": (
+                    "Automatic repair requires repair_allowed predicate + strong "
+                    "sandbox attestation; worker push path lands after CT104 spike."
+                ),
+            }
+        )
+    )
 
 
 @main.group()

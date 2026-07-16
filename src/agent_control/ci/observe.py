@@ -247,6 +247,161 @@ def apply_observation(
     if post_comment and result.verdict != previous_verdict:
         post_ci_status_comment(result, settings=settings)
 
+    # 6F.1: ensure failure evidence for each terminal failing required-workflow observation
+    evidence_manifest = None
+    if (
+        artifact_root is not None
+        and settings.fix_ci_failure_evidence_enabled
+        and observation.conclusion
+        in ("failure", "cancelled", "timed_out", "unknown")
+    ):
+        from agent_control.ci.evidence_comments import post_failure_evidence_comment
+        from agent_control.ci.events import (
+            append_fix_ci_failure_evidence_collected,
+            append_fix_ci_failure_evidence_unavailable,
+        )
+        from agent_control.ci.failure_evidence import (
+            ensure_failure_evidence,
+            failure_evidence_dir,
+        )
+        from agent_shared.models.ci import (
+            FixCiFailureEvidenceCollectedEvent,
+            FixCiFailureEvidenceUnavailableEvent,
+        )
+
+        try:
+            evidence_manifest = ensure_failure_evidence(
+                artifact_root,
+                fix_run_id=pending.fix_run_id,
+                repository=pending.repository,
+                expected_head_sha=pending.expected_head_commit_sha,
+                observation=observation,
+                settings=settings,
+            )
+            if evidence_manifest.status == "collected":
+                append_fix_ci_failure_evidence_collected(
+                    state_root,
+                    FixCiFailureEvidenceCollectedEvent(
+                        fix_run_id=pending.fix_run_id,
+                        repository=pending.repository,
+                        expected_head_commit_sha=pending.expected_head_commit_sha,
+                        pr_number=observation.pr_number or pending.opened_pr_number,
+                        evidence_observation_id=evidence_manifest.evidence_observation_id,
+                        workflow_run_id=observation.workflow_run_id,
+                        workflow_run_attempt=observation.run_attempt,
+                        status="collected",
+                        failure_class=evidence_manifest.failure_class,
+                        has_terminal_failed_job=evidence_manifest.has_terminal_failed_job,
+                    ),
+                )
+            else:
+                append_fix_ci_failure_evidence_unavailable(
+                    state_root,
+                    FixCiFailureEvidenceUnavailableEvent(
+                        fix_run_id=pending.fix_run_id,
+                        repository=pending.repository,
+                        expected_head_commit_sha=pending.expected_head_commit_sha,
+                        pr_number=observation.pr_number or pending.opened_pr_number,
+                        evidence_observation_id=evidence_manifest.evidence_observation_id,
+                        workflow_run_id=observation.workflow_run_id,
+                        workflow_run_attempt=observation.run_attempt,
+                        status=evidence_manifest.status,
+                        reason_codes=list(evidence_manifest.reason_codes),
+                    ),
+                )
+            if post_comment:
+                excerpt = ""
+                if evidence_manifest.status == "collected" and evidence_manifest.jobs:
+                    job_path = (
+                        failure_evidence_dir(
+                            artifact_root,
+                            evidence_manifest.evidence_observation_id,
+                        )
+                        / "jobs"
+                        / f"{evidence_manifest.jobs[0].job_id}.txt"
+                    )
+                    if job_path.is_file():
+                        excerpt = job_path.read_text(encoding="utf-8", errors="replace")[:1200]
+                post_failure_evidence_comment(
+                    result,
+                    evidence_manifest,
+                    excerpt=excerpt,
+                    settings=settings,
+                )
+        except Exception:
+            logger.exception(
+                "ci_failure_evidence_failed fix_run_id=%s run=%s",
+                pending.fix_run_id,
+                observation.workflow_run_id,
+            )
+
+    # 6F.2: consider repair only after aggregate gating (flag default off)
+    if settings.fix_ci_repair_enabled and result.verdict == "failing":
+        from agent_control.aci.backends import get_sandbox_backend
+        from agent_control.ci.events import append_fix_ci_repair_blocked, append_fix_ci_repair_requested
+        from agent_control.ci.repair import consider_repair_dispatch, release_pr_lock
+        from agent_shared.models.ci import FixCiRepairBlockedEvent, FixCiRepairRequestedEvent
+        from pathlib import Path as _Path
+
+        branch = pending.agent_branch or ""
+        branch_ok = branch.startswith("agent/")
+        backend = get_sandbox_backend(
+            settings.sandbox_backend,
+            expected_policy_hash=settings.sandbox_expected_policy_hash or None,
+        )
+        ws = artifact_root if artifact_root is not None else state_root / "tmp-sandbox"
+        ws.mkdir(parents=True, exist_ok=True)
+        attestation = backend.attest(
+            workspace=ws,
+            policy_hash=settings.sandbox_expected_policy_hash
+            or __import__(
+                "agent_control.aci.backends.probes", fromlist=["policy_hash"]
+            ).policy_hash(),
+        )
+        dispatch = consider_repair_dispatch(
+            state_root,
+            result=result,
+            pending=pending,
+            evidence=evidence_manifest,
+            attestation=attestation,
+            current_pr_head=pending.expected_head_commit_sha,
+            branch_ok=branch_ok,
+            no_unrecognized_commits=True,
+            settings=settings,
+        )
+        if dispatch.get("blocked"):
+            append_fix_ci_repair_blocked(
+                state_root,
+                FixCiRepairBlockedEvent(
+                    fix_run_id=pending.fix_run_id,
+                    repository=pending.repository,
+                    expected_head_commit_sha=pending.expected_head_commit_sha,
+                    pr_number=pending.opened_pr_number,
+                    reason_codes=list(dispatch.get("reason_codes") or []),
+                    label=str(dispatch.get("label") or "agent:blocked"),
+                ),
+            )
+            if dispatch.get("lock_path"):
+                release_pr_lock(_Path(str(dispatch["lock_path"])))
+        elif dispatch.get("dispatched"):
+            append_fix_ci_repair_requested(
+                state_root,
+                FixCiRepairRequestedEvent(
+                    fix_run_id=pending.fix_run_id,
+                    repository=pending.repository,
+                    expected_head_commit_sha=pending.expected_head_commit_sha,
+                    pr_number=pending.opened_pr_number,
+                    evidence_observation_id=(
+                        evidence_manifest.evidence_observation_id if evidence_manifest else ""
+                    ),
+                    repair_attempt=int(dispatch.get("repair_attempt") or 0),
+                    repair_key=str(dispatch.get("repair_key") or ""),
+                ),
+            )
+            # Worker execution is a follow-on; release lock until worker lands.
+            if dispatch.get("lock_path"):
+                release_pr_lock(_Path(str(dispatch["lock_path"])))
+
     # 6E.2 memory on verified
     if result.verdict == "verified" and previous_verdict != "verified":
         from agent_control.ci.memory import writeback_fix_ci_verified

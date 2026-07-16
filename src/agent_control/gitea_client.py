@@ -8,9 +8,12 @@ from urllib.parse import quote
 
 import httpx
 
+from agent_control.ci.gitea_actions_errors import GiteaActionsApiError, JobLogsResult, WorkflowJob
 from agent_control.config import Settings
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_LOG_BYTE_LIMIT = 2_000_000
 
 
 class GiteaClient:
@@ -146,3 +149,168 @@ class GiteaClient:
             if isinstance(runs, list):
                 return runs
         return []
+
+    @staticmethod
+    def _actions_error_from_response(resp: httpx.Response) -> GiteaActionsApiError:
+        code = resp.status_code
+        retry_after: float | None = None
+        if code == 429:
+            ra = resp.headers.get("Retry-After")
+            if ra:
+                try:
+                    retry_after = float(ra)
+                except ValueError:
+                    retry_after = None
+            return GiteaActionsApiError(
+                "rate_limited",
+                f"rate limited: {code}",
+                status_code=code,
+                retry_after=retry_after,
+            )
+        if code == 403:
+            return GiteaActionsApiError("forbidden", "token capability problem", status_code=code)
+        if code == 404:
+            return GiteaActionsApiError(
+                "not_found",
+                "unsupported route or stale identifier",
+                status_code=code,
+            )
+        if code >= 500:
+            return GiteaActionsApiError("server_error", f"server error: {code}", status_code=code)
+        if 300 <= code < 400:
+            return GiteaActionsApiError("redirect", f"unexpected redirect: {code}", status_code=code)
+        return GiteaActionsApiError("unknown", f"unexpected status: {code}", status_code=code)
+
+    def list_workflow_run_jobs(
+        self,
+        owner: str,
+        repo: str,
+        run_id: str | int,
+        *,
+        require_nonempty_on_terminal: bool = False,
+    ) -> list[WorkflowJob]:
+        """GET .../actions/runs/{run}/jobs — fail-closed typed errors."""
+        path = f"/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
+        url = f"{self.base_url}/api/v1{path}"
+        try:
+            with httpx.Client(timeout=30.0, follow_redirects=False) as client:
+                resp = client.get(url, headers=self._headers())
+        except httpx.TimeoutException as exc:
+            raise GiteaActionsApiError("timeout", "list jobs timed out") from exc
+        except httpx.HTTPError as exc:
+            raise GiteaActionsApiError("unknown", f"list jobs http error: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise self._actions_error_from_response(resp)
+
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise GiteaActionsApiError("decode_error", "jobs response not json") from exc
+
+        raw_jobs: list[Any]
+        if isinstance(data, list):
+            raw_jobs = data
+        elif isinstance(data, dict):
+            jobs = data.get("jobs") or data.get("workflow_jobs") or []
+            raw_jobs = jobs if isinstance(jobs, list) else []
+        else:
+            raw_jobs = []
+
+        if require_nonempty_on_terminal and not raw_jobs:
+            raise GiteaActionsApiError(
+                "empty_jobs",
+                "terminal run returned empty jobs array (contract_mismatch)",
+                status_code=200,
+            )
+
+        out: list[WorkflowJob] = []
+        for item in raw_jobs:
+            if not isinstance(item, dict):
+                continue
+            jid = str(item.get("id") or item.get("job_id") or "")
+            if not jid:
+                continue
+            out.append(
+                WorkflowJob(
+                    job_id=jid,
+                    name=str(item.get("name") or ""),
+                    status=str(item.get("status") or ""),
+                    conclusion=str(item.get("conclusion") or ""),
+                    run_id=str(item.get("run_id") or run_id),
+                    raw=item,
+                )
+            )
+        return out
+
+    def download_job_logs(
+        self,
+        owner: str,
+        repo: str,
+        job_id: str | int,
+        *,
+        max_bytes: int = _DEFAULT_LOG_BYTE_LIMIT,
+    ) -> JobLogsResult:
+        """GET .../actions/jobs/{job_id}/logs with byte/time limits."""
+        path = f"/repos/{owner}/{repo}/actions/jobs/{job_id}/logs"
+        url = f"{self.base_url}/api/v1{path}"
+        try:
+            with httpx.Client(timeout=60.0, follow_redirects=False) as client:
+                with client.stream("GET", url, headers=self._headers()) as resp:
+                    if resp.status_code != 200:
+                        # Drain minimally
+                        try:
+                            resp.read()
+                        except Exception:
+                            pass
+                        raise self._actions_error_from_response(resp)
+                    ctype = (resp.headers.get("content-type") or "").lower()
+                    if ctype and not any(
+                        t in ctype
+                        for t in ("text/", "octet-stream", "json", "application/zip", "")
+                    ):
+                        if "html" in ctype:
+                            raise GiteaActionsApiError(
+                                "unexpected_content_type",
+                                f"unexpected content-type: {ctype}",
+                                status_code=200,
+                            )
+                    cl_header = resp.headers.get("content-length")
+                    source_len: int | None = None
+                    if cl_header:
+                        try:
+                            source_len = int(cl_header)
+                        except ValueError:
+                            source_len = None
+                        if source_len is not None and source_len > max_bytes * 4:
+                            # Still allow streaming up to max_bytes; mark oversized intent
+                            pass
+                    chunks: list[bytes] = []
+                    total = 0
+                    truncated = False
+                    for chunk in resp.iter_bytes():
+                        if not chunk:
+                            continue
+                        if total + len(chunk) > max_bytes:
+                            remain = max_bytes - total
+                            if remain > 0:
+                                chunks.append(chunk[:remain])
+                                total += remain
+                            truncated = True
+                            break
+                        chunks.append(chunk)
+                        total += len(chunk)
+                    body = b"".join(chunks)
+                    return JobLogsResult(
+                        job_id=str(job_id),
+                        body=body,
+                        content_type=ctype,
+                        source_content_length=source_len,
+                        truncated_by_limit=truncated,
+                    )
+        except GiteaActionsApiError:
+            raise
+        except httpx.TimeoutException as exc:
+            raise GiteaActionsApiError("timeout", "job logs timed out") from exc
+        except httpx.HTTPError as exc:
+            raise GiteaActionsApiError("unknown", f"job logs http error: {exc}") from exc

@@ -43,7 +43,11 @@ def format_ci_status_comment(result: CiVerificationResult) -> str:
     if result.verdict == "verified":
         lines.append("CT102 verified for this exact head commit. Memory writeback eligible (6E.2).")
     elif result.verdict == "failing":
-        lines.append("One or more required workflows failed. Rerun may still reach verified.")
+        lines.append(
+            "One or more required workflows failed. "
+            "Failure evidence is collected when FIX_CI_FAILURE_EVIDENCE_ENABLED is on. "
+            "Automatic repair stays gated (`FIX_CI_REPAIR_ENABLED`, sandbox attestation)."
+        )
     elif result.verdict == "pending":
         lines.append("Awaiting required workflow terminal results for this SHA.")
     lines.append("")
