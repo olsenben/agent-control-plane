@@ -179,7 +179,7 @@ Startup / periodic / CLI `ci-reconcile` polls Actions API for pending records (w
 | Append-only `agent.fix_ci_*`; run_completed still `pr_opened_pending_ci` | Pass |
 | Agent did not merge | Pass |
 
-**Next:** Slice **6F.1** failure evidence is implemented in-tree (flag off by default). Enable `FIX_CI_FAILURE_EVIDENCE_ENABLED` after live jobs/logs contract probe. **6F.2** repair stays gated on sandbox attestation + `repair_allowed`. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md). Alternate hardening: official-engine 6D+6E once-through; land remaining 5.2 harden WIP on a separate branch.
+**Next (done 2026-07-16):** [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) — 6F.1 evidence on PR #20 @ `9b3d83be…` (`verdict=failing`, evidence collected). **Then:** CT104 sandbox attestation + 6F.2 `repair_allowed`. Alternate hardening: official-engine 6D+6E once-through.
 
 ## Related
 

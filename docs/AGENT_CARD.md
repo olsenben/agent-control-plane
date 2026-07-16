@@ -151,6 +151,7 @@ Model self-review is **not** an acceptance gate.
 | **Slice 6D — branch push + PR** | **2026-07-13** | issue #19 fake E2E: plan `run-1b0a7162…` → fix `run-cf4c2b2e…` → branch `agent/run-cf4c2b2e…` → [PR #20](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/20); `main` untouched |
 | **Slice 5.2 harden** | **2026-07-13** | Nested `plan_quality`, CT103 fail-closed (empty `allowed_files` / not fixable), per-mutating-step files; see [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
 | **Slice 6E.1 / 6E.2 — CI truth** | **2026-07-14** | issue #19 / PR #20 / `run-cf4c2b2e…` @ `ef22f721…`: reconcile → `verdict=verified`; comment `rev1`; memory `ci_verified`; append-only `agent.fix_ci_*`; see [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
+| **Slice 6F.1 — CI failure evidence** | **2026-07-16** | PR #20 @ `9b3d83be…`; runs 463/464; `verdict=failing`; evidence obs `562cde10…` / `3256dfc0…` `collected`; ledger `agent.fix_ci_failure_evidence_collected`×2; repair off; follow-ups: comment upsert, agent-runs mount on control-plane, classifier; see [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

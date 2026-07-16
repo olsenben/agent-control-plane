@@ -135,7 +135,7 @@ Before writing any of: `remote_publish_result.json`, `remote_publish_plan.json`,
 
 Deploy with `FIX_REMOTE_PUBLISH_ENABLED=true` after Milestone 1 (5.1 + 4C) sign-off. Recommended before official-engine 6D runs: [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) and [slice-5.3-issue-task-backfill.md](slice-5.3-issue-task-backfill.md) (homelab issues #13–#14). Fake engine first; then one official-engine trivial fix on a single allowed file.
 
-**Next (done):** [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) — CT102 observe/aggregate signed off 2026-07-14. **Then:** Slice 6F CI failure repair loop.
+**Next (done):** [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) — CT102 observe/aggregate signed off 2026-07-14. **Then (done 2026-07-16):** [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) 6F.1 evidence. **Open:** sandbox attestation + 6F.2.
 
 ## Related
 

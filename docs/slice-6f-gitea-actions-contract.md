@@ -1,7 +1,7 @@
 # Slice 6F — Gitea Actions jobs/logs API contract
 
-**Status:** contract harness ready (live fill-in on CT103 against Gitea 1.26)  
-**Date:** 2026-07-14  
+**Status:** live contract verified on CT103 (2026-07-16)  
+**Date:** 2026-07-14 (updated 2026-07-16)  
 **Related:** [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md)
 
 ## Routes under test
@@ -35,12 +35,13 @@ Do **not** scrape UI HTML as a fallback.
 ## Live probe
 
 ```bash
-# From CT103 with FIX_CI observe token configured:
-.venv/bin/python -m agent_control.ci.gitea_contract_probe \
+# From CT103 control-plane container (no .venv in image):
+docker compose exec -T control-plane \
+  python -m agent_control.ci.gitea_contract_probe \
   --owner ai-sdlc-lab --repo agent-control-plane --run-id <workflow_run_id>
 ```
 
-Records result under `docs/homelab/` or stdout JSON: `{route, http_status, jobs_count, logs_content_type, notes}`.
+Stdout JSON: `{jobs_route, jobs_http_status, jobs_count, logs_content_type, logs_bytes, notes}`.
 
 ## Known upstream risks (shape fail-closed code)
 
@@ -51,4 +52,4 @@ Records result under `docs/homelab/` or stdout JSON: `{route, http_status, jobs_
 
 | Checked at | Gitea version | Run id | Jobs count | Logs OK | Notes |
 |------------|---------------|--------|------------|---------|-------|
-| (pending live) | 1.26.x | | | | Run probe after deploy of 6F.1 client |
+| 2026-07-16 | 1.26.x (homelab) | **464** | 1 | yes | PR event @ `9b3d83be…`; `jobs_http_status=200`; logs ~36093 bytes `text/plain`; twin push run **463** also collected |

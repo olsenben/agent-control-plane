@@ -316,6 +316,27 @@ CLI: `agentctl fix pending-ci`, `agentctl fix ci-status --run-id … --repo …`
 
 See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md).
 
+### Slice 6F.1 — CI failure evidence (CT103)
+
+Enable after 6E sign-off and live jobs/logs contract probe.
+
+```bash
+# CT103 .env
+FIX_CI_OBSERVE_ENABLED=true
+FIX_CI_FAILURE_EVIDENCE_ENABLED=true
+FIX_CI_REPAIR_ENABLED=false
+```
+
+Contract probe (container):
+
+```bash
+docker compose exec -T control-plane \
+  python -m agent_control.ci.gitea_contract_probe \
+  --owner ai-sdlc-lab --repo agent-control-plane --run-id <workflow_run_id>
+```
+
+See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md). Note: `control-plane` does not mount `/mnt/agent-runs` by default — inspect evidence via `docker compose exec`.
+
 ## Defer until section 1.3+
 
 - [x] `GITEA_WEBHOOK_SECRET` and Gitea webhook registration (LAN `http://192.168.4.62:8080/webhooks/gitea`)
@@ -326,5 +347,7 @@ See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md).
 - [x] **Slice 5.2 + 5.3** — homelab 2026-07-06 (issue #16); 5.2 harden 2026-07-13
 - [x] **Slice 6D homelab sign-off** — issue #19 (2026-07-13) fake engine → PR #20; optional official-engine retest
 - [x] **Slice 6E** — 2026-07-14; `FIX_CI_OBSERVE_ENABLED=true`; PR #20 / `run-cf4c2b2e…` → `verified` + `ci_verified` memory
-- [ ] **Slice 6F** — CI failure → repair evidence loop (optional hardening: official-engine 6D+6E)
+- [x] **Slice 6F.1** — 2026-07-16; `FIX_CI_FAILURE_EVIDENCE_ENABLED=true`; PR #20 @ `9b3d83be…` → `failing` + evidence `collected` (repair still off)
+- [ ] **Slice 5.6a** — CT104 SRT spike; **2e negative PASS** 2026-07-16 (`agent:blocked`); strong canaries blocked until bwrap in worker image — [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md)
+- [ ] **Slice 6F.2** — repair loop (requires sandbox attestation + `repair_allowed`)
 - Do **not** run agent sandboxes or RQ repo workers on GPU Windows hosts

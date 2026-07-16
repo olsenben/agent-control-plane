@@ -116,12 +116,12 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **6D — branch push + PR** | **Done (homelab fake)** | issue #19 → PR #20. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) |
 | **6E.1 — CI observe / aggregate** | **Done (homelab)** | Exact-SHA pending index, API confirm, multi-workflow verdict, append-only events, reconciler/CLI. See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
 | **6E.2 — verified memory + UX** | **Done (homelab)** | Memory upsert only when verdict=`verified` (`memory_quality=ci_verified`). See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
-| **6F.1 — CI failure evidence** | **Code** | Idempotent evidence + hostile logs; live contract probe harness. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
-| **Sandbox attestation** | **Code** | SRT/bwrap backend + canary probes; CT104 live spike pending. See [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) |
+| **6F.1 — CI failure evidence** | **Done (homelab)** | PR #20 @ `9b3d83be…` → `verdict=failing`; evidence `collected` (runs 463/464); repair off. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
+| **Sandbox attestation** | **Spike partial** | Host **2b/2c strong PASS** (bwrap 0.9.0, all canaries, reboot retest); **2e fail-closed PASS** in `worker-rlm-root`; **worker image still lacks bwrap**. See [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) |
 | **6F.2 — CI repair loop** | **Gated off** | `repair_allowed` + PR locks; enable after attestation + official-engine once-through |
 | Later | — | **Invocation ack + bot identity** (started → success/failure comments as `agent-bot`; record `invoked_by` for audit — never act as human PAT). Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20; **2026-07-14: 6E CI truth on PR #20** (`verdict=verified`, memory `ci_verified`).
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20; **2026-07-14: 6E CI truth** (`verified` @ `ef22f721…`); **2026-07-16: 6F.1 failure evidence** (`failing` @ `9b3d83be…`, evidence collected; repair still off); **2026-07-16: 5.6a** host strong canaries + reboot retest PASS; **2e negative** still PASS in `worker-rlm-root` (image lacks bwrap).
 
 ### Review MVP acceptance (full)
 

@@ -1,7 +1,7 @@
 # Slice 5.6a — CT104 Anthropic SRT sandbox spike
 
-**Status:** planned (gate before `/agent fix`)  
-**Date:** 2026-07-14  
+**Status:** in progress (CT104 host strong canaries PASS; worker image still open)  
+**Date:** 2026-07-14 (progress 2026-07-16)  
 **ADR:** [0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md)  
 **Plan:** V4.1 Phase 14 / implementation order 5.6a
 
@@ -90,7 +90,74 @@ Code: `src/agent_control/aci/backends/` (`base.py`, `probes.py`, `srt.py`).
 
 | Checked at | Backend version | Mode | Policy hash | Probes | Notes |
 |------------|-----------------|------|-------------|--------|-------|
-| (pending) | | | | | Fill after CT104 live spike |
+| 2026-07-16T23:42Z | spike (`bwrap-only` stub) | `unavailable` | `5de9f107fc05367e849f893c815efd18` | all fail (`bwrap_unavailable`) | **2e negative** inside `worker-rlm-root` — see progress log |
+| 2026-07-16T23:22:03Z | spike | `strong` | `5de9f107fc05367e849f893c815efd18` | 7/7 passed | **2b positive** on CT104 host (`root@agentworker`); `strong_ok=true` |
+| 2026-07-16T23:24:56Z | spike | `strong` | `5de9f107fc05367e849f893c815efd18` | 7/7 passed | **2c reboot retest** after CT104 login; `strong_ok=true` |
+
+### Progress log (2026-07-16)
+
+**Host CT104 (`agentworker`):**
+
+- `bubblewrap` installed: `/usr/bin/bwrap` → **bubblewrap 0.9.0**.
+- Host attestation works with `PYTHONPATH=src python3` from `/opt/ai-sdlc-lab/agent-control-plane`.
+
+**2b — Strong canaries on host (PASS):**
+
+```text
+cd /opt/ai-sdlc-lab/agent-control-plane
+PYTHONPATH=src python3 - <<'PY'
+from pathlib import Path
+from agent_control.aci.backends.probes import attest_environment, policy_hash
+import tempfile, json
+ws = Path(tempfile.mkdtemp(prefix="sandbox-attest-"))
+att = attest_environment(backend="srt", backend_version="spike", workspace=ws)
+print(json.dumps(att.to_dict(), indent=2))
+print("expected_policy_hash", policy_hash())
+print("strong_ok", att.strong_ok)
+PY
+```
+
+| Field | Value |
+|-------|-------|
+| `mode` | `strong` |
+| `policy_hash` | `5de9f107fc05367e849f893c815efd18` (matches `policy_hash()`) |
+| `probe_suite_version` | `sandbox_canary.v1` |
+| `strong_ok` | `True` |
+| probes | all passed: `deny_host_secret_read`, `deny_write_outside_workspace`, `deny_symlink_escape`, `deny_network`, `deny_docker_sock`, `deny_modify_shell_rc`, `no_surviving_children` |
+
+**2c — Reboot / re-login retest (PASS):**
+
+After CT104 console re-login (`Ubuntu 24.04 LTS` / `agentworker login: root`), same attestation script again → `mode=strong`, `strong_ok=True`, same `policy_hash`, all seven probes passed (`checked_at=2026-07-16T23:24:56Z`).
+
+**Worker container (`docker-compose.ct104.yml` / `worker-rlm-root`):**
+
+- `command -v bwrap` → **empty** — image does **not** ship Bubblewrap.
+- Risk 2 runtime path still cannot attest strong until `bubblewrap` (and pinned SRT) are in the worker image / runtime.
+
+**2e — Negative test (PASS):**
+
+Ran attestation + `SrtSandboxBackend.run` + `evaluate_repair_allowed` inside `worker-rlm-root` with no `bwrap` available (rename unnecessary).
+
+| Gate | Result |
+|------|--------|
+| `attest_environment` | `mode=unavailable`, `strong_ok=false`; probes detail `bwrap_unavailable` |
+| `backend.run(["echo","hi"])` | exit `126`, `violated=True`, `violation_codes=['sandbox_check_failed']` — no silent exec |
+| `evaluate_repair_allowed` | `allowed=False`, `label=agent:blocked`, `reason_codes=['sandbox_attestation_not_strong']` |
+
+Still keep `FIX_CI_REPAIR_ENABLED=false`. Risk 2 / repair remain correctly blocked.
+
+**Still open for 5.6a exit:**
+
+- [x] **2b** strong canaries pass on CT104 host (`mode=strong`, all probes `passed`).
+- [x] **2c** reboot / re-login CT104 and re-attest strong.
+- [x] Fill positive rows in the attestation table above.
+- [ ] Install `bwrap` (+ socat/rg/SRT pin) **in the worker image** (or otherwise make it available to the runtime that executes Risk 2).
+  - 2026-07-16: verified missing in current image (`command -v bwrap` empty; `bwrap: not found`).
+  - Dockerfile now installs `bubblewrap`/`socat`/`ripgrep` — rebuild CT104 image and re-attest inside `worker-rlm-root`.
+- [ ] **2d** pin `SANDBOX_EXPECTED_POLICY_HASH` / backend env on CT103+CT104.
+  - Examples updated to `5de9f107fc05367e849f893c815efd18`; add the same three `SANDBOX_*` lines to live `.env` on both hosts, recreate containers, `printenv` to confirm.
+- [ ] Confirm worker-runtime path can also reach `strong_ok` (or document host-bwrap bind into worker as interim).
+  - Nested Docker-in-LXC may still fail user-ns even with `bwrap` present — re-run attest after rebuild.
 
 ## Out of scope for 5.6a
 

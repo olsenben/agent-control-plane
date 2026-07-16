@@ -1,9 +1,10 @@
 # Slice 6F — CI Failure Evidence + Repair Gate
 
-**Status:** implementing (6F.1 code; 6F.2 gated off until sandbox attestation)  
+**Status:** 6F.1 homelab sign-off 2026-07-16; 6F.2 gated off until sandbox attestation  
 **Prerequisite:** [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md)  
 **Sandbox gate:** [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md), [adr/0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md)  
-**Date:** 2026-07-14
+**Date:** 2026-07-14 (updated 2026-07-16)  
+**Homelab:** issue #19 / [PR #20](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/20) / fix `run-cf4c2b2e…` @ `9b3d83be…` → verdict=`failing`, evidence `collected` (runs 463/464)
 
 ## Thesis
 
@@ -207,8 +208,52 @@ See [slice-6f-gitea-actions-contract.md](slice-6f-gitea-actions-contract.md).
 
 ---
 
+## Homelab acceptance (2026-07-16) — 6F.1 only
+
+**Host:** CT103 `FIX_CI_OBSERVE_ENABLED=true`, `FIX_CI_FAILURE_EVIDENCE_ENABLED=true`, `FIX_CI_REPAIR_ENABLED=false`  
+**Fixture:** intentional failing test on agent branch (`tests/test_6f1_intentional_fail.py`); head `9b3d83bee6564077f8a2eb0201eb7bc2613585e7`
+
+| Gate | Result |
+|------|--------|
+| Pending re-pointed to new SHA (was terminal `verified` @ `ef22f721…`) | Pass — `register_pending_ci` → `current_verdict=pending` |
+| `ci-reconcile` applied observations | Pass — runs **464** (PR) + **463** (push); `verdict=failing` |
+| Jobs/logs contract probe (`run-id 464`) | Pass — `jobs_http_status=200`, `jobs_count=1`, logs `text/plain` ~36KiB |
+| Evidence tree under fix run `ci/failure-evidence/` | Pass — obs `562cde10…` (464/job 575), `3256dfc0…` (463/job 574); `manifest.status=collected` |
+| Redaction / truncate | Pass — e.g. 36093 → 14030 bytes retained; `redaction_count=1` |
+| Issue comments | Pass — ## Fix CI status failing (#312); ## Fix CI failure evidence (#313/#314) |
+| Ledger `agent.fix_ci_failure_evidence_collected` | Pass — 2 events (delivery_id = observation ids); no duplicate event files on replay |
+| Artifact idempotency on second reconcile | Pass — same 2 observation dirs |
+| Comment upsert on reconcile replay | **Fail** — duplicate evidence comments (#315/#316); upsert missing |
+| `failure_class` for pytest assert | **Noise** — reported `infrastructure_failure` (classifier follow-up) |
+| Repair enqueue | Pass — not requested (`FIX_CI_REPAIR_ENABLED=false`) |
+| Host `/mnt/agent-runs` visibility from CT103 | **Gap** — `control-plane` does not mount agent-runs; inspect via `docker compose exec` |
+
+**CLI notes (docker):**
+
+```bash
+docker compose exec -T control-plane agentctl fix ci-reconcile --repo ai-sdlc-lab/agent-control-plane
+docker compose exec -T control-plane agentctl fix ci-status \
+  --run-id run-cf4c2b2edaf8643b833456660b0a2f85 \
+  --repo ai-sdlc-lab/agent-control-plane
+docker compose exec -T control-plane \
+  python -m agent_control.ci.gitea_contract_probe \
+  --owner ai-sdlc-lab --repo agent-control-plane --run-id 464
+```
+
+**Follow-ups (not blocking 6F.1):**
+
+1. Upsert evidence comments by `<!-- agent-ci-failure-evidence:{obs_id} -->` (match 6E status-comment pattern)
+2. Mount `AGENT_RUNS` on `control-plane` (or write CI artifacts under agent-state) so host/NFS inspect works
+3. Tighten failure classifier so pytest/assert failures map to `test_failure`
+4. Advance pending SHA automatically when agent branch head moves (today: manual re-register after intentional bad commit)
+
+**Next:** Finish CT104 sandbox attestation ([slice-5.6a](slice-5.6a-srt-sandbox-spike.md) — host **2b/2c strong PASS** + **2e PASS** 2026-07-16; still need bwrap in worker image + policy-hash pin); then 6F.2 `repair_allowed`. Keep repair off.
+
+---
+
 ## Related
 
 - [POLICY_GATES.md](POLICY_GATES.md)
 - [architecture.md](architecture.md)
+- [slice-6f-gitea-actions-contract.md](slice-6f-gitea-actions-contract.md)
 - Official-engine 6D→6E once-through: operational enablement before enabling `FIX_CI_REPAIR_ENABLED` (not a merge blocker for 6F.1)
