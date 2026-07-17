@@ -156,6 +156,102 @@ def _ensure_origin(repo_root: Path, repo_url: str, env: dict[str, str]) -> None:
             raise PublishError("branch_push", redact_publish_text(set_url.stderr or "git remote set-url failed"))
 
 
+def push_repair_fast_forward(
+    *,
+    repo_workspace: Path,
+    agent_branch: str,
+    expected_remote_sha: str,
+    repository: str,
+    repo_url: str,
+    settings: WorkerSettings,
+    gitea_client: GiteaClient | None = None,
+) -> dict[str, str | bool | None | list[str]]:
+    """Non-force push of a repair commit onto an existing agent/* branch.
+
+    Requires remote tip == ``expected_remote_sha`` and local HEAD to be a
+    fast-forward of that tip. Never force-pushes. On non-FF rejection returns
+    ``stale=True`` with reason ``push_rejected`` / ``remote_head_changed``.
+    """
+    if not agent_branch.startswith("agent/"):
+        return {"ok": False, "stale": False, "reason_codes": ["branch_policy"]}
+    if agent_branch in _PROTECTED_BASES:
+        return {"ok": False, "stale": False, "reason_codes": ["protected_branch"]}
+
+    client = gitea_client or GiteaClient()
+    try:
+        owner, repo = split_project(repository)
+    except Exception:
+        return {"ok": False, "stale": False, "reason_codes": ["repo_identity_invalid"]}
+
+    try:
+        remote_tip = client.get_branch_sha(owner, repo, agent_branch)
+    except Exception:
+        return {"ok": False, "stale": False, "reason_codes": ["api_unavailable"]}
+
+    if remote_tip != expected_remote_sha:
+        return {
+            "ok": False,
+            "stale": True,
+            "reason": "remote_head_changed",
+            "observed_head": remote_tip,
+        }
+
+    local_head = _git_head(repo_workspace)
+    if not local_head:
+        return {"ok": False, "stale": False, "reason_codes": ["local_head_missing"]}
+
+    ancestor = _git_run(
+        repo_workspace,
+        ["git", "merge-base", "--is-ancestor", expected_remote_sha, local_head],
+    )
+    if ancestor.returncode != 0:
+        return {"ok": False, "stale": False, "reason_codes": ["not_fast_forward_local"]}
+
+    if local_head == expected_remote_sha:
+        return {"ok": True, "new_head_commit_sha": local_head, "skipped_identical": True}
+
+    auth_url = resolve_authenticated_repo_url(repo_url)
+    try:
+        _validate_remote_url(auth_url, settings.gitea_base_url)
+    except PublishError as exc:
+        return {
+            "ok": False,
+            "stale": False,
+            "reason_codes": ["remote_host_rejected"],
+            "detail": str(exc),
+        }
+
+    env = git_non_interactive_env(repo_url=auth_url)
+    try:
+        _ensure_origin(repo_workspace, auth_url, env)
+    except PublishError as exc:
+        return {"ok": False, "stale": False, "reason_codes": ["origin_failed"], "detail": str(exc)}
+
+    push_ref = f"refs/heads/{agent_branch}"
+    push = _git_run(
+        repo_workspace,
+        ["git", "push", "origin", f"HEAD:{push_ref}"],
+        env=env,
+    )
+    if push.returncode != 0:
+        err = (push.stderr or push.stdout or "").lower()
+        if "non-fast-forward" in err or "fetch first" in err or "rejected" in err:
+            return {
+                "ok": False,
+                "stale": True,
+                "reason": "push_rejected",
+                "observed_head": None,
+            }
+        return {
+            "ok": False,
+            "stale": False,
+            "reason_codes": ["push_failed"],
+            "detail": redact_publish_text(push.stderr or "git push failed"),
+        }
+
+    return {"ok": True, "new_head_commit_sha": local_head}
+
+
 def _write_publish_artifact(artifact_root: Path, result: RemotePublishResult) -> None:
     write_redacted_json(artifact_root / "remote_publish_result.json", result.model_dump(mode="json"))
 

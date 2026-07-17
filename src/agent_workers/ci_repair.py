@@ -23,7 +23,6 @@ from agent_control.ci.reservation import (
     release_repair_lease,
     save_repair_reservation,
 )
-from agent_control.config import get_settings
 from agent_shared.models.ci import (
     FixCiRepairBlockedEvent,
     FixCiRepairPushedEvent,
@@ -289,64 +288,166 @@ def _fetch_remote_head(reservation: RepairReservation) -> str | None:
 
 
 def _prepare_workspace(reservation: RepairReservation) -> Path | None:
-    """Checkout expected_sha into a disposable workspace. Override in tests via monkeypatch."""
-    root = Path(reservation.artifact_root or ".") / "repair-workspaces" / reservation.repair_key.replace(":", "_")
-    root.mkdir(parents=True, exist_ok=True)
-    marker = root / ".expected_sha"
-    marker.write_text(reservation.expected_head_commit_sha, encoding="utf-8")
+    """Clone agent branch at expected_sha into a disposable repair workspace."""
+    from agent_workers.repo.policy_loader import clone_repo
+    from agent_workers.settings import get_worker_settings
+
+    settings = get_worker_settings()
+    root = (
+        Path(reservation.artifact_root or settings.agent_runs_dir)
+        / "repair-workspaces"
+        / reservation.repair_key.replace(":", "_").replace("/", "_")
+    )
+    if root.exists():
+        import shutil
+
+        shutil.rmtree(root)
+
+    owner, repo = reservation.repository.split("/", 1)
+    base = settings.gitea_base_url.rstrip("/")
+    repo_url = f"{base}/{owner}/{repo}.git"
+    try:
+        clone_repo(settings, repo_url, reservation.agent_branch, root)
+    except Exception:
+        logger.exception("repair_clone_failed key=%s", reservation.repair_key)
+        return None
+
+    from agent_workers.publish.remote import _git_run
+
+    checkout = _git_run(root, ["git", "checkout", "--force", reservation.expected_head_commit_sha])
+    if checkout.returncode != 0:
+        # Shallow clone may lack the SHA if tip moved between checks
+        logger.error(
+            "repair_checkout_expected_sha_failed key=%s err=%s",
+            reservation.repair_key,
+            checkout.stderr,
+        )
+        return None
+    head = _git_run(root, ["git", "rev-parse", "HEAD"])
+    if head.stdout.strip() != reservation.expected_head_commit_sha:
+        return None
     return root
 
 
 def _produce_and_apply_patch(reservation: RepairReservation, workspace: Path) -> dict[str, Any]:
-    """Produce structured patch and apply within allowed_files.
+    """Apply structured repair_patch.diff within allowed_files and commit locally."""
+    from agent_workers.gates.runner import collect_changed_files
+    from agent_workers.publish.remote import _git_run, _stage_allowed_files
 
-    Homelab/demo: expects an injected ``repair_patch.diff`` under the reservation
-    artifact root, or a no-op when ``allowed_files`` is empty (blocked).
-    Full model-driven repair proposal lands as a follow-on within this entrypoint.
-    """
     if not reservation.allowed_files:
-        # Try to continue with verify-only if workspace already has a candidate fix
-        injected = Path(reservation.artifact_root or ".") / "repair_patch.diff"
-        if not injected.is_file():
-            return {
-                "ok": False,
-                "reason_codes": ["scope_violation", "empty_allowed_files"],
-                "label": "agent:needs-human",
-            }
-    injected = Path(reservation.artifact_root or workspace) / "repair_patch.diff"
-    if injected.is_file():
-        # Record that a structured patch was provided (apply delegated to existing patch path later)
-        (workspace / "repair_patch.diff").write_text(
-            injected.read_text(encoding="utf-8"),
-            encoding="utf-8",
-        )
-        return {"ok": True, "source": "injected_patch"}
-    # Without a patch artifact, refuse push (do not invent freeform shell edits)
-    return {
-        "ok": False,
-        "reason_codes": ["repair_proposal_unavailable"],
-        "label": "agent:needs-human",
-    }
+        return {
+            "ok": False,
+            "reason_codes": ["scope_violation", "empty_allowed_files"],
+            "label": "agent:needs-human",
+        }
+
+    injected = Path(reservation.artifact_root or ".") / "repair_patch.diff"
+    if not injected.is_file():
+        injected = workspace / "repair_patch.diff"
+    if not injected.is_file():
+        return {
+            "ok": False,
+            "reason_codes": ["repair_proposal_unavailable"],
+            "label": "agent:needs-human",
+        }
+
+    apply = _git_run(workspace, ["git", "apply", "--whitespace=nowarn", str(injected)])
+    if apply.returncode != 0:
+        return {
+            "ok": False,
+            "reason_codes": ["patch_apply_failed"],
+            "label": "agent:blocked",
+            "detail": apply.stderr,
+        }
+
+    changed = collect_changed_files(workspace)
+    allowed = set(reservation.allowed_files)
+    extra = [p for p in changed if p not in allowed]
+    if extra:
+        return {
+            "ok": False,
+            "reason_codes": ["scope_violation"],
+            "label": "agent:blocked",
+            "detail": f"out_of_scope:{extra}",
+        }
+
+    try:
+        _stage_allowed_files(workspace, list(reservation.allowed_files))
+    except Exception as exc:
+        return {
+            "ok": False,
+            "reason_codes": ["stage_failed"],
+            "label": "agent:blocked",
+            "detail": str(exc),
+        }
+
+    msg = (
+        f"fix(ci-repair): attempt {reservation.repair_attempt} "
+        f"for {reservation.expected_head_commit_sha[:12]}"
+    )
+    commit = _git_run(
+        workspace,
+        ["git", "-c", "user.email=agent-bot@local", "-c", "user.name=agent-bot", "commit", "-m", msg],
+    )
+    if commit.returncode != 0:
+        return {
+            "ok": False,
+            "reason_codes": ["commit_failed"],
+            "label": "agent:blocked",
+            "detail": commit.stderr,
+        }
+    return {"ok": True, "source": "injected_patch"}
 
 
 def _post_verify_scope_check(reservation: RepairReservation, workspace: Path) -> dict[str, Any]:
     """Ensure post-verify tree stays within allowed_files when a allowlist is set."""
-    del workspace
+    from agent_workers.gates.runner import collect_changed_files
+
     if not reservation.allowed_files:
         return {"ok": True}
+    # Compare against expected tip: only allowlist paths may differ from HEAD~1
+    # After commit, working tree should be clean; dirty out-of-scope files fail.
+    changed = collect_changed_files(workspace)
+    allowed = set(reservation.allowed_files)
+    extra = [p for p in changed if p not in allowed]
+    if extra:
+        return {"ok": False, "reason_codes": ["scope_violation"], "detail": str(extra)}
     return {"ok": True}
 
 
 def _non_force_push(reservation: RepairReservation, workspace: Path) -> dict[str, Any]:
-    """Non-force push using existing 6D publish primitives when available.
+    """Non-force fast-forward push onto the existing agent branch (outside SRT)."""
+    from agent_workers.publish.remote import push_repair_fast_forward
+    from agent_workers.settings import get_worker_settings
 
-    Returns new_head_commit_sha on success. Never force-pushes.
-    """
-    del workspace
-    # Placeholder for wiring to publish_fix_branch_and_pr push path.
-    # Until wired, operators inject result via reservation.new_head for tests;
-    # live path returns push_failed so we do not silently claim success.
-    settings = get_settings()
+    settings = get_worker_settings()
     if not settings.fix_remote_publish_enabled:
         return {"ok": False, "reason_codes": ["publish_disabled"]}
-    return {"ok": False, "reason_codes": ["push_not_wired"], "stale": False}
+
+    owner, repo = reservation.repository.split("/", 1)
+    repo_url = f"{settings.gitea_base_url.rstrip('/')}/{owner}/{repo}.git"
+    result = push_repair_fast_forward(
+        repo_workspace=workspace,
+        agent_branch=reservation.agent_branch,
+        expected_remote_sha=reservation.expected_head_commit_sha,
+        repository=reservation.repository,
+        repo_url=repo_url,
+        settings=settings,
+    )
+    if result.get("ok"):
+        return {
+            "ok": True,
+            "new_head_commit_sha": result.get("new_head_commit_sha"),
+        }
+    if result.get("stale"):
+        return {
+            "ok": False,
+            "stale": True,
+            "reason": result.get("reason") or "push_rejected",
+            "observed_head": result.get("observed_head"),
+        }
+    return {
+        "ok": False,
+        "reason_codes": list(result.get("reason_codes") or ["push_failed"]),
+        "detail": result.get("detail"),
+    }
