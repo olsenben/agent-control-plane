@@ -152,6 +152,8 @@ Model self-review is **not** an acceptance gate.
 | **Slice 5.2 harden** | **2026-07-13** | Nested `plan_quality`, CT103 fail-closed (empty `allowed_files` / not fixable), per-mutating-step files; see [slice-5.2-plan-quality-gate.md](slice-5.2-plan-quality-gate.md) |
 | **Slice 6E.1 / 6E.2 — CI truth** | **2026-07-14** | issue #19 / PR #20 / `run-cf4c2b2e…` @ `ef22f721…`: reconcile → `verdict=verified`; comment `rev1`; memory `ci_verified`; append-only `agent.fix_ci_*`; see [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
 | **Slice 6F.1 — CI failure evidence** | **2026-07-16** | PR #20 @ `9b3d83be…`; runs 463/464; `verdict=failing`; evidence obs `562cde10…` / `3256dfc0…` `collected`; ledger `agent.fix_ci_failure_evidence_collected`×2; repair off; follow-ups: comment upsert, agent-runs mount on control-plane, classifier; see [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
+| **Slice 5.6a — SRT sandbox spike** | **2026-07-17** | Host 2b/2c + `worker-rlm-root` strong PASS; 2e fail-closed; **2d** env pin CT103+CT104 (`srt` / `5de9f107fc05367e849f893c815efd18` / require attestation); see [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) |
+| **Slice 6F.2 — repair gate demo** | **2026-07-17** | `demo-app` issue #4 / PR #5 @ `4ebaab0…`; runs 481/482; evidence collected; `agent.fix_ci_repair_requested` + `agent.fix_ci_repair_blocked`; worker push after 5.8; see [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

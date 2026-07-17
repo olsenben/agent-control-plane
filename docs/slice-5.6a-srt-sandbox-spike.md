@@ -1,7 +1,7 @@
 # Slice 5.6a — CT104 Anthropic SRT sandbox spike
 
-**Status:** in progress (CT104 host strong canaries PASS; worker image still open)  
-**Date:** 2026-07-14 (progress 2026-07-16)  
+**Status:** spike complete (host + worker strong PASS; 2d env pin verified 2026-07-17)  
+**Date:** 2026-07-14 (signed off 2026-07-17)  
 **ADR:** [0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md)  
 **Plan:** V4.1 Phase 14 / implementation order 5.6a
 
@@ -61,7 +61,8 @@ Do not load expanding overrides from a checked-out target repository.
 | Attestation records backend, version, mode=strong, policy_hash, probe_suite_version | yes |
 | Nested/weak mode rejected for Risk 2 | yes |
 | Capability failure blocks Risk 2 / repair (`agent:blocked`) | yes |
-| `/agent fix` and `FIX_CI_REPAIR_ENABLED` remain off until attestation wires through | yes |
+| Live `SANDBOX_*` pins on CT103 + CT104 match `policy_hash()` | yes |
+| Full sandboxed repair worker push deferred to 5.8 / 6F.2 completion | yes |
 
 ## Attestation (not a boolean)
 
@@ -90,9 +91,10 @@ Code: `src/agent_control/aci/backends/` (`base.py`, `probes.py`, `srt.py`).
 
 | Checked at | Backend version | Mode | Policy hash | Probes | Notes |
 |------------|-----------------|------|-------------|--------|-------|
-| 2026-07-16T23:42Z | spike (`bwrap-only` stub) | `unavailable` | `5de9f107fc05367e849f893c815efd18` | all fail (`bwrap_unavailable`) | **2e negative** inside `worker-rlm-root` — see progress log |
+| 2026-07-16T23:42Z | spike (`bwrap-only` stub) | `unavailable` | `5de9f107fc05367e849f893c815efd18` | all fail (`bwrap_unavailable`) | **2e negative** inside `worker-rlm-root` (pre-bwrap image) |
 | 2026-07-16T23:22:03Z | spike | `strong` | `5de9f107fc05367e849f893c815efd18` | 7/7 passed | **2b positive** on CT104 host (`root@agentworker`); `strong_ok=true` |
 | 2026-07-16T23:24:56Z | spike | `strong` | `5de9f107fc05367e849f893c815efd18` | 7/7 passed | **2c reboot retest** after CT104 login; `strong_ok=true` |
+| 2026-07-17T00:01:51Z | spike (image bwrap 0.8.0) | `strong` | `5de9f107fc05367e849f893c815efd18` | 7/7 passed | **Worker-runtime positive** inside `worker-rlm-root`; `strong_ok=true` |
 
 ### Progress log (2026-07-16)
 
@@ -131,10 +133,28 @@ After CT104 console re-login (`Ubuntu 24.04 LTS` / `agentworker login: root`), s
 
 **Worker container (`docker-compose.ct104.yml` / `worker-rlm-root`):**
 
-- `command -v bwrap` → **empty** — image does **not** ship Bubblewrap.
-- Risk 2 runtime path still cannot attest strong until `bubblewrap` (and pinned SRT) are in the worker image / runtime.
+- After Dockerfile rebuild (`bubblewrap`/`socat`/`ripgrep`): `bwrap --version` → **bubblewrap 0.8.0** (Debian bookworm; host is 0.9.0).
+- Nested Docker-in-LXC did **not** block strong mode on this host.
 
-**2e — Negative test (PASS):**
+**Worker-runtime strong canaries (PASS):**
+
+```text
+docker compose -f docker-compose.ct104.yml exec -T worker-rlm-root \
+  python3 - <<'PY'
+# same attest_environment script as host
+PY
+```
+
+| Field | Value |
+|-------|-------|
+| `checked_at` | `2026-07-17T00:01:51Z` |
+| `mode` | `strong` |
+| `host_identity` | `c60da1b7404d\|Linux\|25` (container) |
+| `policy_hash` | `5de9f107fc05367e849f893c815efd18` |
+| `strong_ok` | `True` |
+| probes | 7/7 passed |
+
+**2e — Negative test (PASS, pre-rebuild):**
 
 Ran attestation + `SrtSandboxBackend.run` + `evaluate_repair_allowed` inside `worker-rlm-root` with no `bwrap` available (rename unnecessary).
 
@@ -144,20 +164,35 @@ Ran attestation + `SrtSandboxBackend.run` + `evaluate_repair_allowed` inside `wo
 | `backend.run(["echo","hi"])` | exit `126`, `violated=True`, `violation_codes=['sandbox_check_failed']` — no silent exec |
 | `evaluate_repair_allowed` | `allowed=False`, `label=agent:blocked`, `reason_codes=['sandbox_attestation_not_strong']` |
 
-Still keep `FIX_CI_REPAIR_ENABLED=false`. Risk 2 / repair remain correctly blocked.
+**2d — Live env pin (PASS, 2026-07-17):**
 
-**Still open for 5.6a exit:**
+| Host | Service | `SANDBOX_BACKEND` | `SANDBOX_EXPECTED_POLICY_HASH` | `SANDBOX_REQUIRE_ATTESTATION` |
+|------|---------|-------------------|--------------------------------|-------------------------------|
+| CT103 | `control-plane` | `srt` | `5de9f107fc05367e849f893c815efd18` | `true` |
+| CT104 | `worker-rlm-root` | `srt` | `5de9f107fc05367e849f893c815efd18` | `true` |
+
+Confirm commands:
+
+```text
+# CT103
+docker compose exec -T control-plane printenv \
+  SANDBOX_BACKEND SANDBOX_EXPECTED_POLICY_HASH SANDBOX_REQUIRE_ATTESTATION
+
+# CT104
+docker compose -f docker-compose.ct104.yml exec -T worker-rlm-root printenv \
+  SANDBOX_BACKEND SANDBOX_EXPECTED_POLICY_HASH SANDBOX_REQUIRE_ATTESTATION
+```
+
+**5.6a exit checklist:**
 
 - [x] **2b** strong canaries pass on CT104 host (`mode=strong`, all probes `passed`).
 - [x] **2c** reboot / re-login CT104 and re-attest strong.
 - [x] Fill positive rows in the attestation table above.
-- [ ] Install `bwrap` (+ socat/rg/SRT pin) **in the worker image** (or otherwise make it available to the runtime that executes Risk 2).
-  - 2026-07-16: verified missing in current image (`command -v bwrap` empty; `bwrap: not found`).
-  - Dockerfile now installs `bubblewrap`/`socat`/`ripgrep` — rebuild CT104 image and re-attest inside `worker-rlm-root`.
-- [ ] **2d** pin `SANDBOX_EXPECTED_POLICY_HASH` / backend env on CT103+CT104.
-  - Examples updated to `5de9f107fc05367e849f893c815efd18`; add the same three `SANDBOX_*` lines to live `.env` on both hosts, recreate containers, `printenv` to confirm.
-- [ ] Confirm worker-runtime path can also reach `strong_ok` (or document host-bwrap bind into worker as interim).
-  - Nested Docker-in-LXC may still fail user-ns even with `bwrap` present — re-run attest after rebuild.
+- [x] Install `bwrap` (+ socat/rg) **in the worker image** and confirm Risk 2 runtime `strong_ok`.
+- [x] **2d** pin `SANDBOX_EXPECTED_POLICY_HASH` / backend env on CT103+CT104 live `.env`.
+- [x] **2e** negative: missing `bwrap` → `unavailable` / `agent:blocked` (recorded pre-rebuild).
+
+Demo-only: CT103 may have `FIX_CI_REPAIR_ENABLED=true` for the 6F.2 **gate** proof on `demo-app` (see [slice-6f](slice-6f-ci-failure-repair.md)). That does **not** complete repair worker push — Slice **5.8** still required before treating repair as sandboxed end-to-end.
 
 ## Out of scope for 5.6a
 
@@ -165,7 +200,8 @@ Still keep `FIX_CI_REPAIR_ENABLED=false`. Risk 2 / repair remain correctly block
 - Production SRT packaging in worker images (may start as manual spike install)
 - Network allowlists for package installs
 - Nested Docker-in-LXC as accepted Risk 2 path
+- 6F.2 worker `repair_started` / `repair_pushed` path
 
 ## Next
 
-**Slice 5.8 / 6F.2:** Route Risk 2 `run_command` and repair through SandboxBackend; keep `fallback: deny`. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md).
+**Slice 5.8:** Route Risk 2 `run_command` (and repair execution) through SandboxBackend; keep `fallback: deny`. Then finish 6F.2 worker push. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md).

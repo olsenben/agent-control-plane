@@ -1,10 +1,10 @@
 # Slice 6F — CI Failure Evidence + Repair Gate
 
-**Status:** 6F.1 homelab sign-off 2026-07-16; 6F.2 gated off until sandbox attestation  
+**Status:** 6F.1 signed off 2026-07-16; 6F.2 **gate demo** on `demo-app` 2026-07-17 (`repair_requested`/`blocked`); worker push still after **5.8**  
 **Prerequisite:** [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md)  
-**Sandbox gate:** [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md), [adr/0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md)  
-**Date:** 2026-07-14 (updated 2026-07-16)  
-**Homelab:** issue #19 / [PR #20](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/20) / fix `run-cf4c2b2e…` @ `9b3d83be…` → verdict=`failing`, evidence `collected` (runs 463/464)
+**Sandbox gate:** [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) (signed off), [adr/0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md)  
+**Date:** 2026-07-14 (updated 2026-07-17)  
+**Homelab:** 6F.1 on ACP PR #20 @ `9b3d83be…`; 6F.2 gate on `demo-app` issue #4 / PR #5 @ `4ebaab0…`
 
 ## Thesis
 
@@ -247,7 +247,30 @@ docker compose exec -T control-plane \
 3. Tighten failure classifier so pytest/assert failures map to `test_failure`
 4. Advance pending SHA automatically when agent branch head moves (today: manual re-register after intentional bad commit)
 
-**Next:** Finish CT104 sandbox attestation ([slice-5.6a](slice-5.6a-srt-sandbox-spike.md) — host **2b/2c strong PASS** + **2e PASS** 2026-07-16; still need bwrap in worker image + policy-hash pin); then 6F.2 `repair_allowed`. Keep repair off.
+**Next (historical):** 5.6a **2d** + Stage 4 gate demo completed 2026-07-17 (below). Proceed to **5.8**.
+
+---
+
+## Homelab acceptance (2026-07-17) — 6F.2 gate demo (not full repair)
+
+**Scope:** Prove `repair_allowed` events on throwaway `ai-sdlc-lab/demo-app` after official 6D→6E once-through. **Not** a sign-off for worker `repair_pushed` or non-demo repos.
+
+**Host:** CT103 `FIX_CI_OBSERVE_ENABLED=true`, `FIX_CI_FAILURE_EVIDENCE_ENABLED=true`, **`FIX_CI_REPAIR_ENABLED=true`** (demo enable); sandbox pins `SANDBOX_BACKEND=srt`, `SANDBOX_EXPECTED_POLICY_HASH=5de9f107fc05367e849f893c815efd18`, `SANDBOX_REQUIRE_ATTESTATION=true` (5.6a **2d** done).
+
+**Fixture:** intentional fail on agent branch (`test_6f2_intentional_fail` / `assert False`); fix run `run-5f4e9b86a124993e0bf89e278ad0cff9`; head `4ebaab0cf03e70a95fea107e8dafca4592038fc6`; PR #5 / issue #4.
+
+| Gate | Result |
+|------|--------|
+| Pending re-pointed to red SHA | Pass — `register_pending_ci` → observe → `verdict=failing` |
+| CI observations | Pass — runs **481** (push) + **482** (PR); reasons `workflow_failed:.gitea/workflows/ci.yaml:failure` |
+| Evidence collected | Pass — obs `f0728475…` (481), `6744eadf…` (482); issue comments #347/#348 |
+| Status comment | Pass — failing @ `4ebaab0…` (#346) |
+| `agent.fix_ci_repair_requested` | Pass — push path; `repair_attempt=1`; key `repair:ai-sdlc-lab/demo-app:5:4ebaab0…`; evidence `f0728475…` (`lint_failure`) |
+| `agent.fix_ci_repair_blocked` | Pass — PR path; `failure_class_not_auto:infrastructure_failure`; label `agent:blocked` |
+| Worker `repair_started` / `repair_pushed` | **Not in scope** — `agentctl repair` still notes worker push after CT104/5.8 spike |
+| Classifier noise | **Follow-up** — same assert Fail classified `lint_failure` vs `infrastructure_failure` across twin runs |
+
+**Next:** Slice **5.8** SandboxBackend `run_command` wiring, then complete 6F.2 worker push. Keep non-demo repair conservative until then. 5.6a spike signed off ([slice-5.6a](slice-5.6a-srt-sandbox-spike.md)).
 
 ---
 
@@ -256,4 +279,5 @@ docker compose exec -T control-plane \
 - [POLICY_GATES.md](POLICY_GATES.md)
 - [architecture.md](architecture.md)
 - [slice-6f-gitea-actions-contract.md](slice-6f-gitea-actions-contract.md)
-- Official-engine 6D→6E once-through: operational enablement before enabling `FIX_CI_REPAIR_ENABLED` (not a merge blocker for 6F.1)
+- [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md)
+- Official-engine 6D→6E once-through on `demo-app` (issue #4 / PR #5) preceded this gate demo
