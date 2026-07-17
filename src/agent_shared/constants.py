@@ -13,6 +13,7 @@ QUEUE_RLM_CHILD = "rlm-child"
 QUEUE_VERIFY = "verify"
 QUEUE_REPORT = "report"
 QUEUE_RESULTS_INGEST = "results-ingest"
+QUEUE_CI_REPAIR = "ci-repair"
 
 FLOW_QUEUE_NAMES: tuple[str, ...] = (
     QUEUE_STATE,
@@ -21,6 +22,7 @@ FLOW_QUEUE_NAMES: tuple[str, ...] = (
     QUEUE_VERIFY,
     QUEUE_REPORT,
     QUEUE_RESULTS_INGEST,
+    QUEUE_CI_REPAIR,
 )
 
 TerminalStatus = str

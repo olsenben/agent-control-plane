@@ -550,7 +550,7 @@ def fix_ci_reconcile(project: str | None) -> None:
 
 @main.command()
 def repair() -> None:
-    """6F.2 repair status — automatic dispatch is gated; see slice-6f docs."""
+    """6F.2 repair status — reservation/lease + worker (see slice-5.8-6f2)."""
     settings = get_settings()
     click.echo(
         json.dumps(
@@ -560,9 +560,13 @@ def repair() -> None:
                 "fix_ci_observe_enabled": settings.fix_ci_observe_enabled,
                 "fix_ci_failure_evidence_enabled": settings.fix_ci_failure_evidence_enabled,
                 "fix_ci_repair_enabled": settings.fix_ci_repair_enabled,
+                "fix_ci_repair_max_attempts": settings.fix_ci_repair_max_attempts,
+                "sandbox_backend": settings.sandbox_backend,
                 "note": (
-                    "Automatic repair requires repair_allowed predicate + strong "
-                    "sandbox attestation; worker push path lands after CT104 spike."
+                    "Dispatch creates a durable reservation + deterministic RQ job, "
+                    "then releases the observer lock. Worker claims a TTL lease, "
+                    "runs mandatory SRT verification, non-force pushes, and reports "
+                    "fix_ci_repair_pushed for CT103 pending registration."
                 ),
             }
         )

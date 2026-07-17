@@ -254,4 +254,17 @@ class FixCiRepairExhaustedEvent(BaseModel):
     expected_head_commit_sha: str
     pr_number: int | None = None
     repair_attempt: int
-    max_attempts: int = 3
+    max_attempts: int = 1
+
+
+class FixCiRepairStaleEvent(BaseModel):
+    schema_version: str = "agent_fix_ci_repair_stale.v1"
+    type: str = "agent.fix_ci_repair_stale"
+    fix_run_id: str
+    repository: str
+    expected_head_commit_sha: str
+    pr_number: int | None = None
+    repair_attempt: int = 0
+    repair_key: str = ""
+    reason: str = "remote_head_changed"
+    observed_head_commit_sha: str | None = None

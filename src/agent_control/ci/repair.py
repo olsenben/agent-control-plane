@@ -228,16 +228,43 @@ def consider_repair_dispatch(
     current_pr_head: str | None = None,
     branch_ok: bool = True,
     no_unrecognized_commits: bool = True,
+    allowed_files: list[str] | None = None,
+    required_command_ids: list[str] | None = None,
     settings: Settings | None = None,
 ) -> dict:
-    """Evaluate gate and optionally reserve attempt. Does not mutate repos."""
+    """Evaluate gate under short observer lock; create durable reservation.
+
+    Does not enqueue and does not hold the observer lock for the worker.
+    Caller must: enqueue → emit requested → release observer lock.
+    """
+    from agent_control.ci.reservation import (
+        LINEAGE_MAX_ATTEMPTS_V1,
+        RepairReservation,
+        create_repair_reservation,
+        get_lineage_attempt_count,
+        increment_lineage_attempt,
+        load_repair_reservation,
+    )
+
     settings = settings or get_settings()
+    lineage_id = pending.fix_run_id
     key_preview = repair_key(
         *split_repo_full_name(pending.repository),
         pending.opened_pr_number,
         pending.expected_head_commit_sha,
     )
-    attempt_count = get_repair_attempt_count(state_root, key_preview)
+    existing_early = load_repair_reservation(state_root, key_preview)
+    if existing_early is not None:
+        return {
+            "dispatched": False,
+            "blocked": True,
+            "reason_codes": ["reservation_exists"],
+            "label": "agent:blocked",
+            "repair_key": key_preview,
+            "existing_job_id": existing_early.job_id,
+        }
+
+    attempt_count = get_lineage_attempt_count(state_root, lineage_id)
     gate = evaluate_repair_allowed(
         settings=settings,
         result=result,
@@ -258,55 +285,96 @@ def consider_repair_dispatch(
             "repair_key": gate.repair_key,
         }
 
+    # Short-lived observer coordination lock only
     lock = acquire_pr_lock(
         state_root,
         repository=pending.repository,
         pr_number=pending.opened_pr_number,
-        holder=pending.fix_run_id,
+        holder=f"observe:{pending.fix_run_id}",
     )
     if lock is None:
         return {
             "dispatched": False,
             "blocked": True,
-            "reason_codes": ["pr_lock_held"],
+            "reason_codes": ["observer_lock_held"],
             "label": "agent:blocked",
             "repair_key": gate.repair_key,
         }
     try:
-        # CAS head again after lock
         if current_pr_head and current_pr_head != pending.expected_head_commit_sha:
-            release_pr_lock(lock)
             return {
                 "dispatched": False,
                 "blocked": True,
                 "reason_codes": ["pr_head_changed_after_lock"],
                 "label": "agent:blocked",
                 "repair_key": gate.repair_key,
+                "lock_path": str(lock),
             }
-        reserved = reserve_repair_attempt(
-            state_root,
-            gate.repair_key,
-            max_attempts=settings.fix_ci_repair_max_attempts,
+
+        existing = load_repair_reservation(state_root, gate.repair_key)
+        if existing is not None:
+            return {
+                "dispatched": False,
+                "blocked": True,
+                "reason_codes": ["reservation_exists"],
+                "label": "agent:blocked",
+                "repair_key": gate.repair_key,
+                "lock_path": str(lock),
+                "existing_job_id": existing.job_id,
+            }
+
+        max_attempts = min(settings.fix_ci_repair_max_attempts, LINEAGE_MAX_ATTEMPTS_V1)
+        reserved = increment_lineage_attempt(
+            state_root, lineage_id, max_attempts=max_attempts
         )
         if reserved is None:
-            release_pr_lock(lock)
             return {
                 "dispatched": False,
                 "blocked": True,
                 "reason_codes": ["repair_budget_exhausted"],
                 "label": "agent:needs-human",
                 "repair_key": gate.repair_key,
+                "lock_path": str(lock),
+            }
+
+        reservation = RepairReservation(
+            repair_key=gate.repair_key,
+            repository=pending.repository,
+            pr_number=pending.opened_pr_number,
+            expected_head_commit_sha=pending.expected_head_commit_sha,
+            repair_attempt=reserved,
+            fix_run_id=pending.fix_run_id,
+            repair_lineage_id=lineage_id,
+            evidence_observation_id=(
+                evidence.evidence_observation_id if evidence else ""
+            ),
+            agent_branch=pending.agent_branch or "",
+            allowed_files=list(allowed_files or []),
+            required_command_ids=list(required_command_ids or []),
+            issue_id=pending.issue_id,
+            artifact_root=pending.artifact_root,
+        )
+        created = create_repair_reservation(state_root, reservation)
+        if created is None:
+            return {
+                "dispatched": False,
+                "blocked": True,
+                "reason_codes": ["reservation_exists"],
+                "label": "agent:blocked",
+                "repair_key": gate.repair_key,
+                "lock_path": str(lock),
             }
         return {
             "dispatched": True,
             "blocked": False,
             "repair_attempt": reserved,
             "repair_key": gate.repair_key,
+            "repair_lineage_id": lineage_id,
             "reason_codes": [],
             "label": "",
             "lock_path": str(lock),
+            "reservation": created.to_dict(),
         }
     except Exception:
         release_pr_lock(lock)
         raise
-    # Note: successful dispatch returns lock_path; caller/worker must release.

@@ -147,7 +147,7 @@ def test_consider_dispatch_single_reservation(tmp_path: Path) -> None:
         FIX_CI_OBSERVE_ENABLED=True,
         FIX_CI_FAILURE_EVIDENCE_ENABLED=True,
         FIX_CI_REPAIR_ENABLED=True,
-        FIX_CI_REPAIR_MAX_ATTEMPTS=3,
+        FIX_CI_REPAIR_MAX_ATTEMPTS=1,
         SANDBOX_EXPECTED_POLICY_HASH=ph,
     )
     pending = PendingCiRecord(
@@ -192,12 +192,14 @@ def test_consider_dispatch_single_reservation(tmp_path: Path) -> None:
         attestation=_strong_attestation(ph),
         current_pr_head="abc",
         settings=settings,
+        required_command_ids=["ruff_check"],
     )
     assert d1["dispatched"] is True
     assert d1["repair_attempt"] == 1
+    assert d1.get("reservation")
     release_pr_lock(Path(d1["lock_path"]))
 
-    # Second concurrent-style lock after release still increments attempt
+    # Duplicate observation: reservation exists — no second job
     d2 = consider_repair_dispatch(
         tmp_path,
         result=result,
@@ -206,10 +208,12 @@ def test_consider_dispatch_single_reservation(tmp_path: Path) -> None:
         attestation=_strong_attestation(ph),
         current_pr_head="abc",
         settings=settings,
+        required_command_ids=["ruff_check"],
     )
-    assert d2["dispatched"] is True
-    assert d2["repair_attempt"] == 2
-    release_pr_lock(Path(d2["lock_path"]))
+    assert d2["dispatched"] is False
+    assert "reservation_exists" in d2["reason_codes"]
+    if d2.get("lock_path"):
+        release_pr_lock(Path(d2["lock_path"]))
 
 
 def test_deny_backend_never_strong() -> None:

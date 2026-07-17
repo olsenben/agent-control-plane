@@ -108,9 +108,9 @@ class Settings(BaseSettings):
         description="Slice 6F.2: gated automatic repair (requires observe + evidence)",
     )
     fix_ci_repair_max_attempts: int = Field(
-        default=3,
+        default=1,
         alias="FIX_CI_REPAIR_MAX_ATTEMPTS",
-        description="Repair sessions after the initial fix (infra retries excluded)",
+        description="Automatic repair attempts per repair lineage (v1 default 1)",
     )
     sandbox_backend: str = Field(
         default="srt",

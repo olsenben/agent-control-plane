@@ -12,6 +12,7 @@ from rq import Queue, Worker
 from agent_shared.constants import (
     ALL_QUEUE_NAMES,
     FLOW_QUEUE_NAMES,
+    QUEUE_CI_REPAIR,
     QUEUE_RESULTS_INGEST,
     QUEUE_RLM_ROOT,
     prefixed_queue,
@@ -24,6 +25,7 @@ STATE_JOB_ID_PREFIX: Final[str] = "state"
 RLM_ROOT_JOB_ID_PREFIX: Final[str] = "rlm-root"
 REPORT_JOB_ID_PREFIX: Final[str] = "report"
 INGEST_JOB_ID_PREFIX: Final[str] = "ingest"
+CI_REPAIR_JOB_ID_PREFIX: Final[str] = "ci-repair"
 DEDUPE_KEY_PREFIX: Final[str] = "rq:dedupe:"
 DEDUPE_TTL_SECONDS: Final[int] = 86400
 
@@ -106,6 +108,19 @@ def enqueue_rlm_root(redis_url: str, job_payload: dict[str, Any]) -> str | None:
     trigger_event_id = job_payload.get("trigger_event_id", "unknown")
     job_id = deterministic_job_id(RLM_ROOT_JOB_ID_PREFIX, trigger_event_id)
     return _enqueue(redis_url, QUEUE_RLM_ROOT, process_rlm_root, job_id, job_payload, retry_max=1)
+
+
+def enqueue_ci_repair(redis_url: str, job_payload: dict[str, Any]) -> str | None:
+    """Deterministic job id: repo + PR + expected_sha + attempt."""
+    from agent_workers.jobs.ci_repair import process_ci_repair
+
+    repo = str(job_payload.get("repository") or "unknown")
+    pr = job_payload.get("pr_number")
+    sha = str(job_payload.get("expected_head_commit_sha") or "unknown")
+    attempt = job_payload.get("repair_attempt") or 0
+    key = f"{repo}:{pr}:{sha}:{attempt}"
+    job_id = deterministic_job_id(CI_REPAIR_JOB_ID_PREFIX, key)
+    return _enqueue(redis_url, QUEUE_CI_REPAIR, process_ci_repair, job_id, job_payload, retry_max=1)
 
 
 def enqueue_report(redis_url: str, run_id: str, job_payload: dict[str, Any]) -> str | None:

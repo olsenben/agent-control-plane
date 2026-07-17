@@ -337,11 +337,18 @@ def apply_observation(
 
     # 6F.2: consider repair only after aggregate gating (flag default off)
     if settings.fix_ci_repair_enabled and result.verdict == "failing":
-        from agent_control.aci.backends import get_sandbox_backend
-        from agent_control.ci.events import append_fix_ci_repair_blocked, append_fix_ci_repair_requested
-        from agent_control.ci.repair import consider_repair_dispatch, release_pr_lock
-        from agent_shared.models.ci import FixCiRepairBlockedEvent, FixCiRepairRequestedEvent
         from pathlib import Path as _Path
+
+        from agent_control.aci.backends import get_sandbox_backend
+        from agent_control.ci.events import (
+            append_fix_ci_repair_blocked,
+            append_fix_ci_repair_requested,
+        )
+        from agent_control.ci.repair import consider_repair_dispatch, release_pr_lock
+        from agent_control.ci.reservation import save_repair_reservation
+        from agent_control.queue import enqueue_ci_repair
+        from agent_control.sandbox.command_runner import required_command_ids_for_failure_class
+        from agent_shared.models.ci import FixCiRepairBlockedEvent, FixCiRepairRequestedEvent
 
         branch = pending.agent_branch or ""
         branch_ok = branch.startswith("agent/")
@@ -358,18 +365,11 @@ def apply_observation(
                 "agent_control.aci.backends.probes", fromlist=["policy_hash"]
             ).policy_hash(),
         )
-        dispatch = consider_repair_dispatch(
-            state_root,
-            result=result,
-            pending=pending,
-            evidence=evidence_manifest,
-            attestation=attestation,
-            current_pr_head=pending.expected_head_commit_sha,
-            branch_ok=branch_ok,
-            no_unrecognized_commits=True,
-            settings=settings,
-        )
-        if dispatch.get("blocked"):
+        failure_class = evidence_manifest.failure_class if evidence_manifest else "unknown"
+        required_ids = required_command_ids_for_failure_class(failure_class)
+        if failure_class in __import__(
+            "agent_shared.models.ci", fromlist=["AUTO_REPAIRABLE_FAILURE_CLASSES"]
+        ).AUTO_REPAIRABLE_FAILURE_CLASSES and not required_ids:
             append_fix_ci_repair_blocked(
                 state_root,
                 FixCiRepairBlockedEvent(
@@ -377,30 +377,100 @@ def apply_observation(
                     repository=pending.repository,
                     expected_head_commit_sha=pending.expected_head_commit_sha,
                     pr_number=pending.opened_pr_number,
-                    reason_codes=list(dispatch.get("reason_codes") or []),
-                    label=str(dispatch.get("label") or "agent:blocked"),
+                    reason_codes=["no_mapped_verifier"],
+                    label="agent:blocked",
                 ),
             )
-            if dispatch.get("lock_path"):
-                release_pr_lock(_Path(str(dispatch["lock_path"])))
-        elif dispatch.get("dispatched"):
-            append_fix_ci_repair_requested(
+        else:
+            dispatch = consider_repair_dispatch(
                 state_root,
-                FixCiRepairRequestedEvent(
-                    fix_run_id=pending.fix_run_id,
-                    repository=pending.repository,
-                    expected_head_commit_sha=pending.expected_head_commit_sha,
-                    pr_number=pending.opened_pr_number,
-                    evidence_observation_id=(
-                        evidence_manifest.evidence_observation_id if evidence_manifest else ""
-                    ),
-                    repair_attempt=int(dispatch.get("repair_attempt") or 0),
-                    repair_key=str(dispatch.get("repair_key") or ""),
-                ),
+                result=result,
+                pending=pending,
+                evidence=evidence_manifest,
+                attestation=attestation,
+                current_pr_head=pending.expected_head_commit_sha,
+                branch_ok=branch_ok,
+                no_unrecognized_commits=True,
+                required_command_ids=required_ids,
+                settings=settings,
             )
-            # Worker execution is a follow-on; release lock until worker lands.
-            if dispatch.get("lock_path"):
-                release_pr_lock(_Path(str(dispatch["lock_path"])))
+            lock_path = (
+                _Path(str(dispatch["lock_path"])) if dispatch.get("lock_path") else None
+            )
+            try:
+                if dispatch.get("blocked"):
+                    # reservation_exists is not a new blocked event (dedupe)
+                    if "reservation_exists" not in (dispatch.get("reason_codes") or []):
+                        append_fix_ci_repair_blocked(
+                            state_root,
+                            FixCiRepairBlockedEvent(
+                                fix_run_id=pending.fix_run_id,
+                                repository=pending.repository,
+                                expected_head_commit_sha=pending.expected_head_commit_sha,
+                                pr_number=pending.opened_pr_number,
+                                reason_codes=list(dispatch.get("reason_codes") or []),
+                                label=str(dispatch.get("label") or "agent:blocked"),
+                            ),
+                        )
+                elif dispatch.get("dispatched"):
+                    reservation = dispatch.get("reservation") or {}
+                    job_payload = {
+                        "schema_version": "ci_repair_job.v1",
+                        "state_root": str(state_root),
+                        **reservation,
+                    }
+                    job_id = enqueue_ci_repair(settings.redis_url, job_payload)
+                    if not job_id:
+                        # Do not emit requested without a durable job
+                        from agent_control.ci.reservation import (
+                            load_repair_reservation,
+                            reservation_path,
+                        )
+
+                        existing = load_repair_reservation(
+                            state_root, str(dispatch.get("repair_key") or "")
+                        )
+                        if existing and existing.status == "reserved" and not existing.job_id:
+                            path = reservation_path(state_root, existing.repair_key)
+                            path.unlink(missing_ok=True)
+                        append_fix_ci_repair_blocked(
+                            state_root,
+                            FixCiRepairBlockedEvent(
+                                fix_run_id=pending.fix_run_id,
+                                repository=pending.repository,
+                                expected_head_commit_sha=pending.expected_head_commit_sha,
+                                pr_number=pending.opened_pr_number,
+                                reason_codes=["dispatch_failed"],
+                                label="agent:blocked",
+                            ),
+                        )
+                    else:
+                        from agent_control.ci.reservation import load_repair_reservation
+
+                        existing = load_repair_reservation(
+                            state_root, str(dispatch.get("repair_key") or "")
+                        )
+                        if existing:
+                            existing.job_id = job_id
+                            save_repair_reservation(state_root, existing)
+                        append_fix_ci_repair_requested(
+                            state_root,
+                            FixCiRepairRequestedEvent(
+                                fix_run_id=pending.fix_run_id,
+                                repository=pending.repository,
+                                expected_head_commit_sha=pending.expected_head_commit_sha,
+                                pr_number=pending.opened_pr_number,
+                                evidence_observation_id=(
+                                    evidence_manifest.evidence_observation_id
+                                    if evidence_manifest
+                                    else ""
+                                ),
+                                repair_attempt=int(dispatch.get("repair_attempt") or 0),
+                                repair_key=str(dispatch.get("repair_key") or ""),
+                            ),
+                        )
+            finally:
+                release_pr_lock(lock_path)
 
     # 6E.2 memory on verified
     if result.verdict == "verified" and previous_verdict != "verified":

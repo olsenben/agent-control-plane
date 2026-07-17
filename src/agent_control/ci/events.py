@@ -14,6 +14,7 @@ from agent_shared.models.ci import (
     FixCiRepairPushedEvent,
     FixCiRepairRequestedEvent,
     FixCiRepairStartedEvent,
+    FixCiRepairStaleEvent,
     FixCiVerdictChangedEvent,
 )
 
@@ -208,6 +209,27 @@ def append_fix_ci_repair_exhausted(
         raw_event_type="agent.fix_ci_repair_exhausted",
         source="ct103",
         delivery_id=f"{body.fix_run_id}:exhausted",
+        project=body.repository,
+        payload=body.model_dump(mode="json"),
+    )
+    return append_event(state_root, event)
+
+
+def append_fix_ci_repair_stale(
+    state_root: Path,
+    body: FixCiRepairStaleEvent,
+) -> tuple[Path, bool]:
+    event_id = deterministic_event_id(
+        "ct103",
+        f"{body.repair_key}:{body.repair_attempt}:{body.reason}:stale",
+        "agent.fix_ci_repair_stale",
+    )
+    event = AgentEvent(
+        event_id=event_id,
+        type="agent.fix_ci_repair_stale",
+        raw_event_type="agent.fix_ci_repair_stale",
+        source="ct103",
+        delivery_id=f"{body.repair_key}:stale:{body.reason}",
         project=body.repository,
         payload=body.model_dump(mode="json"),
     )
