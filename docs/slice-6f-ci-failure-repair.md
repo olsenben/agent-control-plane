@@ -270,7 +270,7 @@ docker compose exec -T control-plane \
 | Worker `repair_started` / `repair_pushed` | **Not in scope** — `agentctl repair` still notes worker push after CT104/5.8 spike |
 | Classifier noise | **Follow-up** — same assert Fail classified `lint_failure` vs `infrastructure_failure` across twin runs |
 
-**Next:** Slice **5.8** SandboxBackend `run_command` wiring, then complete 6F.2 worker push. Keep non-demo repair conservative until then. 5.6a spike signed off ([slice-5.6a](slice-5.6a-srt-sandbox-spike.md)).
+**Next:** [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) (Approved / implementation pending). 5.6a signed off.
 
 ---
 

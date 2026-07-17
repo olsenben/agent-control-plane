@@ -204,4 +204,4 @@ Demo-only: CT103 may have `FIX_CI_REPAIR_ENABLED=true` for the 6F.2 **gate** pro
 
 ## Next
 
-**Slice 5.8:** Route Risk 2 `run_command` (and repair execution) through SandboxBackend; keep `fallback: deny`. Then finish 6F.2 worker push. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md).
+**Next:** [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) (Approved / implementation pending) — `command_runner` + repair reservation/lease + worker push.

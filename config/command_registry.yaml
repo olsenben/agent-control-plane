@@ -1,0 +1,23 @@
+# Deployed control-plane policy only — never load from a target repo checkout.
+# Repos may narrow allowed IDs by intersection; they must not supply argv/env/cwd/timeouts.
+
+commands:
+  pytest_narrow:
+    argv: ["python", "-m", "pytest", "-q"]
+    cwd: repo_root
+    timeout_seconds: 120
+    environment_allowlist: ["PATH", "PYTHONPATH", "HOME", "LANG", "LC_ALL"]
+    max_output_bytes: 1048576
+
+  ruff_check:
+    argv: ["python", "-m", "ruff", "check", "."]
+    cwd: repo_root
+    timeout_seconds: 60
+    environment_allowlist: ["PATH", "PYTHONPATH", "HOME", "LANG", "LC_ALL"]
+    max_output_bytes: 524288
+
+failure_class_commands:
+  test_failure: [pytest_narrow]
+  lint_failure: [ruff_check]
+  build_failure: [pytest_narrow]
+  deterministic_typecheck_failure: [pytest_narrow]
