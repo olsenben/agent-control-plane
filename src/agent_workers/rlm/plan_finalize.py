@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from agent_shared.approval_ids import derive_approval_target_id, derive_plan_alias
@@ -20,9 +21,11 @@ def finalize_plan_result(
     known_sources: list[str],
     job: dict[str, Any],
     engine: str,
+    workspace: Path | str | None = None,
 ) -> tuple[str, PlanResult, list[str]]:
     del engine
     known = set(known_sources)
+    workspace_path = Path(workspace) if workspace else None
 
     pack = None
     pack_raw = job.get("context_pack")
@@ -76,7 +79,9 @@ def finalize_plan_result(
     ):
         plan = plan.model_copy(update={"blast_radius": stub_blast_radius()})
 
-    validated, warnings = apply_path_validation(plan, known)
+    validated, warnings = apply_path_validation(
+        plan, known, workspace=workspace_path
+    )
 
     quality = evaluate_plan_quality(validated, path_validation_warnings=warnings)
     validated = validated.model_copy(

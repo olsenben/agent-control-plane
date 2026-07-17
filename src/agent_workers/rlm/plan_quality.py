@@ -25,6 +25,8 @@ def evaluate_plan_quality(
     path_validation_warnings: list[str] | None = None,
 ) -> PlanQualityResult:
     """Evaluate fixability after path validation on step.files."""
+    from agent_workers.rlm.review_parser import PSEUDO_CONTEXT_SOURCES
+
     warnings = path_validation_warnings or []
     has_path_rejections = any(
         "Rejected hallucinated step file paths" in warning for warning in warnings
@@ -34,7 +36,7 @@ def evaluate_plan_quality(
         file
         for step in plan.steps
         for file in step.files
-        if file.strip()
+        if file.strip() and file.strip() not in PSEUDO_CONTEXT_SOURCES
     ]
     fixable = bool(plan.steps) and bool(valid_step_files)
     if fixable:

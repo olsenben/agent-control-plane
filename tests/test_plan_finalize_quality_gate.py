@@ -96,3 +96,44 @@ def test_good_plan_with_valid_files_gets_wi_block() -> None:
     comment = render_plan_comment(finalized)
     assert "Approval required" in comment
     assert "Plan not fixable" not in comment
+
+
+def test_workspace_existing_files_pass_without_known_sources(tmp_path) -> None:
+    """Stage 3 regression: issue-only context_sources are pseudo tags only."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "demo_app").mkdir()
+    (tmp_path / "src" / "demo_app" / "math_service.py").write_text(
+        "def add(a, b): return a + b\n", encoding="utf-8"
+    )
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_math_service.py").write_text(
+        "def test_add(): assert True\n", encoding="utf-8"
+    )
+    plan = PlanResult(
+        scope_summary="Add multiply helper",
+        steps=[
+            PlanStep(
+                id="S-001",
+                summary="Add multiply to math_service",
+                files=["src/demo_app/math_service.py"],
+            ),
+            PlanStep(
+                id="S-002",
+                summary="Add test_multiply",
+                files=["tests/test_math_service.py"],
+            ),
+        ],
+        risk_tags=["risk-2"],
+    )
+    _summary, finalized, warnings = finalize_plan_result(
+        plan,
+        known_sources=["gitea_issue", "graph_blast_radius", "memory_retrieval"],
+        job=_job(run_id="run-workspace-plan"),
+        engine="official_rlm",
+        workspace=tmp_path,
+    )
+    assert warnings == []
+    assert finalized.fixable is True
+    assert finalized.approval_target_id is not None
+    assert finalized.steps[0].files == ["src/demo_app/math_service.py"]
+    assert finalized.steps[1].files == ["tests/test_math_service.py"]

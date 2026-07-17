@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 from agent_control.model_router import ResolvedEndpoint
@@ -16,6 +17,25 @@ from agent_shared.models.review import (
 from agent_workers.rlm.model_output import StructuredParseFailure, validate_or_repair
 from agent_workers.rlm.normalizers import parse_blast_radius_lines
 
+# Context-pack tags that are not repository file paths.
+PSEUDO_CONTEXT_SOURCES = frozenset(
+    {
+        "gitea_issue",
+        "gitea_issue_override",
+        "gitea_issue_unavailable",
+        "diff_override",
+        "gitea_pr_diff",
+        "gitea_pr_diff_unavailable",
+        "graph_blast_radius",
+        "adr_compiler",
+        "ripgrep",
+        "memory_retrieval",
+        "prior_memory",
+    }
+)
+
+_PSEUDO_CONTEXT_SOURCES = PSEUDO_CONTEXT_SOURCES  # backwards-compatible alias
+
 
 class ReviewParseError(ValueError):
     """Raised when review output cannot be parsed into ReviewResult."""
@@ -28,21 +48,62 @@ def _normalize_path(path: str) -> str:
     return cleaned.lstrip("/")
 
 
+def _workspace_accepts_path(
+    workspace: Path,
+    norm: str,
+    *,
+    allow_new_under_existing_dir: bool,
+) -> bool:
+    """True when path is inside workspace and is a real file (or creatable under an existing dir)."""
+    if not norm or any(part == ".." for part in Path(norm).parts):
+        return False
+    root = workspace.resolve()
+    if not root.is_dir():
+        return False
+    candidate = (root / norm).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return False
+    if candidate.is_file():
+        return True
+    if allow_new_under_existing_dir and candidate.parent.is_dir():
+        return True
+    return False
+
+
 def filter_hallucinated_paths(
     files: list[str],
     known_sources: set[str],
+    *,
+    workspace: Path | None = None,
+    allow_new_under_existing_dir: bool = False,
 ) -> tuple[list[str], list[str]]:
-    normalized_known = {_normalize_path(p) for p in known_sources}
+    normalized_known = {
+        _normalize_path(p)
+        for p in known_sources
+        if _normalize_path(p) and _normalize_path(p) not in _PSEUDO_CONTEXT_SOURCES
+    }
     kept: list[str] = []
     rejected: list[str] = []
     for raw in files:
         norm = _normalize_path(raw)
         if not norm:
             continue
+        if norm in _PSEUDO_CONTEXT_SOURCES:
+            rejected.append(raw)
+            continue
         if norm in normalized_known:
             kept.append(norm)
             continue
         if any(norm.endswith(f"/{known}") or known.endswith(f"/{norm}") for known in normalized_known):
+            kept.append(norm)
+            continue
+        if workspace is not None and _workspace_accepts_path(
+            workspace,
+            norm,
+            allow_new_under_existing_dir=allow_new_under_existing_dir,
+        ):
             kept.append(norm)
             continue
         rejected.append(raw)
@@ -168,16 +229,28 @@ def parse_review_output(
 def apply_path_validation(
     review: ReviewResult,
     known_sources: set[str],
+    *,
+    workspace: Path | None = None,
 ) -> tuple[ReviewResult, list[str]]:
     warnings: list[str] = []
-    kept_files, rejected_files = filter_hallucinated_paths(review.files_inspected, known_sources)
+    kept_files, rejected_files = filter_hallucinated_paths(
+        review.files_inspected,
+        known_sources,
+        workspace=workspace,
+        allow_new_under_existing_dir=False,
+    )
     if rejected_files:
         warnings.append(f"Rejected hallucinated file paths: {', '.join(rejected_files)}")
 
     validated_findings: list[ReviewFinding] = []
     for finding in review.findings:
         if finding.file:
-            kept, rejected = filter_hallucinated_paths([finding.file], known_sources)
+            kept, rejected = filter_hallucinated_paths(
+                [finding.file],
+                known_sources,
+                workspace=workspace,
+                allow_new_under_existing_dir=False,
+            )
             if rejected:
                 warnings.append(f"Cleared hallucinated finding file: {finding.file}")
                 validated_findings.append(finding.model_copy(update={"file": None}))

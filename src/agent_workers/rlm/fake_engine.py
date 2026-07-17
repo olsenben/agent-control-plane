@@ -206,6 +206,7 @@ class FakeRLMEngine:
                 known_sources=sources,
                 job=job,
                 engine=self.name,
+                workspace=workspace,
             )
             warnings.extend(review_warnings)
             return RLMResult(
@@ -243,6 +244,7 @@ class FakeRLMEngine:
                 known_sources=sources,
                 job=job,
                 engine=self.name,
+                workspace=workspace,
             )
             warnings.extend(plan_warnings)
             return RLMResult(

@@ -88,6 +88,40 @@ def test_filter_hallucinated_paths() -> None:
     assert "src/fake.py" in rejected
 
 
+def test_filter_keeps_workspace_existing_file(tmp_path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "demo_app").mkdir()
+    (tmp_path / "src" / "demo_app" / "math_service.py").write_text("x = 1\n", encoding="utf-8")
+    kept, rejected = filter_hallucinated_paths(
+        ["src/demo_app/math_service.py", "totally/missing.py"],
+        {"gitea_issue", "graph_blast_radius"},
+        workspace=tmp_path,
+    )
+    assert kept == ["src/demo_app/math_service.py"]
+    assert "totally/missing.py" in rejected
+
+
+def test_filter_plan_allows_new_file_under_existing_dir(tmp_path) -> None:
+    (tmp_path / "tests").mkdir()
+    kept, rejected = filter_hallucinated_paths(
+        ["tests/test_new_helper.py", "nope/missing.py"],
+        set(),
+        workspace=tmp_path,
+        allow_new_under_existing_dir=True,
+    )
+    assert kept == ["tests/test_new_helper.py"]
+    assert "nope/missing.py" in rejected
+
+
+def test_filter_rejects_pseudo_context_sources_as_files() -> None:
+    kept, rejected = filter_hallucinated_paths(
+        ["gitea_issue", "README.md"],
+        {"gitea_issue", "README.md"},
+    )
+    assert kept == ["README.md"]
+    assert "gitea_issue" in rejected
+
+
 def test_parse_markdown_sections_risk_tags() -> None:
     raw = """### Finding
 - [F-001] (info) ok

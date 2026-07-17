@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from agent_shared.constants import GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS
@@ -17,9 +18,11 @@ def finalize_review_result(
     known_sources: list[str],
     job: dict[str, Any],
     engine: str,
+    workspace: Path | str | None = None,
 ) -> tuple[str, ReviewResult, list[str]]:
     del engine
     known = set(known_sources)
+    workspace_path = Path(workspace) if workspace else None
 
     pack = job.get("context_pack")
     if pack:
@@ -68,7 +71,9 @@ def finalize_review_result(
     ):
         review = review.model_copy(update={"blast_radius": stub_blast_radius()})
 
-    validated, warnings = apply_path_validation(review, known)
+    validated, warnings = apply_path_validation(
+        review, known, workspace=workspace_path
+    )
     summary = fit_summary_for_comment(
         render_review_comment(validated),
         GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 from agent_control.model_router import ResolvedEndpoint
@@ -111,6 +112,8 @@ def parse_plan_output(
 def apply_path_validation(
     plan: PlanResult,
     known_sources: set[str],
+    *,
+    workspace: Path | None = None,
 ) -> tuple[PlanResult, list[str]]:
     warnings: list[str] = []
     validated_steps: list[PlanStep] = []
@@ -118,7 +121,12 @@ def apply_path_validation(
         if not step.files:
             validated_steps.append(step)
             continue
-        kept, rejected = filter_hallucinated_paths(step.files, known_sources)
+        kept, rejected = filter_hallucinated_paths(
+            step.files,
+            known_sources,
+            workspace=workspace,
+            allow_new_under_existing_dir=True,
+        )
         if rejected:
             warnings.append(f"Rejected hallucinated step file paths: {', '.join(rejected)}")
         validated_steps.append(step.model_copy(update={"files": kept}))

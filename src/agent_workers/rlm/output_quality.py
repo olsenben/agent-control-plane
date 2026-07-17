@@ -12,11 +12,10 @@ from agent_shared.models.plan import PlanResult, PlanStep
 from agent_shared.patch_paths import PatchPathError, normalize_repo_relative_path
 from agent_workers.gates.runner import APPROVED_PATCH_NAME, collect_changed_files
 from agent_workers.rlm.plan_quality import evaluate_plan_quality
+from agent_workers.rlm.review_parser import PSEUDO_CONTEXT_SOURCES
 
 _CONTENT_REQUIRED_KINDS = frozenset({"replace", "append", "create"})
-_PSEUDO_SOURCES = frozenset(
-    {"gitea_issue", "graph_blast_radius", "memory_retrieval", "prior_memory"}
-)
+_PSEUDO_SOURCES = PSEUDO_CONTEXT_SOURCES
 
 
 @dataclass(frozen=True)
@@ -45,6 +44,15 @@ def normalize_patch_path(path: str) -> str:
 
 def evaluate_plan_output_quality(plan: PlanResult) -> QualityVerdict:
     """Require actionable steps with scoped repo files."""
+    # Prefer finalize's path-aware reasons when already computed.
+    if not plan.fixable and plan.quality_gate_reasons:
+        reasons = list(plan.quality_gate_reasons)
+        for step in plan.steps:
+            if not _step_actionable_text(step):
+                reasons.append(f"Plan step {step.id!r} has no actionable text.")
+        passed = False
+        return QualityVerdict(passed=passed, reasons=reasons)
+
     base = evaluate_plan_quality(plan)
     reasons = list(base.reasons)
     if not plan.steps:
