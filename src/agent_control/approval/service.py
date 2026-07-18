@@ -198,6 +198,13 @@ def evaluate_fix_request(
             approval=approval,
             plan_record=record,
         )
+    if approval.status == "claimed":
+        return FixEvaluation(
+            policy_decision="blocked",
+            reason="Approval claimed by an in-flight publish job",
+            approval=approval,
+            plan_record=record,
+        )
     if approval.status != "approved":
         return FixEvaluation(
             policy_decision="blocked",
@@ -327,6 +334,57 @@ def reserve_approval_for_fix(
     return updated
 
 
+def claim_approval_for_publish(
+    state_root: Path,
+    approval: WorkItemApproval,
+    *,
+    publish_job_id: str,
+) -> WorkItemApproval | None:
+    """Atomically claim a reserved/approved approval for a publish job.
+
+    Returns None if the approval cannot be claimed (revoked, already claimed
+    by another job, or consumed).
+    """
+    current = load_approval(state_root, approval.project, approval.approval_target_id)
+    if current is None:
+        return None
+    if current.status == "claimed" and current.claimed_by_publish_job_id == publish_job_id:
+        return current
+    if current.status not in ("reserved", "approved"):
+        return None
+    if current.status == "claimed":
+        return None
+    updated = current.model_copy(
+        update={
+            "status": "claimed",
+            "claimed_at": _now_iso(),
+            "claimed_by_publish_job_id": publish_job_id,
+        }
+    )
+    save_approval(state_root, updated)
+    return updated
+
+
+def release_approval_claim(
+    state_root: Path,
+    approval: WorkItemApproval,
+) -> WorkItemApproval:
+    """Release a publish claim back to reserved (or approved if never reserved)."""
+    current = load_approval(state_root, approval.project, approval.approval_target_id)
+    if current is None or current.status != "claimed":
+        return approval
+    back = "reserved" if current.reserved_by_fix_run_id else "approved"
+    updated = current.model_copy(
+        update={
+            "status": back,
+            "claimed_at": None,
+            "claimed_by_publish_job_id": None,
+        }
+    )
+    save_approval(state_root, updated)
+    return updated
+
+
 def release_approval_reservation(
     state_root: Path,
     approval: WorkItemApproval,
@@ -334,13 +392,15 @@ def release_approval_reservation(
     fix_run_id: str,
     reason: str,
 ) -> WorkItemApproval:
-    if approval.status not in ("reserved", "approved"):
+    if approval.status not in ("reserved", "approved", "claimed"):
         return approval
     updated = approval.model_copy(
         update={
             "status": "approved",
             "reserved_at": None,
             "reserved_by_fix_run_id": None,
+            "claimed_at": None,
+            "claimed_by_publish_job_id": None,
             "publish_state": None,
         }
     )
@@ -368,9 +428,11 @@ def consume_approval_on_pr_open(
 ) -> WorkItemApproval:
     if approval.status == "consumed":
         return approval
+    # Prefer latest disk state (may be claimed)
+    current = load_approval(state_root, approval.project, approval.approval_target_id) or approval
     return consume_approval(
         state_root,
-        approval,
+        current,
         consumed_by_run_id=fix_run_id,
         consumed_event_id=consumed_event_id or f"ingest-{fix_run_id}",
     )

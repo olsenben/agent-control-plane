@@ -18,14 +18,16 @@ See [gitea-secrets.md](gitea-secrets.md).
 
 Live in `/opt/ai-sdlc-lab/agent-control-plane/.env` on each host. Created at bootstrap from `.env.example`; edited out-of-band. Deploy workflows check `test -f .env` but do not read or overwrite it.
 
-### Slice 6D token separation (CT104)
+### V4.1.1 / Slice 6D.2 — CT103-only Gitea write
 
 | Token | Host | Scope |
 |-------|------|-------|
-| `GITEA_AGENT_TOKEN` | CT104 | Issue comments only |
-| `GITEA_BOT_TOKEN` | CT104 | Branch `git push` + PR API only; scoped to target repos; **no** admin, repo delete, or org management |
+| `GITEA_BOT_TOKEN` | **CT103 only** (`publish-broker` + control-plane comments) | Branch push, PR API, issue comments |
+| *(none)* | CT104 | No Gitea write tokens; fail-closed at worker startup |
 
-Never use one token for both comment and push. `GITEA_BOT_TOKEN` is required only when `FIX_REMOTE_PUBLISH_ENABLED=true`. See [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md).
+CT104 may keep a **read-only** checkout credential (`~/.git-credentials`) for clone/fetch. See [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md) and ADR-0004.
+
+Legacy Slice 6D CT104 token placement is retired technical debt — do not restore.
 
 ## Git credentials on deploy hosts
 

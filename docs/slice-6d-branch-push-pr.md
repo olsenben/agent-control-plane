@@ -104,8 +104,9 @@ Before writing any of: `remote_publish_result.json`, `remote_publish_plan.json`,
 
 | Token | Scope |
 |-------|-------|
-| `GITEA_AGENT_TOKEN` | CT104 comments only |
-| `GITEA_BOT_TOKEN` | Push + PR API only |
+| `GITEA_BOT_TOKEN` | **CT103 only** — push + PR + comments (V4.1.1 / 6D.2) |
+
+CT104 no longer publishes. See [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md).
 
 ## Implementation order
 

@@ -11,7 +11,7 @@ import pytest
 from agent_shared.models.approval import FixAuthorizationBinding
 from agent_shared.models.fix import FixResult
 from agent_shared.models.jobs import RLMJob
-from agent_workers.publish.remote import PublishError, publish_fix_branch_and_pr
+from agent_control.publish.fix_publish import PublishError, publish_fix_branch_and_pr
 from agent_workers.settings import WorkerSettings
 
 
@@ -106,7 +106,7 @@ def test_publish_error_redaction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     mock_client = MagicMock()
     mock_client.get_branch_sha.side_effect = lambda _o, _r, branch: head if branch == "main" else None
 
-    import agent_workers.publish.remote as remote_mod
+    import agent_control.publish.fix_publish as remote_mod
 
     real_git_run = remote_mod._git_run
 
@@ -119,11 +119,11 @@ def test_publish_error_redaction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
             return subprocess.CompletedProcess(cmd, 1, "", err)
         return real_git_run(repo_root, cmd, env=env)
 
-    with patch("agent_workers.publish.remote.run_closed_world_diff_gate") as mock_gate:
+    with patch("agent_control.publish.fix_publish.run_closed_world_diff_gate") as mock_gate:
         mock_gate.return_value = MagicMock(passed=True, model_dump=lambda mode="json": {"passed": True})
-        with patch("agent_workers.publish.remote._git_run", side_effect=fake_git_run):
+        with patch("agent_control.publish.fix_publish._git_run", side_effect=fake_git_run):
             with patch(
-                "agent_workers.publish.remote.resolve_authenticated_repo_url",
+                "agent_control.publish.fix_publish.resolve_authenticated_repo_url",
                 return_value=f"http://oauth2:{secret}@gitea.local/ai-sdlc-lab/demo.git",
             ):
                 with pytest.raises(PublishError) as exc:

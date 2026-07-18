@@ -2,6 +2,9 @@
 
 ``agent.run_completed`` means the run reached a terminal state, not that the agent succeeded.
 Failed runs use ``status=failed`` with a ``terminal_status`` of ``failed_*``.
+
+V4.1.1: worker-reported ``pr_opened_pending_ci`` is non-authoritative. Publication is
+enqueued only for ``producer_protocol=patch-bundle.v1`` + ``patch_bundle_ready``.
 """
 
 from __future__ import annotations
@@ -13,8 +16,13 @@ from pathlib import Path
 
 from agent_control.config import Settings, get_settings
 from agent_control.events import AgentEvent, append_event, deterministic_event_id
+from agent_control.gitea_comments import post_issue_comment
 from agent_control.memory.mapper import policy_gate_risk_tags
 from agent_control.memory.writeback import writeback_from_completed
+from agent_shared.constants import (
+    FIX_STATUS_PATCH_BUNDLE_READY,
+    PRODUCER_PROTOCOL_PATCH_BUNDLE_V1,
+)
 from agent_shared.models.events import AgentRunCompletedEvent, RiskTagSourceEntry
 
 
@@ -42,80 +50,101 @@ def _enrich_event_payload(event_model: AgentRunCompletedEvent) -> dict:
     return payload
 
 
+def _maybe_enqueue_publish(
+    state_root: Path,
+    event: AgentRunCompletedEvent,
+    settings: Settings,
+) -> None:
+    from agent_control.publish.state import try_enqueue_cas
+    from agent_control.queue import enqueue_publish
+
+    if event.command_kind != "fix":
+        return
+    if event.producer_protocol != PRODUCER_PROTOCOL_PATCH_BUNDLE_V1:
+        return
+    if event.fix_status not in (FIX_STATUS_PATCH_BUNDLE_READY, "local_patch_passed"):
+        # local_patch_passed without protocol is legacy — ignore for brokerage
+        if event.fix_status != FIX_STATUS_PATCH_BUNDLE_READY:
+            return
+    if not event.bundle_id:
+        return
+    if not settings.fix_remote_publish_enabled:
+        return
+
+    attempt_id = event.attempt_id or "1"
+    kind = event.bundle_kind or "fix"
+    record = try_enqueue_cas(
+        state_root,
+        run_id=event.run_id,
+        kind=kind,
+        attempt_id=attempt_id,
+        bundle_id=event.bundle_id,
+        project=event.project,
+        approval_id=event.approval_id,
+        approval_target_id=event.approval_target_id,
+    )
+    if record is None:
+        return  # already queued / terminal
+
+    enqueue_publish(
+        settings.redis_url,
+        run_id=event.run_id,
+        kind=kind,
+        attempt_id=attempt_id,
+        bundle_id=event.bundle_id,
+        state_root=str(state_root),
+    )
+
+    if event.project and event.issue_id is not None:
+        try:
+            post_issue_comment(
+                event.project,
+                event.issue_id,
+                (
+                    "## Local patch queued\n\n"
+                    "Local patch produced and queued for independent publication validation.\n\n"
+                    f"- Run: `{event.run_id}`\n"
+                    f"- Bundle: `{event.bundle_id}`\n"
+                ),
+                settings=settings,
+            )
+        except Exception:
+            pass
+
+
 def handle_fix_ingest_side_effects(
     state_root: Path,
     event: AgentRunCompletedEvent,
+    settings: Settings | None = None,
 ) -> None:
-    """Consume or release approval based on fix ingest outcome (Slice 6D).
+    """Enqueue CT103 brokerage for patch bundles; release approval on worker failure.
 
-    Also registers pending CI observation when ``fix_status=pr_opened_pending_ci`` (6E.1).
+    Does **not** consume approval or register pending CI from worker-reported
+    ``pr_opened_pending_ci`` (non-authoritative after V4.1.1).
     """
-    from agent_control.approval.events import append_approval_consumed, append_approval_released
-    from agent_control.approval.storage import load_approval
-    from agent_shared.constants import (
-        FIX_STATUS_BRANCH_PUBLISHED_PR_FAILED,
-        FIX_STATUS_PR_OPENED_PENDING_CI,
-        FIX_STATUS_PUBLISH_FAILED,
-    )
-    from agent_shared.models.approval import ApprovalConsumedEvent, ApprovalReleasedEvent
+    settings = settings or get_settings()
 
-    if event.command_kind == "fix" and event.fix_status == FIX_STATUS_PR_OPENED_PENDING_CI:
-        _register_pending_ci_from_event(state_root, event)
+    # Ignore legacy worker-claimed publish success
+    if event.fix_status == "pr_opened_pending_ci" and event.producer_protocol != PRODUCER_PROTOCOL_PATCH_BUNDLE_V1:
+        return
+
+    _maybe_enqueue_publish(state_root, event, settings)
 
     if event.command_kind != "fix" or not event.approval_id or not event.approval_target_id:
         return
     if event.project is None or event.issue_id is None:
         return
+
+    from agent_control.approval.events import append_approval_released
+    from agent_control.approval.service import release_approval_reservation
+    from agent_control.approval.storage import load_approval
+    from agent_shared.models.approval import ApprovalReleasedEvent
+
     approval = load_approval(state_root, event.project, event.approval_target_id)
     if approval is None:
         return
 
-    if event.fix_status == FIX_STATUS_PR_OPENED_PENDING_CI:
-        from agent_control.approval.service import consume_approval_on_pr_open
-
-        consumed = consume_approval_on_pr_open(
-            state_root,
-            approval,
-            fix_run_id=event.run_id,
-            consumed_event_id=f"ingest-{event.run_id}",
-        )
-        body = ApprovalConsumedEvent(
-            approval_id=consumed.approval_id,
-            approval_target_id=consumed.approval_target_id,
-            plan_run_id=approval.plan_run_id,
-            project=consumed.project,
-            issue_id=consumed.issue_id,
-            consumed_by_fix_run_id=event.run_id,
-            consumed_by_event_id=f"ingest-{event.run_id}",
-        )
-        append_approval_consumed(state_root, body=body, comment_id=None)
-        return
-
-    if event.fix_status in (FIX_STATUS_PUBLISH_FAILED, FIX_STATUS_BRANCH_PUBLISHED_PR_FAILED):
-        if event.fix_status == FIX_STATUS_PUBLISH_FAILED:
-            from agent_control.approval.service import release_approval_reservation
-
-            release_approval_reservation(
-                state_root,
-                approval,
-                fix_run_id=event.run_id,
-                reason=event.fix_status or "publish_failed",
-            )
-            body = ApprovalReleasedEvent(
-                approval_id=approval.approval_id,
-                approval_target_id=approval.approval_target_id,
-                plan_run_id=approval.plan_run_id,
-                project=approval.project,
-                issue_id=approval.issue_id,
-                released_by_fix_run_id=event.run_id,
-                reason=event.fix_status or "publish_failed",
-            )
-            append_approval_released(state_root, body=body, comment_id=None)
-        return
-
     if event.status == "failed" and approval.status == "reserved":
-        from agent_control.approval.service import release_approval_reservation
-
         release_approval_reservation(
             state_root,
             approval,
@@ -132,42 +161,6 @@ def handle_fix_ingest_side_effects(
             reason="fix_run_failed",
         )
         append_approval_released(state_root, body=body, comment_id=None)
-
-
-def _register_pending_ci_from_event(
-    state_root: Path,
-    event: AgentRunCompletedEvent,
-) -> None:
-    if not event.head_commit_sha or not event.project:
-        return
-    from agent_control.ci.observe import required_workflows_from_hints
-    from agent_control.ci.pending import register_pending_ci
-    from agent_control.config import get_settings
-
-    settings = get_settings()
-    workflow_hints: list[str] = []
-    if event.fix_result is not None:
-        workflow_hints = list(getattr(event.fix_result, "ci_hints", None) or [])
-    required = required_workflows_from_hints(
-        workflow_hints,
-        require_matrix=settings.fix_ci_require_matrix_match,
-        repo_default=(
-            settings.fix_ci_repo_default_workflow
-            if settings.fix_ci_require_matrix_match
-            else None
-        ),
-    )
-    register_pending_ci(
-        state_root,
-        fix_run_id=event.run_id,
-        repository=event.project,
-        expected_head_commit_sha=event.head_commit_sha,
-        opened_pr_number=event.opened_pr_number,
-        issue_id=event.issue_id,
-        agent_branch=event.agent_branch,
-        required_workflows=required,
-        artifact_root=event.artifact_root,
-    )
 
 
 def ingest_result_file(
@@ -208,7 +201,7 @@ def ingest_result_file(
     ):
         writeback_from_completed(enriched, settings=settings)
     if created:
-        handle_fix_ingest_side_effects(state_root, enriched)
+        handle_fix_ingest_side_effects(state_root, enriched, settings=settings)
         processed = path.with_suffix(".json.processed")
         os.replace(path, processed)
     return stored_path, created

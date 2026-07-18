@@ -60,6 +60,11 @@ class RLMResult(BaseModel):
     diff_gate_result: dict[str, Any] | None = None
     fix_status: str | None = None
     remote_publish_result: dict[str, Any] | None = None
+    producer_protocol: str | None = None
+    bundle_id: str | None = None
+    attempt_id: str | None = None
+    bundle_kind: str | None = None
+    worker_result: str | None = None
 
 
 class AgentError(BaseModel):

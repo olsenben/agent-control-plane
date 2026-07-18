@@ -41,13 +41,19 @@ Detail: [POLICY_GATES.md](POLICY_GATES.md).
 
 ### CT104 `worker-report`
 
-- Gitea issue/PR comment API (`GITEA_AGENT_TOKEN`, `write:issue`)
 - Result inbox write (`agent-state/inbox/ct104-results/`)
+- **No** Gitea comments (V4.1.1 — CT103 only)
+
+### CT104 producers (fix / repair)
+
+- Immutable `bundle-inbox` READY artifacts (`patch-bundle.v1`)
+- **No** Gitea write tokens (fail-closed at startup)
 
 ### CT103
 
 - Webhook intake, event append, reducer, dispatch
 - Memory writeback (SQLite), graph snapshot queries
+- **`publish-broker`**: sole Gitea mutation (push / PR / comments) after independent validation
 - Policy gate evaluation, risk tag attachment
 - No direct repo mutation
 

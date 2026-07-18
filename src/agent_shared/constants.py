@@ -14,6 +14,7 @@ QUEUE_VERIFY = "verify"
 QUEUE_REPORT = "report"
 QUEUE_RESULTS_INGEST = "results-ingest"
 QUEUE_CI_REPAIR = "ci-repair"
+QUEUE_PUBLISH = "publish"
 
 FLOW_QUEUE_NAMES: tuple[str, ...] = (
     QUEUE_STATE,
@@ -23,6 +24,7 @@ FLOW_QUEUE_NAMES: tuple[str, ...] = (
     QUEUE_REPORT,
     QUEUE_RESULTS_INGEST,
     QUEUE_CI_REPAIR,
+    QUEUE_PUBLISH,
 )
 
 TerminalStatus = str
@@ -48,12 +50,16 @@ TERMINAL_FAILED_STATUSES = frozenset(
     }
 )
 
-# Slice 6D fix publish lifecycle (separate from terminal_status)
-FIX_STATUS_LOCAL_PATCH_PASSED = "local_patch_passed"
+# Slice 6D / V4.1.1 fix publish lifecycle (separate from terminal_status)
+FIX_STATUS_PATCH_BUNDLE_READY = "patch_bundle_ready"
+FIX_STATUS_LOCAL_PATCH_PASSED = "local_patch_passed"  # legacy alias
 FIX_STATUS_PUBLISH_FAILED = "publish_failed"
 FIX_STATUS_BRANCH_PUBLISHED_PR_FAILED = "branch_published_pr_failed"
 FIX_STATUS_PR_OPENED_PENDING_CI = "pr_opened_pending_ci"
 FIX_STATUS_CI_VERIFIED = "ci_verified"
+
+PRODUCER_PROTOCOL_PATCH_BUNDLE_V1 = "patch-bundle.v1"
+EVENT_FIX_CI_REPAIR_BUNDLE_READY = "agent.fix_ci_repair_bundle_ready"
 
 LEGACY_GPU_QUEUES: tuple[str, ...] = (
     "snapshot",

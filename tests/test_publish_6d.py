@@ -16,7 +16,7 @@ from agent_shared.models.approval import FixAuthorizationBinding
 from agent_shared.models.fix import FixResult
 from agent_shared.models.jobs import RLMJob
 from agent_workers.publish.formatters import build_commit_message
-from agent_workers.publish.remote import (
+from agent_control.publish.fix_publish import (
     PublishError,
     _stage_allowed_files,
     _validate_remote_url,
@@ -144,7 +144,7 @@ def test_publish_dry_run_writes_plan(tmp_path: Path) -> None:
             "confidence": "high",
         }
     )
-    with patch("agent_workers.publish.remote.run_closed_world_diff_gate") as mock_gate:
+    with patch("agent_control.publish.fix_publish.run_closed_world_diff_gate") as mock_gate:
         mock_gate.return_value = MagicMock(passed=True, model_dump=lambda mode="json": {"passed": True})
         result = publish_fix_branch_and_pr(
             repo_workspace=repo,
@@ -177,7 +177,8 @@ def test_approval_reservation_on_enqueue(tmp_path: Path) -> None:
     assert reserved.reserved_by_fix_run_id == "run-r1"
 
 
-def test_ingest_consumes_on_pr_opened(tmp_path: Path) -> None:
+def test_ingest_ignores_legacy_worker_pr_opened(tmp_path: Path) -> None:
+    """V4.1.1: worker-reported pr_opened_pending_ci is non-authoritative."""
     state = tmp_path / "state"
     state.mkdir()
     target = seed_plan_completed(state)
@@ -223,7 +224,7 @@ def test_ingest_consumes_on_pr_opened(tmp_path: Path) -> None:
 
     stored = load_approval(state, "ai-sdlc-lab/agent-control-plane", target)
     assert stored is not None
-    assert stored.status == "consumed"
+    assert stored.status == "reserved"  # not consumed by legacy worker claim
 
 
 def test_publish_status_names_not_verified() -> None:
@@ -332,7 +333,7 @@ def test_publish_branch_exists_different_head_blocks(tmp_path: Path) -> None:
     artifact.mkdir()
     job = _fix_job(tmp_path, head=head, run_id="run-branch-clash")
     mock_client = _mock_gitea_for_publish(head=head, agent_remote="deadbeef" * 5)
-    with patch("agent_workers.publish.remote.run_closed_world_diff_gate") as mock_gate:
+    with patch("agent_control.publish.fix_publish.run_closed_world_diff_gate") as mock_gate:
         mock_gate.return_value = MagicMock(passed=True, model_dump=lambda mode="json": {"passed": True})
         with pytest.raises(PublishError) as exc:
             publish_fix_branch_and_pr(
@@ -358,7 +359,7 @@ def test_publish_push_succeeds_pr_fails_partial_state(tmp_path: Path) -> None:
     mock_client = _mock_gitea_for_publish(head=head)
     mock_client.create_pull_request.side_effect = RuntimeError("PR API down")
 
-    import agent_workers.publish.remote as remote_mod
+    import agent_control.publish.fix_publish as remote_mod
 
     real_git_run = remote_mod._git_run
 
@@ -367,11 +368,11 @@ def test_publish_push_succeeds_pr_fails_partial_state(tmp_path: Path) -> None:
             return subprocess.CompletedProcess(cmd, 0, "", "")
         return real_git_run(repo_root, cmd, env=env)
 
-    with patch("agent_workers.publish.remote.run_closed_world_diff_gate") as mock_gate:
+    with patch("agent_control.publish.fix_publish.run_closed_world_diff_gate") as mock_gate:
         mock_gate.return_value = MagicMock(passed=True, model_dump=lambda mode="json": {"passed": True})
-        with patch("agent_workers.publish.remote._git_run", side_effect=fake_git_run):
+        with patch("agent_control.publish.fix_publish._git_run", side_effect=fake_git_run):
             with patch(
-                "agent_workers.publish.remote.resolve_authenticated_repo_url",
+                "agent_control.publish.fix_publish.resolve_authenticated_repo_url",
                 return_value="http://gitea.local/ai-sdlc-lab/demo.git",
             ):
                 with pytest.raises(PublishError) as exc:

@@ -172,12 +172,27 @@ def apply_observation(
     settings = settings or get_settings()
     pending = find_pending_by_repo_sha(state_root, repository, head_sha)
     if pending is None:
-        logger.info(
-            "ci_no_pending repo=%s sha=%s",
-            repository,
-            head_sha[:12] if head_sha else "",
+        # V4.1.1: accept CI when publish intent exists (race before pending finalize)
+        from agent_control.publish.state import find_intent_by_repo_sha
+
+        intent = find_intent_by_repo_sha(state_root, repository, head_sha)
+        if intent is None:
+            logger.info(
+                "ci_no_pending repo=%s sha=%s",
+                repository,
+                head_sha[:12] if head_sha else "",
+            )
+            return None
+        # Materialize a minimal pending from intent so observation can proceed
+        from agent_control.ci.pending import register_pending_ci
+
+        pending = register_pending_ci(
+            state_root,
+            fix_run_id=intent.run_id,
+            repository=repository,
+            expected_head_commit_sha=head_sha,
+            agent_branch=intent.agent_branch,
         )
-        return None
     if pending.current_verdict in ("superseded", "expired"):
         return None
 

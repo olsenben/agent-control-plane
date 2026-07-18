@@ -6,7 +6,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-ApprovalStatus = Literal["approved", "rejected", "expired", "reserved", "consumed"]
+ApprovalStatus = Literal[
+    "approved",
+    "rejected",
+    "expired",
+    "reserved",
+    "claimed",
+    "consumed",
+]
 
 
 class WorkItemApproval(BaseModel):
@@ -37,6 +44,8 @@ class WorkItemApproval(BaseModel):
     approved_base_ref: str | None = None
     reserved_at: str | None = None
     reserved_by_fix_run_id: str | None = None
+    claimed_at: str | None = None
+    claimed_by_publish_job_id: str | None = None
     publish_state: str | None = None
     consumed_at: str | None = None
     consumed_by_run_id: str | None = None

@@ -121,9 +121,10 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Sandbox attestation (5.6a)** | **Done (homelab)** | Host **2b/2c** + worker-runtime **strong PASS**; **2e** fail-closed; **2d** live env pin verified CT103+CT104 (`srt` / `5de9f107…`). See [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) |
 | **6F.2 — CI repair loop** | **Done (homelab demo)** | Gate @ `4ebaab0…`; sandboxed push @ `16886456…` (`repair_pushed`, CI green, pending re-point). See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
 | **5.8 + 6F.2 complete** | **Done (homelab demo)** | See [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md); ADR-0003 for CT104 bwrap caps |
-| Later | — | **V4.1.1 trust boundary** (CT103 publish brokerage; retire CT104 write tokens). Invocation ack + bot identity. Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
+| Later | — | Invocation ack + bot identity. Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
+| **Next** | **6D.2 / V4.1.1** | **CT103 publish brokerage** — CT104 patch bundles only; `publish-broker` sole Gitea write |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20; **2026-07-14: 6E CI truth** (`verified` @ `ef22f721…`); **2026-07-16: 6F.1 failure evidence** (`failing` @ `9b3d83be…`); **2026-07-17: 5.6a signed off** (2d pin); **2026-07-17: 6F.2 gate demo**; **2026-07-18: 5.8+6F.2 sandboxed repair** on `demo-app` PR #5 @ `16886456…`. **Next: V4.1.1 publish brokerage (or Explain smoke).**
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — … **2026-07-18: 5.8+6F.2 sandboxed repair** on `demo-app` PR #5 @ `16886456…`. **Next: barrier cutover for 6D.2 / V4.1.1 publish brokerage** (`scripts/cutover-6d2-publish-brokerage.sh`).
 
 ### Review MVP acceptance (full)
 

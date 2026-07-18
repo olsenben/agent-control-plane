@@ -10,7 +10,7 @@ from agent_shared.constants import (
     FIX_STATUS_PR_OPENED_PENDING_CI,
     TERMINAL_STATUS_COMPLETED,
 )
-from agent_workers.publish.remote import fix_status_for_publish_result, publish_fix_branch_and_pr
+from agent_control.publish.fix_publish import fix_status_for_publish_result, publish_fix_branch_and_pr
 from test_publish_6d import _fix_job, _fix_result, _init_git_repo, _worker_settings
 
 
@@ -22,7 +22,7 @@ def test_dry_run_status_contract(tmp_path: Path) -> None:
     artifact.mkdir()
     job = _fix_job(tmp_path, head=head, run_id="run-dry-contract")
     mock_client = MagicMock()
-    with patch("agent_workers.publish.remote.run_closed_world_diff_gate") as mock_gate:
+    with patch("agent_control.publish.fix_publish.run_closed_world_diff_gate") as mock_gate:
         mock_gate.return_value = MagicMock(passed=True, model_dump=lambda mode="json": {"passed": True})
         result = publish_fix_branch_and_pr(
             repo_workspace=repo,

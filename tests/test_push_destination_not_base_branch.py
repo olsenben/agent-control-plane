@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent_workers.publish.remote import PublishError, _validate_push_destination
+from agent_control.publish.fix_publish import PublishError, _validate_push_destination
 
 
 def test_push_destination_not_base_branch() -> None:

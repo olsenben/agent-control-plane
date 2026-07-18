@@ -70,6 +70,12 @@ class AgentRunCompletedEvent(BaseModel):
     opened_pr_url: str | None = None
     approved_base_sha: str | None = None
     publish_state: str | None = None
+    # V4.1.1 patch-bundle producer fields
+    producer_protocol: str | None = None
+    bundle_id: str | None = None
+    attempt_id: str | None = None
+    bundle_kind: str | None = None
+    worker_result: str | None = None
 
 
 class SessionEvent(BaseModel):

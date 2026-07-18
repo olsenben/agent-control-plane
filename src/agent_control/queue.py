@@ -13,6 +13,7 @@ from agent_shared.constants import (
     ALL_QUEUE_NAMES,
     FLOW_QUEUE_NAMES,
     QUEUE_CI_REPAIR,
+    QUEUE_PUBLISH,
     QUEUE_RESULTS_INGEST,
     QUEUE_RLM_ROOT,
     prefixed_queue,
@@ -26,6 +27,7 @@ RLM_ROOT_JOB_ID_PREFIX: Final[str] = "rlm-root"
 REPORT_JOB_ID_PREFIX: Final[str] = "report"
 INGEST_JOB_ID_PREFIX: Final[str] = "ingest"
 CI_REPAIR_JOB_ID_PREFIX: Final[str] = "ci-repair"
+PUBLISH_JOB_ID_PREFIX: Final[str] = "publish"
 DEDUPE_KEY_PREFIX: Final[str] = "rq:dedupe:"
 DEDUPE_TTL_SECONDS: Final[int] = 86400
 
@@ -155,6 +157,43 @@ def enqueue_ingest_inbox_file(
         state_root,
         inbox_path,
     )
+
+
+def enqueue_publish(
+    redis_url: str,
+    *,
+    run_id: str,
+    kind: str,
+    attempt_id: str,
+    bundle_id: str,
+    state_root: str,
+    extra: dict[str, Any] | None = None,
+) -> str | None:
+    """Deterministic job id: run_id + kind + attempt_id + bundle_id."""
+    from agent_control.jobs.publish import process_publish
+    from agent_control.publish.state import publish_job_id
+
+    job_id = publish_job_id(
+        run_id=run_id, kind=kind, attempt_id=attempt_id, bundle_id=bundle_id
+    )
+    payload: dict[str, Any] = {
+        "run_id": run_id,
+        "kind": kind,
+        "attempt_id": attempt_id,
+        "bundle_id": bundle_id,
+        "state_root": state_root,
+    }
+    if extra:
+        # Only allowlist repair correlation fields from CT103 state — never clone URL
+        for key in (
+            "expected_head_commit_sha",
+            "agent_branch",
+            "project",
+            "allowed_files",
+        ):
+            if key in extra:
+                payload[key] = extra[key]
+    return _enqueue(redis_url, QUEUE_PUBLISH, process_publish, job_id, payload, retry_max=2)
 
 
 def _rlm_job_exception_handler(job, exc_type, exc_value, traceback) -> bool:

@@ -128,7 +128,7 @@ def run_ci_repair_job(job_payload: dict[str, Any]) -> dict[str, Any]:
                 "agent:blocked",
             )
 
-        # Head check #2 immediately before push
+        # Head check #2 immediately before bundle handoff
         remote_head2 = _fetch_remote_head(reservation)
         if remote_head2 != reservation.expected_head_commit_sha:
             return _stale(
@@ -138,43 +138,23 @@ def run_ci_repair_job(job_payload: dict[str, Any]) -> dict[str, Any]:
                 observed=remote_head2,
             )
 
-        push = _non_force_push(reservation, workspace)
-        if not push.get("ok"):
-            if push.get("stale"):
-                return _stale(
-                    state_root,
-                    reservation,
-                    reason=str(push.get("reason") or "push_rejected"),
-                    observed=push.get("observed_head"),
-                )
+        handoff = _hand_off_repair_bundle(state_root, reservation, workspace)
+        if not handoff.get("ok"):
             return _block(
                 state_root,
                 reservation,
-                list(push.get("reason_codes") or ["push_failed"]),
+                list(handoff.get("reason_codes") or ["bundle_write_failed"]),
                 "agent:blocked",
             )
 
-        new_sha = str(push["new_head_commit_sha"])
-        reservation.new_head_commit_sha = new_sha
         reservation.status = "terminal"
-        reservation.terminal_reason = "pushed"
+        reservation.terminal_reason = "bundle_ready"
         save_repair_reservation(state_root, reservation)
-
-        # Durable report — CT103 also consumes this for pending registration
-        append_fix_ci_repair_pushed(
-            state_root,
-            FixCiRepairPushedEvent(
-                fix_run_id=reservation.fix_run_id,
-                repository=reservation.repository,
-                previous_head_commit_sha=reservation.expected_head_commit_sha,
-                new_head_commit_sha=new_sha,
-                pr_number=reservation.pr_number,
-                repair_attempt=reservation.repair_attempt,
-                repair_key=reservation.repair_key,
-            ),
-        )
-        apply_repair_pushed_on_ct103(state_root, reservation, new_sha)
-        return {"ok": True, "new_head_commit_sha": new_sha}
+        return {
+            "ok": True,
+            "bundle_id": handoff.get("bundle_id"),
+            "awaiting_broker": True,
+        }
     finally:
         release_repair_lease(lease)
 
@@ -446,55 +426,88 @@ def _generate_intentional_fail_removal_patch(
     return out
 
 
+def _hand_off_repair_bundle(
+    state_root: Path,
+    reservation: RepairReservation,
+    workspace: Path,
+) -> dict[str, Any]:
+    """Write immutable repair bundle and enqueue CT103 broker (no Gitea push)."""
+    from agent_control.publish.state import try_enqueue_cas
+    from agent_control.queue import enqueue_publish
+    from agent_shared.bundles import BundleError, write_ready_bundle
+    from agent_shared.constants import (
+        EVENT_FIX_CI_REPAIR_BUNDLE_READY,
+        PRODUCER_PROTOCOL_PATCH_BUNDLE_V1,
+    )
+    from agent_workers.settings import get_worker_settings
+
+    settings = get_worker_settings()
+    patch_path = Path(reservation.artifact_root or ".") / "repair_patch.diff"
+    if not patch_path.is_file():
+        patch_path = workspace.parent / "repair_patch.diff"
+    if not patch_path.is_file():
+        # Derive from last commit vs parent if worker committed locally
+        from agent_workers.publish.remote import _git_run
+
+        diff = _git_run(workspace, ["git", "diff", f"{reservation.expected_head_commit_sha}..HEAD"])
+        if diff.returncode != 0 or not diff.stdout.strip():
+            return {"ok": False, "reason_codes": ["repair_patch_missing"]}
+        patch_path = workspace.parent / "repair_patch.diff"
+        patch_path.write_text(diff.stdout, encoding="utf-8")
+
+    attempt_id = str(reservation.repair_attempt or 1)
+    try:
+        manifest = write_ready_bundle(
+            state_root,
+            run_id=reservation.fix_run_id,
+            kind="repair",
+            attempt_id=attempt_id,
+            producer_base_sha=reservation.expected_head_commit_sha,
+            patch_bytes=patch_path.read_bytes(),
+            result_payload={
+                "repair_key": reservation.repair_key,
+                "pr_number": reservation.pr_number,
+                "producer_protocol": PRODUCER_PROTOCOL_PATCH_BUNDLE_V1,
+                "event": EVENT_FIX_CI_REPAIR_BUNDLE_READY,
+            },
+        )
+    except BundleError as exc:
+        return {"ok": False, "reason_codes": ["bundle_write_failed"], "detail": str(exc)}
+
+    try_enqueue_cas(
+        state_root,
+        run_id=reservation.fix_run_id,
+        kind="repair",
+        attempt_id=attempt_id,
+        bundle_id=manifest.bundle_id,
+        project=reservation.repository,
+    )
+    enqueue_publish(
+        settings.redis_url,
+        run_id=reservation.fix_run_id,
+        kind="repair",
+        attempt_id=attempt_id,
+        bundle_id=manifest.bundle_id,
+        state_root=str(state_root),
+        extra={
+            "expected_head_commit_sha": reservation.expected_head_commit_sha,
+            "agent_branch": reservation.agent_branch,
+            "project": reservation.repository,
+            "allowed_files": list(reservation.allowed_files or []),
+        },
+    )
+    return {"ok": True, "bundle_id": manifest.bundle_id}
+
+
 def _post_verify_scope_check(reservation: RepairReservation, workspace: Path) -> dict[str, Any]:
     """Ensure post-verify tree stays within allowed_files when a allowlist is set."""
     from agent_workers.gates.runner import collect_changed_files
 
     if not reservation.allowed_files:
         return {"ok": True}
-    # Compare against expected tip: only allowlist paths may differ from HEAD~1
-    # After commit, working tree should be clean; dirty out-of-scope files fail.
     changed = collect_changed_files(workspace)
     allowed = set(reservation.allowed_files)
     extra = [p for p in changed if p not in allowed]
     if extra:
         return {"ok": False, "reason_codes": ["scope_violation"], "detail": str(extra)}
     return {"ok": True}
-
-
-def _non_force_push(reservation: RepairReservation, workspace: Path) -> dict[str, Any]:
-    """Non-force fast-forward push onto the existing agent branch (outside SRT)."""
-    from agent_workers.publish.remote import push_repair_fast_forward
-    from agent_workers.settings import get_worker_settings
-
-    settings = get_worker_settings()
-    if not settings.fix_remote_publish_enabled:
-        return {"ok": False, "reason_codes": ["publish_disabled"]}
-
-    owner, repo = reservation.repository.split("/", 1)
-    repo_url = f"{settings.gitea_base_url.rstrip('/')}/{owner}/{repo}.git"
-    result = push_repair_fast_forward(
-        repo_workspace=workspace,
-        agent_branch=reservation.agent_branch,
-        expected_remote_sha=reservation.expected_head_commit_sha,
-        repository=reservation.repository,
-        repo_url=repo_url,
-        settings=settings,
-    )
-    if result.get("ok"):
-        return {
-            "ok": True,
-            "new_head_commit_sha": result.get("new_head_commit_sha"),
-        }
-    if result.get("stale"):
-        return {
-            "ok": False,
-            "stale": True,
-            "reason": result.get("reason") or "push_rejected",
-            "observed_head": result.get("observed_head"),
-        }
-    return {
-        "ok": False,
-        "reason_codes": list(result.get("reason_codes") or ["push_failed"]),
-        "detail": result.get("detail"),
-    }

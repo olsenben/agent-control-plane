@@ -9,21 +9,20 @@ from pathlib import Path
 from typing import Any
 
 from agent_shared.constants import (
-    FIX_STATUS_LOCAL_PATCH_PASSED,
-    FIX_STATUS_PUBLISH_FAILED,
+    FIX_STATUS_PATCH_BUNDLE_READY,
     GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+    PRODUCER_PROTOCOL_PATCH_BUNDLE_V1,
     TERMINAL_STATUS_COMPLETED,
     TERMINAL_STATUS_FAILED_APPLY,
     TERMINAL_STATUS_FAILED_GATE,
-    TERMINAL_STATUS_FAILED_PUBLISH,
-    TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL,
-    TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK,
     TERMINAL_STATUS_FAILED_QUALITY_GATE,
     RunStatus,
     SessionEventType,
 )
 from agent_shared.models.jobs import RLMJob
 from agent_shared.models.session import BootstrapInfo, RedactionReport, SystemContext
+from agent_shared.bundles import BundleError, write_ready_bundle
+from agent_shared.git_patch import git_write_tree
 from agent_workers.artifacts.session_events import SessionEventWriter
 from agent_workers.artifacts.writer import (
     ensure_run_dir,
@@ -43,22 +42,15 @@ from agent_workers.formatters.fix_comment import (
     render_fix_comment,
     render_fix_failed,
     render_fix_gate_failed,
-    render_fix_publish_failed,
-    render_fix_published_comment,
     render_fix_quality_failed,
 )
 from agent_workers.gates.runner import APPROVED_PATCH_NAME, DiffGateError, run_closed_world_diff_gate
 from agent_workers.patch.apply import ApplyFixError, apply_fix_to_workspace
 from agent_workers.rlm.budget import fit_summary_for_comment
-from agent_workers.publish.preflight import PublishPreflightError, run_publish_preflight
 from agent_workers.rlm.output_quality import (
-    QualityVerdict,
     evaluate_patch_artifact,
     write_quality_gate_result,
 )
-from agent_control.config import Settings
-from agent_control.gitea_client import GiteaClient
-from agent_workers.publish.remote import PublishError, fix_status_for_publish_result, publish_fix_branch_and_pr
 from agent_workers.rlm.engine import get_engine
 from agent_workers.runtime.capabilities import detect_capabilities, python_version
 from agent_workers.security.redactor import SecretRedactor
@@ -67,17 +59,9 @@ from agent_workers.settings import WorkerSettings, get_worker_settings
 from agent_workers.tools.registry import make_registry
 
 
-def _gitea_client_for_worker(settings: WorkerSettings) -> GiteaClient:
-    cfg = Settings()
-    cfg.gitea_base_url = settings.gitea_base_url
-    cfg.gitea_bot_token = settings.gitea_bot_token
-    return GiteaClient(cfg)
-
-
-def _attempt_remote_publish(
+def _write_fix_patch_bundle(
     *,
     repo_workspace: Path,
-    policy_workspace: Path,
     run_path: Path,
     job: RLMJob,
     result,
@@ -85,119 +69,72 @@ def _attempt_remote_publish(
     session: SessionEventWriter,
     gate_result,
 ) -> None:
-    if not settings.fix_remote_publish_enabled or not job.safety.allow_push:
-        result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
+    """CT104 producer: write immutable READY bundle; never mutate Gitea."""
+    patch_path = run_path / APPROVED_PATCH_NAME
+    if not patch_path.is_file():
+        result.fix_status = "worker_failed"
         return
-    if result.fix_result is None:
-        return
-    session.emit(SessionEventType.PUBLISH_PREFLIGHT_STARTED)
+
+    producer_base = None
+    if job.fix_authorization:
+        producer_base = job.fix_authorization.approved_base_sha
+    producer_base = producer_base or job.commit_sha or ""
+
+    producer_tree: str | None = None
     try:
-        run_publish_preflight(
-            repo_workspace=repo_workspace,
-            artifact_root=run_path,
-            job=job,
-            settings=settings,
-            allowed_files=list(job.fix_authorization.allowed_files) if job.fix_authorization else [],
+        producer_tree = git_write_tree(repo_workspace)
+    except Exception:
+        producer_tree = None
+
+    gate_payload = None
+    if gate_result is not None:
+        gate_payload = (
+            gate_result.model_dump(mode="json")
+            if hasattr(gate_result, "model_dump")
+            else gate_result
         )
-        session.emit(SessionEventType.PUBLISH_PREFLIGHT_PASSED)
-    except PublishPreflightError as pre_exc:
-        write_quality_gate_result(
-            run_path,
-            QualityVerdict(passed=False, reasons=[str(pre_exc)], stage="publish_preflight"),
+    fix_payload = result.fix_result.model_dump(mode="json") if result.fix_result else None
+
+    try:
+        manifest = write_ready_bundle(
+            settings.agent_state_root,
+            run_id=job.run_id,
+            kind="fix",
+            attempt_id="1",
+            producer_base_sha=producer_base,
+            patch_bytes=patch_path.read_bytes(),
+            producer_tree_sha=producer_tree,
+            gate_snapshot=gate_payload,
+            result_payload=fix_payload,
         )
+    except BundleError as exc:
         write_json(
             run_path / "error.json",
-            {"stage": "publish_preflight", "message": str(pre_exc)},
+            {"stage": "bundle_write", "message": str(exc)},
         )
         result.status = "failed"
-        result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH_PRECHECK
-        result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
-        result.summary = render_fix_publish_failed(
-            run_id=job.run_id,
-            stage="publish_preflight",
-            message=str(pre_exc),
-            partial=None,
-        )
-        session.emit(SessionEventType.PUBLISH_PREFLIGHT_FAILED, message=str(pre_exc))
+        result.fix_status = "worker_failed"
+        result.summary = f"Failed to write patch bundle: {exc}"
         return
-    session.emit(SessionEventType.STALE_BASE_CHECK_STARTED)
-    try:
-        publish = publish_fix_branch_and_pr(
-            repo_workspace=repo_workspace,
-            policy_workspace=policy_workspace,
-            artifact_root=run_path,
-            job=job,
-            fix_result=result.fix_result,
-            settings=settings,
-            gitea_client=_gitea_client_for_worker(settings),
-        )
-        session.emit(SessionEventType.STALE_BASE_CHECK_PASSED)
-        result.remote_publish_result = publish.model_dump(mode="json")
-        result.fix_status = fix_status_for_publish_result(publish)
-        if publish.dry_run:
-            result.summary = fit_summary_for_comment(
-                render_fix_comment(
-                    result.fix_result,
-                    patch_artifact="patch.diff",
-                    ci_matrix=gate_result.selected_ci_matrix,
-                ),
-                GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
-            )
-            return
-        session.emit(SessionEventType.PRE_PUSH_GATE_PASSED)
-        session.emit(SessionEventType.BRANCH_PUSH_COMPLETED)
-        session.emit(SessionEventType.PR_OPEN_COMPLETED)
-        result.summary = fit_summary_for_comment(
-            render_fix_published_comment(
-                result.fix_result,
-                publish=publish,
-                ci_matrix=gate_result.selected_ci_matrix,
-            ),
-            GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
-        )
-    except PublishError as pub_exc:
-        from agent_workers.publish.safe_write import redact_publish_text, write_redacted_json
 
-        partial = pub_exc.partial.model_dump(mode="json") if pub_exc.partial else None
-        if partial:
-            result.remote_publish_result = partial
-            write_redacted_json(run_path / "remote_publish_result.json", partial)
-        write_redacted_json(
-            run_path / "error.json",
-            {
-                "stage": pub_exc.stage,
-                "message": redact_publish_text(str(pub_exc)),
-                "partial": partial,
-            },
-        )
-        if pub_exc.stage == "stale_approval_base":
-            session.emit(SessionEventType.STALE_BASE_CHECK_FAILED, message=redact_publish_text(str(pub_exc)))
-            if pub_exc.partial and pub_exc.partial.publish_state == "publish_failed_partial":
-                result.status = "failed"
-                result.fix_status = fix_status_for_publish_result(pub_exc.partial)
-                result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL
-                session.emit(SessionEventType.PUBLISH_PARTIAL_FAILED, message=redact_publish_text(str(pub_exc)))
-            else:
-                result.status = "failed"
-                result.fix_status = FIX_STATUS_PUBLISH_FAILED
-                result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH
-                session.emit(SessionEventType.BRANCH_PUSH_FAILED, message=redact_publish_text(str(pub_exc)))
-        elif pub_exc.partial and pub_exc.partial.publish_state == "publish_failed_partial":
-            result.status = "failed"
-            result.fix_status = fix_status_for_publish_result(pub_exc.partial)
-            result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH_PARTIAL
-            session.emit(SessionEventType.PUBLISH_PARTIAL_FAILED, message=redact_publish_text(str(pub_exc)))
-        else:
-            result.status = "failed"
-            result.fix_status = "publish_failed"
-            result.terminal_status = TERMINAL_STATUS_FAILED_PUBLISH
-            session.emit(SessionEventType.BRANCH_PUSH_FAILED, message=redact_publish_text(str(pub_exc)))
-        result.summary = render_fix_publish_failed(
-            run_id=job.run_id,
-            stage=pub_exc.stage,
-            message=redact_publish_text(str(pub_exc)),
-            partial=pub_exc.partial,
-        )
+    result.fix_status = FIX_STATUS_PATCH_BUNDLE_READY
+    result.producer_protocol = PRODUCER_PROTOCOL_PATCH_BUNDLE_V1
+    # Stash bundle ids on result for run_completed_builder (dynamic attrs)
+    result.bundle_id = manifest.bundle_id
+    result.attempt_id = manifest.attempt_id
+    result.bundle_kind = "fix"
+    result.summary = fit_summary_for_comment(
+        (
+            render_fix_comment(
+                result.fix_result,
+                patch_artifact="patch.diff",
+                ci_matrix=gate_result.selected_ci_matrix if gate_result else None,
+            )
+            + "\n\nLocal patch produced and queued for independent publication validation."
+        ),
+        GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
+    )
+    session.emit(SessionEventType.ARTIFACT_WRITTEN, artifact=f"bundle:{manifest.bundle_id}")
 
 
 def _context_sources_from_trace(trace_path: Path) -> list[str]:
@@ -387,9 +324,8 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                         session.emit(SessionEventType.FIX_FAILED, message="patch quality gate failed")
                     else:
                         session.emit(SessionEventType.FIX_APPLY_COMPLETED)
-                        _attempt_remote_publish(
+                        _write_fix_patch_bundle(
                             repo_workspace=repo_workspace,
-                            policy_workspace=policy_workspace,
                             run_path=run_path,
                             job=job,
                             result=result,
@@ -398,9 +334,9 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                             gate_result=gate_result,
                         )
                         if result.fix_status is None:
-                            result.fix_status = FIX_STATUS_LOCAL_PATCH_PASSED
+                            result.fix_status = FIX_STATUS_PATCH_BUNDLE_READY
                         if (
-                            result.fix_status == FIX_STATUS_LOCAL_PATCH_PASSED
+                            result.fix_status == FIX_STATUS_PATCH_BUNDLE_READY
                             and result.fix_result is not None
                             and result.summary is None
                         ):

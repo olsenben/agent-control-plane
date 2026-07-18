@@ -38,7 +38,7 @@ services:
       redis:
         condition: service_healthy
 
-  # Do not start until Gitea webhooks and secrets are configured (docs/deploy.md).
+  # Uncredentialed: state reduction + result ingest only (no Gitea write / git push).
   worker-state:
     profiles: [workers]
     build: .
@@ -59,8 +59,41 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379/0
+      AGENT_STATE_ROOT: /data/agent-state
     volumes:
       - ${AGENT_STATE_HOST_PATH:-../agent-state}:/data/agent-state
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Credentialed publish broker only (V4.1.1). Do not add other queues here.
+  publish-broker:
+    profiles: [workers]
+    build: .
+    restart: unless-stopped
+    command:
+      [
+        "agentctl",
+        "worker",
+        "run",
+        "--queues",
+        "publish",
+        "--concurrency",
+        "1",
+      ]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      AGENT_STATE_ROOT: /data/agent-state
+      AGENT_CACHE_DIR: /data/agent-cache
+      GIT_TERMINAL_PROMPT: "0"
+      FIX_REMOTE_PUBLISH_ENABLED: ${FIX_REMOTE_PUBLISH_ENABLED:-false}
+    volumes:
+      - ${AGENT_STATE_HOST_PATH:-../agent-state}:/data/agent-state
+      - ${AGENT_CACHE_HOST_PATH:-../agent-cache}:/data/agent-cache
+      - ${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}:/root/.git-credentials:ro
+      - ./config/git-worker.gitconfig:/root/.gitconfig:ro
     depends_on:
       redis:
         condition: service_healthy

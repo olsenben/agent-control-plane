@@ -273,6 +273,11 @@ def build_run_completed_event(
         opened_pr_url=opened_pr_url,
         approved_base_sha=approved_base_sha,
         publish_state=publish_state,
+        producer_protocol=result.get("producer_protocol"),
+        bundle_id=result.get("bundle_id"),
+        attempt_id=result.get("attempt_id"),
+        bundle_kind=result.get("bundle_kind"),
+        worker_result=result.get("worker_result") or fix_status,
     )
     return event
 
