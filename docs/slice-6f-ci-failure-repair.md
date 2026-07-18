@@ -1,10 +1,10 @@
 # Slice 6F — CI Failure Evidence + Repair Gate
 
-**Status:** 6F.1 signed off 2026-07-16; 6F.2 **gate demo** on `demo-app` 2026-07-17 (`repair_requested`/`blocked`); worker push still after **5.8**  
+**Status:** 6F.1 signed off 2026-07-16; 6F.2 **homelab signed off** 2026-07-18 (gate demo 2026-07-17 + sandboxed push via 5.8)  
 **Prerequisite:** [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md)  
-**Sandbox gate:** [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) (signed off), [adr/0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md)  
-**Date:** 2026-07-14 (updated 2026-07-17)  
-**Homelab:** 6F.1 on ACP PR #20 @ `9b3d83be…`; 6F.2 gate on `demo-app` issue #4 / PR #5 @ `4ebaab0…`
+**Sandbox gate:** [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) (signed off), [adr/0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md), [adr/0003-ct104-bwrap-docker-caps.md](adr/0003-ct104-bwrap-docker-caps.md)  
+**Date:** 2026-07-14 (updated 2026-07-18)  
+**Homelab:** 6F.1 on ACP PR #20 @ `9b3d83be…`; 6F.2 on `demo-app` issue #4 / PR #5 — gate @ `4ebaab0…`, push @ `16886456…` (see [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md))
 
 ## Thesis
 

@@ -41,7 +41,7 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [slice-6c-closed-world-diff-gate.md](slice-6c-closed-world-diff-gate.md) | Post-apply closed-world diff gate (complete) |
 | [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md) | Branch push + PR (6D — homelab fake sign-off 2026-07-13) |
 | [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) | CT102 CI observe/aggregate (6E.1) + verified memory (6E.2) |
-| [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) | 5.8 command_runner + 6F.2 reservation/lease repair (Approved / impl pending) |
+| [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) | 5.8 command_runner + 6F.2 reservation/lease repair (homelab signed off 2026-07-18) |
 | [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) | 6F.1 failure evidence + 6F.2 gated repair |
 | [slice-6f-gitea-actions-contract.md](slice-6f-gitea-actions-contract.md) | Live Gitea jobs/logs API contract |
 | [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) | CT104 SRT/Bubblewrap spike — gate before `/agent fix` |
@@ -119,11 +119,11 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **6E.2 — verified memory + UX** | **Done (homelab)** | Memory upsert only when verdict=`verified` (`memory_quality=ci_verified`). See [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md) |
 | **6F.1 — CI failure evidence** | **Done (homelab)** | PR #20 @ `9b3d83be…` → `verdict=failing`; evidence `collected` (runs 463/464); repair off. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
 | **Sandbox attestation (5.6a)** | **Done (homelab)** | Host **2b/2c** + worker-runtime **strong PASS**; **2e** fail-closed; **2d** live env pin verified CT103+CT104 (`srt` / `5de9f107…`). See [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) |
-| **6F.2 — CI repair loop** | **Gate demo only** | `demo-app` @ `4ebaab0…`: `repair_requested` + `repair_blocked`; worker `repair_pushed` after **5.8**. See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
-| **5.8 + 6F.2 complete** | **Approved / impl pending** | See [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) — do not treat as signed off until homelab acceptance |
-| Later | — | **Invocation ack + bot identity** (started → success/failure comments as `agent-bot`; record `invoked_by` for audit — never act as human PAT). Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
+| **6F.2 — CI repair loop** | **Done (homelab demo)** | Gate @ `4ebaab0…`; sandboxed push @ `16886456…` (`repair_pushed`, CI green, pending re-point). See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
+| **5.8 + 6F.2 complete** | **Done (homelab demo)** | See [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md); ADR-0003 for CT104 bwrap caps |
+| Later | — | **V4.1.1 trust boundary** (CT103 publish brokerage; retire CT104 write tokens). Invocation ack + bot identity. Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20; **2026-07-14: 6E CI truth** (`verified` @ `ef22f721…`); **2026-07-16: 6F.1 failure evidence** (`failing` @ `9b3d83be…`); **2026-07-17: 5.6a signed off** (2d pin); **2026-07-17: 6F.2 gate demo** on `demo-app` (`repair_requested`/`blocked` @ `4ebaab0…`). **Next: 5.8.**
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — issue #16 (2026-07-06): 4C ingest, 5.2+5.3, 6B/6C official fix pipeline; issue #19 (2026-07-13): 6D fake publish + PR #20; **2026-07-14: 6E CI truth** (`verified` @ `ef22f721…`); **2026-07-16: 6F.1 failure evidence** (`failing` @ `9b3d83be…`); **2026-07-17: 5.6a signed off** (2d pin); **2026-07-17: 6F.2 gate demo**; **2026-07-18: 5.8+6F.2 sandboxed repair** on `demo-app` PR #5 @ `16886456…`. **Next: V4.1.1 publish brokerage (or Explain smoke).**
 
 ### Review MVP acceptance (full)
 

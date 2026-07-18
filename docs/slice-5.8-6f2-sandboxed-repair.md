@@ -1,9 +1,9 @@
 # Slice 5.8 + 6F.2 — Sandboxed Repair Bundle
 
-**Status:** Approved / implementation pending  
-**Date:** 2026-07-17  
+**Status:** Homelab signed off 2026-07-18 (demo-app)  
+**Date:** 2026-07-17 (acceptance 2026-07-18)  
 **Prerequisite:** [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) (signed off), [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) (6F.1 + gate demo)  
-**ADR:** [0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md)  
+**ADR:** [0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md), [0003-ct104-bwrap-docker-caps.md](adr/0003-ct104-bwrap-docker-caps.md)  
 **Plan:** Cursor plan `5.8_+_6f.2_bundle` (revised after lock/authority/verify/recovery review)
 
 ## Thesis
@@ -14,7 +14,7 @@ Phase B: durable reservation + RQ → CT104 ci_repair → mandatory SRT verify �
          → fix_ci_repair_pushed → CT103 registers 6E pending / supersedes old SHA
 ```
 
-One PR, two commit groups. Demo-only (`ai-sdlc-lab/demo-app`). CT104 publish remains transitional debt (§0.7).
+Demo-only (`ai-sdlc-lab/demo-app`). CT104 publish remains transitional debt (§0.7).
 
 ## Authority
 
@@ -41,10 +41,21 @@ worker claims reservation + repair lease (TTL/heartbeat)
 `agent.fix_ci_repair_requested|started|pushed|blocked|exhausted|stale` plus `agent.sandbox_check_failed`.  
 Reasons: `sandbox_attestation_failed`, `verification_failed`, `verification_timed_out`, `scope_violation`, `remote_head_changed`, `push_rejected`, `repair_budget_exhausted`, `failure_class_not_auto`, `no_mapped_verifier`, `dispatch_failed`.
 
-## Homelab acceptance
+## Homelab acceptance (`demo-app` 2026-07-18)
 
-See plan checklist (dual observe → one job; session-bound attest; post-patch verify; dual head checks; CT103 pending idempotent; no merge).
+| Check | Result |
+|-------|--------|
+| Dual observe → one reservation/job | Pass (reconcile on failing `4ebaab0…`) |
+| Worker checkout `expected_sha` | Pass |
+| Strong SRT session + post-patch verify | Pass (after ADR-0003 caps + runtime mounts) |
+| Closed-world / allowed_files | Pass (patch outside worktree) |
+| Non-force push; capture new SHA | Pass → `16886456261c6cb69a2cf37f02a0ea58dc440fac` |
+| CT103 pending re-point | Pass (pending SHA = new head) |
+| Gitea CI on repaired head | Pass (push + PR statuses success) |
+| `main` unchanged / no merge | Pass |
+
+Fixture: issue #4 / PR #5; intentional-fail removed by demo heuristic; ACP runtime fix commit `d3d3ea2`.
 
 ## Out of scope
 
-CT103 publish brokerage, full `tool_policy.v2`, non-demo repair, classifier polish.
+CT103 publish brokerage, full `tool_policy.v2`, non-demo repair, classifier polish, model-authored repair proposals.

@@ -6,6 +6,7 @@ Index of architecture decisions. Full records live in this directory.
 |----|-------|--------|------|---------------------|
 | ADR-0001 | CT102 CI aggregate truth before fix memory | proposed | 2026-07-14 | Webhook signals + Actions API confirm; memory only when aggregate verdict=`verified` |
 | ADR-0002 | Anthropic SRT as initial OS sandbox backend | proposed | 2026-07-14 | SRT via SandboxBackend; attestation + fallback deny; CT104 spike gates fix/repair |
+| ADR-0003 | Cap-bounded bwrap for SRT inside CT104 Docker | proposed | 2026-07-18 | SYS_ADMIN+NET_ADMIN + seccomp/apparmor unconfined on SRT workers; shared runtime mounts; fail closed on bwrap launch |
 
 ## Review log
 
@@ -17,3 +18,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-17 — 5.6a signed off: **2d** live env pin CT103+CT104 (`srt` / `5de9f107…`); no new ADR (ADR-0002 still covers SRT backend)
 - 2026-07-17 — 6F.2 gate demo on `demo-app` @ `4ebaab0…`: `repair_requested` + `repair_blocked`; worker push deferred to 5.8; no new ADR
 - 2026-07-17 `6c40869` / `c3e5d59` — no ADR: 5.8 command_runner + 6F.2 reservation/lease implement ADR-0002 follow-up; push publish wiring still open
+- 2026-07-18 `d3d3ea2` — ADR-0003 proposed: CT104 Docker-on-LXC needs bounded caps for bwrap; 5.8+6F.2 demo acceptance on `demo-app` PR #5 @ `16886456…` (`repair_pushed`, CI green, pending re-pointed)
