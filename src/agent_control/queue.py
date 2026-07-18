@@ -79,9 +79,16 @@ def _enqueue(
     queue = Queue(prefixed_queue(queue_name), connection=conn)
     try:
         job = queue.enqueue(func, *args, job_timeout=900, **enqueue_kwargs, **kwargs)
-    except Exception:
+    except Exception as exc:
         if not _rq_supports_unique():
             conn.delete(f"{DEDUPE_KEY_PREFIX}{job_id}")
+        # Unique job already present (finished/queued) — treat as dedupe, not crash
+        try:
+            from rq.exceptions import DuplicateJobError
+        except ImportError:  # pragma: no cover
+            DuplicateJobError = ()  # type: ignore[misc, assignment]
+        if DuplicateJobError and isinstance(exc, DuplicateJobError):
+            return None
         raise
     if retry_max:
         job.meta["retry_max"] = retry_max

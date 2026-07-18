@@ -7,7 +7,10 @@ import re
 from agent_shared.models.ci import FailureClass
 
 _TEST = re.compile(r"(?i)(pytest|unittest|FAIL:|AssertionError|tests? failed|test session)")
-_LINT = re.compile(r"(?i)(ruff|flake8|eslint|pylint|lint error|mypy)")
+# Require failure-ish context so a green "ruff check ." step in the same log does not win.
+_LINT = re.compile(
+    r"(?i)((ruff|flake8|eslint|pylint).{0,80}(error|failed|fail\b)|lint error|would reformat)"
+)
 _TYPE = re.compile(r"(?i)(typecheck|tsc\b|pyright|mypy:)")
 _BUILD = re.compile(r"(?i)(build failed|compilation failed|cargo build|npm run build|webpack)")
 _CHECKOUT = re.compile(r"(?i)(checkout failed|fatal: repository|could not read from remote)")
@@ -40,12 +43,13 @@ def classify_failure(
         return "dependency_registry_unavailable"
     if _INFRA.search(text):
         return "infrastructure_failure"
+    # Prefer test signals before lint: CI often runs ruff then pytest in one job log.
+    if _TEST.search(text):
+        return "test_failure"
     if _TYPE.search(text):
         return "deterministic_typecheck_failure"
     if _LINT.search(text):
         return "lint_failure"
-    if _TEST.search(text):
-        return "test_failure"
     if _BUILD.search(text):
         return "build_failure"
     if conclusion == "failure":

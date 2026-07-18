@@ -100,21 +100,13 @@ class SrtSandboxBackend:
                 violated=True,
                 violation_codes=["sandbox_unavailable"],
             )
+        from agent_control.aci.backends.bwrap_cmd import (
+            bwrap_isolation_argv,
+            bwrap_launch_failed,
+        )
+
         cmd = [
-            "bwrap",
-            "--die-with-parent",
-            "--unshare-net",
-            "--bind",
-            str(workspace.resolve()),
-            str(workspace.resolve()),
-            "--tmpfs",
-            "/tmp",
-            "--dev",
-            "/dev",
-            "--proc",
-            "/proc",
-            "--chdir",
-            str(cwd.resolve()),
+            *bwrap_isolation_argv(workspace=workspace, cwd=cwd),
             *argv,
         ]
         try:
@@ -133,6 +125,14 @@ class SrtSandboxBackend:
                 stderr="timeout",
                 violated=True,
                 violation_codes=["timeout"],
+            )
+        if bwrap_launch_failed(stderr=proc.stderr or "", returncode=proc.returncode):
+            return CommandResult(
+                exit_code=126,
+                stdout=proc.stdout or "",
+                stderr=proc.stderr or "bwrap_launch_failed",
+                violated=True,
+                violation_codes=["sandbox_unavailable"],
             )
         return CommandResult(
             exit_code=proc.returncode,

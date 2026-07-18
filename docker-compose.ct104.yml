@@ -6,6 +6,13 @@ services:
   worker-rlm-root:
     build: .
     restart: unless-stopped
+    # bwrap inside Docker-on-unprivileged-LXC (Risk 2 / SRT)
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
     command:
       ["agentctl", "worker", "run", "--queues", "rlm-root", "--concurrency", "1"]
     env_file:
@@ -45,6 +52,13 @@ services:
   worker-ci-repair:
     build: .
     restart: unless-stopped
+    # bwrap --unshare-net inside Docker-on-unprivileged-LXC needs these
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
     command:
       ["agentctl", "worker", "run", "--queues", "ci-repair", "--concurrency", "1"]
     env_file:

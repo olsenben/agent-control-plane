@@ -365,7 +365,9 @@ def _produce_and_apply_patch(reservation: RepairReservation, workspace: Path) ->
 
     changed = collect_changed_files(workspace)
     allowed = set(reservation.allowed_files)
-    extra = [p for p in changed if p not in allowed]
+    # Ignore ephemeral patch artifact if it landed inside the worktree
+    ignore = {"repair_patch.diff"}
+    extra = [p for p in changed if p not in allowed and Path(p).name not in ignore]
     if extra:
         return {
             "ok": False,
@@ -411,8 +413,10 @@ def _generate_intentional_fail_removal_patch(
     from agent_workers.publish.remote import _git_run
 
     edited = False
+    # Match annotated signatures: def name() -> None:
     pattern = re.compile(
-        r"\ndef (test_6f2_intentional_fail|test_6f1_intentional_fail)\([^)]*\):.*?(?=\ndef |\Z)",
+        r"(?m)^def (test_6f2_intentional_fail|test_6f1_intentional_fail)\([^)]*\)"
+        r"(?:\s*->\s*[^:\n]+)?:.*?(?=^def |\Z)",
         re.DOTALL,
     )
     for rel in allowed_files:
@@ -422,25 +426,20 @@ def _generate_intentional_fail_removal_patch(
         if not path.is_file():
             continue
         text = path.read_text(encoding="utf-8")
-        new_text, n = pattern.subn("\n", text)
+        new_text, n = pattern.subn("", text)
         if n:
+            # Collapse leftover blank runs from removed defs
+            new_text = re.sub(r"\n{3,}", "\n\n", new_text).rstrip() + "\n"
             path.write_text(new_text, encoding="utf-8")
             edited = True
-        elif "assert False" in text and "intentional" in text.lower():
-            lines = [
-                ln
-                for ln in text.splitlines(keepends=True)
-                if "assert False" not in ln or "intentional" not in ln.lower()
-            ]
-            # Safer: only drop def blocks already handled; skip crude line filter
-            del lines
 
     if not edited:
         return None
     diff = _git_run(workspace, ["git", "diff", "--", *allowed_files])
     if diff.returncode != 0 or not diff.stdout.strip():
         return None
-    out = workspace / "repair_patch.diff"
+    # Keep patch outside the git worktree so it is not an untracked scope violation
+    out = workspace.parent / "repair_patch.diff"
     out.write_text(diff.stdout, encoding="utf-8")
     # Reset working tree so git apply can re-apply cleanly
     _git_run(workspace, ["git", "checkout", "--", *allowed_files])

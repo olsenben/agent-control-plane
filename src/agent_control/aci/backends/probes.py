@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import os
 import platform
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -50,57 +51,53 @@ def _bwrap_available() -> bool:
 
 def run_canary_probes(workspace: Path) -> list[ProbeResult]:
     """Attempt local isolation checks. Without bwrap, mark probes failed."""
+    from agent_control.aci.backends.bwrap_cmd import (
+        bwrap_isolation_argv,
+        bwrap_launch_failed,
+    )
+
     results: list[ProbeResult] = []
     workspace = workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
+    probe_names = (
+        "deny_host_secret_read",
+        "deny_write_outside_workspace",
+        "deny_symlink_escape",
+        "deny_network",
+        "deny_docker_sock",
+        "deny_modify_shell_rc",
+        "no_surviving_children",
+    )
 
     if not _bwrap_available():
-        for name in (
-            "deny_host_secret_read",
-            "deny_write_outside_workspace",
-            "deny_symlink_escape",
-            "deny_network",
-            "deny_docker_sock",
-            "deny_modify_shell_rc",
-            "no_surviving_children",
-        ):
-            results.append(
-                ProbeResult(name=name, passed=False, detail="bwrap_unavailable")
-            )
-        return results
+        return [
+            ProbeResult(name=name, passed=False, detail="bwrap_unavailable")
+            for name in probe_names
+        ]
+
+    def _bwrap(*tail: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [*bwrap_isolation_argv(workspace=workspace, cwd=workspace), *tail],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
 
     secret_dir = Path(tempfile.mkdtemp(prefix="agent-sandbox-secret-"))
     secret_file = secret_dir / "host_secret.txt"
     secret_file.write_text("CANARY_SECRET_VALUE", encoding="utf-8")
     outside = Path(tempfile.mkdtemp(prefix="agent-sandbox-outside-"))
     try:
-        # Deny read host secret: workspace-only bind should not expose host secret path
-        proc = subprocess.run(
-            [
-                "bwrap",
-                "--die-with-parent",
-                "--unshare-net",
-                "--bind",
-                str(workspace),
-                str(workspace),
-                "--tmpfs",
-                "/tmp",
-                "--dev",
-                "/dev",
-                "--proc",
-                "/proc",
-                "--chdir",
-                str(workspace),
-                "sh",
-                "-c",
-                f"cat {secret_file} 2>/dev/null || exit 42",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        proc = _bwrap("sh", "-c", f"cat {secret_file} 2>/dev/null || exit 42")
+        if bwrap_launch_failed(stderr=proc.stderr or "", returncode=proc.returncode):
+            return [
+                ProbeResult(name=name, passed=False, detail="bwrap_launch_failed")
+                for name in probe_names
+            ]
+
+        read_denied = proc.returncode != 0 or "CANARY_SECRET_VALUE" not in (
+            proc.stdout or ""
         )
-        # Without host bind of secret, cat should fail (pass)
-        read_denied = proc.returncode != 0 or "CANARY_SECRET_VALUE" not in (proc.stdout or "")
         results.append(
             ProbeResult(
                 name="deny_host_secret_read",
@@ -109,29 +106,10 @@ def run_canary_probes(workspace: Path) -> list[ProbeResult]:
             )
         )
 
-        write_probe = subprocess.run(
-            [
-                "bwrap",
-                "--die-with-parent",
-                "--unshare-net",
-                "--bind",
-                str(workspace),
-                str(workspace),
-                "--tmpfs",
-                "/tmp",
-                "--dev",
-                "/dev",
-                "--proc",
-                "/proc",
-                "--chdir",
-                str(workspace),
-                "sh",
-                "-c",
-                f"echo pwned > {outside / 'escape.txt'} 2>/dev/null || exit 42",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        write_probe = _bwrap(
+            "sh",
+            "-c",
+            f"echo pwned > {outside / 'escape.txt'} 2>/dev/null || exit 42",
         )
         escaped = (outside / "escape.txt").exists()
         results.append(
@@ -142,38 +120,18 @@ def run_canary_probes(workspace: Path) -> list[ProbeResult]:
             )
         )
 
-        # Symlink escape canary inside workspace
         link = workspace / "escape_link"
         try:
             if link.exists() or link.is_symlink():
                 link.unlink()
             link.symlink_to(outside / "escape.txt")
         except OSError as exc:
-            results.append(ProbeResult(name="deny_symlink_escape", passed=False, detail=str(exc)))
+            results.append(
+                ProbeResult(name="deny_symlink_escape", passed=False, detail=str(exc))
+            )
         else:
-            link_probe = subprocess.run(
-                [
-                    "bwrap",
-                    "--die-with-parent",
-                    "--unshare-net",
-                    "--bind",
-                    str(workspace),
-                    str(workspace),
-                    "--tmpfs",
-                    "/tmp",
-                    "--dev",
-                    "/dev",
-                    "--proc",
-                    "/proc",
-                    "--chdir",
-                    str(workspace),
-                    "sh",
-                    "-c",
-                    "echo pwn > escape_link 2>/dev/null || exit 42",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10,
+            link_probe = _bwrap(
+                "sh", "-c", "echo pwn > escape_link 2>/dev/null || exit 42"
             )
             results.append(
                 ProbeResult(
@@ -183,30 +141,10 @@ def run_canary_probes(workspace: Path) -> list[ProbeResult]:
                 )
             )
 
-        # Network deny via unshare-net + connect attempt
-        net_probe = subprocess.run(
-            [
-                "bwrap",
-                "--die-with-parent",
-                "--unshare-net",
-                "--bind",
-                str(workspace),
-                str(workspace),
-                "--tmpfs",
-                "/tmp",
-                "--dev",
-                "/dev",
-                "--proc",
-                "/proc",
-                "--chdir",
-                str(workspace),
-                "python3",
-                "-c",
-                "import socket; s=socket.socket(); s.settimeout(1); s.connect(('1.1.1.1',53))",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        net_probe = _bwrap(
+            "/usr/local/bin/python",
+            "-c",
+            "import socket; socket.create_connection(('1.1.1.1', 80), 1)",
         )
         results.append(
             ProbeResult(
@@ -216,29 +154,8 @@ def run_canary_probes(workspace: Path) -> list[ProbeResult]:
             )
         )
 
-        sock_probe = subprocess.run(
-            [
-                "bwrap",
-                "--die-with-parent",
-                "--unshare-net",
-                "--bind",
-                str(workspace),
-                str(workspace),
-                "--tmpfs",
-                "/tmp",
-                "--dev",
-                "/dev",
-                "--proc",
-                "/proc",
-                "--chdir",
-                str(workspace),
-                "python3",
-                "-c",
-                "import socket; s=socket.socket(socket.AF_UNIX); s.connect('/var/run/docker.sock')",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
+        sock_probe = _bwrap(
+            "sh", "-c", "test -S /var/run/docker.sock && exit 0 || exit 42"
         )
         results.append(
             ProbeResult(
@@ -263,17 +180,14 @@ def run_canary_probes(workspace: Path) -> list[ProbeResult]:
             )
         )
     finally:
-        try:
-            secret_file.unlink(missing_ok=True)
-            secret_dir.rmdir()
-        except OSError:
-            pass
-        try:
-            for child in outside.iterdir():
-                child.unlink(missing_ok=True)
-            outside.rmdir()
-        except OSError:
-            pass
+        shutil.rmtree(secret_dir, ignore_errors=True)
+        shutil.rmtree(outside, ignore_errors=True)
+        link = workspace / "escape_link"
+        if link.exists() or link.is_symlink():
+            try:
+                link.unlink()
+            except OSError:
+                pass
 
     return results
 
