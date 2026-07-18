@@ -1,3 +1,28 @@
+---
+id: ADR-0004
+title: CT103-only Gitea write (publish brokerage)
+status: accepted
+date: 2026-07-18
+owners:
+  - platform
+scope:
+  globs:
+    - "docker-compose.yml"
+    - "src/agent_control/publish/**"
+    - "src/agent_shared/bundles/**"
+    - "src/agent_workers/publish/**"
+  symbols: []
+decision_type: security
+enforcement: hard
+risk_level: high
+supersedes: []
+superseded_by: []
+review_after: 2026-10-18
+agent_visibility:
+  - review
+  - developer
+---
+
 # ADR-0004: CT103-only Gitea write (publish brokerage)
 
 - **Status:** Accepted

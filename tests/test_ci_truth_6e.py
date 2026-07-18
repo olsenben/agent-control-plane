@@ -542,7 +542,10 @@ def test_cancelled_is_failing() -> None:
     assert result.verdict == "failing"
 
 
-def test_ingest_registers_pending_ci(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ingest_does_not_register_pending_from_legacy_pr_opened(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """V4.1.1: worker-reported pr_opened_pending_ci must not register pending CI."""
     from agent_control.results_ingest import handle_fix_ingest_side_effects
 
     monkeypatch.setenv("FIX_CI_REQUIRE_MATRIX_MATCH", "true")
@@ -573,6 +576,22 @@ def test_ingest_registers_pending_ci(tmp_path: Path, monkeypatch: pytest.MonkeyP
         fix_result=FixResult(ci_hints=[".gitea/workflows/ci.yaml"]),
     )
     handle_fix_ingest_side_effects(tmp_path, event)
+    pending = find_pending_by_repo_sha(
+        tmp_path, "ai-sdlc-lab/agent-control-plane", "deadbeefdeadbeef"
+    )
+    assert pending is None
+
+    # Authoritative registration remains register_pending_ci (broker / observe)
+    register_pending_ci(
+        tmp_path,
+        fix_run_id="run-ingest-1",
+        repository="ai-sdlc-lab/agent-control-plane",
+        expected_head_commit_sha="deadbeefdeadbeef",
+        opened_pr_number=20,
+        issue_id=19,
+        agent_branch="agent/run-ingest-1",
+        required_workflows=[_req(".gitea/workflows/ci.yaml")],
+    )
     pending = find_pending_by_repo_sha(
         tmp_path, "ai-sdlc-lab/agent-control-plane", "deadbeefdeadbeef"
     )

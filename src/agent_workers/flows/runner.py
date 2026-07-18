@@ -78,7 +78,7 @@ def _write_fix_patch_bundle(
     producer_base = None
     if job.fix_authorization:
         producer_base = job.fix_authorization.approved_base_sha
-    producer_base = producer_base or job.commit_sha or ""
+    producer_base = producer_base or getattr(job, "target_sha", None) or ""
 
     producer_tree: str | None = None
     try:

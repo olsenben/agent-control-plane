@@ -3,7 +3,6 @@
 import json
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -27,34 +26,41 @@ def test_no_gitea_pr_client_on_fix_report(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setenv("AGENT_STATE_ROOT", str(tmp_path / "state"))
     monkeypatch.setenv("AGENT_CACHE_DIR", str(tmp_path / "cache"))
 
-    with patch("agent_workers.gitea_reporter.httpx.post") as mock_post:
-        from agent_workers.gitea_reporter import maybe_post_comment
-        from agent_shared.models.events import AgentRunCompletedEvent
+    from agent_workers.gitea_reporter import maybe_post_comment
+    from agent_shared.models.events import AgentRunCompletedEvent
 
-        completed = AgentRunCompletedEvent(
-            run_id="run-x",
-            job_id="j1",
-            workflow_id="run-x",
-            session_id="run-x",
-            trigger_event_id="t1",
-            project="ai-sdlc-lab/demo",
-            flow="developer",
-            agent="developer",
-            risk_class="write_patch",
-            status="failed",
-            summary="fix failed",
-            artifact_root="/tmp",
-            command_kind="fix",
-        )
-        maybe_post_comment(
-            type("S", (), {"gitea_agent_comment_enabled": True, "gitea_agent_token": "tok", "gitea_base_url": "http://g"})(),
-            {"trigger_context": {"issue_number": 1, "author": "u"}},
-            completed,
-            tmp_path,
-        )
-        assert mock_post.called
-        body = mock_post.call_args.kwargs["json"]["body"]
-        assert "pull" not in body.lower() or "pending" in body.lower()
+    completed = AgentRunCompletedEvent(
+        run_id="run-x",
+        job_id="j1",
+        workflow_id="run-x",
+        session_id="run-x",
+        trigger_event_id="t1",
+        project="ai-sdlc-lab/demo",
+        flow="developer",
+        agent="developer",
+        risk_class="write_patch",
+        status="failed",
+        summary="fix failed",
+        artifact_root="/tmp",
+        command_kind="fix",
+    )
+    out = maybe_post_comment(
+        type(
+            "S",
+            (),
+            {
+                "gitea_agent_comment_enabled": True,
+                "gitea_agent_token": "tok",
+                "gitea_base_url": "http://g",
+            },
+        )(),
+        {"trigger_context": {"issue_number": 1, "author": "u"}},
+        completed,
+        tmp_path,
+    )
+    # V4.1.1: CT104 never posts comments
+    assert out["status"] == "skipped"
+    assert "ct103" in out.get("reason", "")
 
 
 def test_apply_failure_still_reports_inbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

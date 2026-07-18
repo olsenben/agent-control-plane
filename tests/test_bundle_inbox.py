@@ -60,10 +60,10 @@ def test_reject_symlink_patch(tmp_path: Path) -> None:
     )
     patch = root / "patch.diff"
     patch.unlink()
-    target = root / "evil"
-    target.write_text("x", encoding="utf-8")
+    outside = tmp_path / "outside_target"
+    outside.write_text("x", encoding="utf-8")
     try:
-        patch.symlink_to(target)
+        patch.symlink_to(outside)
     except OSError:
         pytest.skip("symlinks not supported")
     with pytest.raises(BundleError, match="Symlink|hash|regular"):

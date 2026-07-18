@@ -84,7 +84,8 @@ def test_parse_failure_reports_inbox_and_ledger(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setenv("AGENT_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("MODEL_ROUTING_POLICY", "fake")
     monkeypatch.setenv("GITEA_AGENT_COMMENT_ENABLED", "true")
-    monkeypatch.setenv("GITEA_AGENT_TOKEN", "tok")
+    monkeypatch.delenv("GITEA_AGENT_TOKEN", raising=False)
+    monkeypatch.delenv("GITEA_BOT_TOKEN", raising=False)
     monkeypatch.setattr("agent_workers.flows.runner.clone_repo", _fake_clone)
 
     def _raise_parse(self, job, workspace, policy, **kwargs):
@@ -126,4 +127,5 @@ def test_parse_failure_reports_inbox_and_ledger(tmp_path: Path, monkeypatch: pyt
 
     stored, created = ingest_result_file(state, inbox)
     assert created is True
-    assert mock_post.called
+    # V4.1.1: CT104 reporter does not post to Gitea
+    assert not mock_post.called

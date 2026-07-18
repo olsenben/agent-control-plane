@@ -228,9 +228,9 @@ def test_empty_patch_never_calls_attempt_remote_publish(
         _gate_pass_no_patch,
     )
 
-    with patch("agent_workers.flows.runner._attempt_remote_publish") as mock_publish:
+    with patch("agent_workers.flows.runner._write_fix_patch_bundle") as mock_bundle:
         result = run_flow_session(_fix_job_payload(state))
-        mock_publish.assert_not_called()
+        mock_bundle.assert_not_called()
 
     assert result["status"] == "failed"
     run_path = Path(result["artifact_root"])
