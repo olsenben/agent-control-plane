@@ -16,6 +16,8 @@ services:
       AGENT_CACHE_DIR: /mnt/agent-cache
       AGENT_STATE_ROOT: /data/agent-state
       GIT_TERMINAL_PROMPT: "0"
+      # CT103-only gate; force off so a copied CT103 .env cannot crash workers
+      FIX_CI_REPAIR_ENABLED: "false"
     volumes:
       - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
       - ${AGENT_CACHE_HOST_PATH:-/mnt/agent-cache}:/mnt/agent-cache
@@ -34,6 +36,8 @@ services:
       REDIS_URL: ${REDIS_URL}
       AGENT_RUNS_DIR: /mnt/agent-runs
       AGENT_STATE_ROOT: /data/agent-state
+      # CT103-only gate; force off so a copied CT103 .env cannot crash workers
+      FIX_CI_REPAIR_ENABLED: "false"
     volumes:
       - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
       - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
@@ -51,6 +55,8 @@ services:
       AGENT_CACHE_DIR: /mnt/agent-cache
       AGENT_STATE_ROOT: /data/agent-state
       GIT_TERMINAL_PROMPT: "0"
+      # Dispatch gate lives on CT103; worker only executes enqueued repair jobs
+      FIX_CI_REPAIR_ENABLED: "false"
       FIX_REMOTE_PUBLISH_ENABLED: ${FIX_REMOTE_PUBLISH_ENABLED:-true}
       SANDBOX_BACKEND: ${SANDBOX_BACKEND:-srt}
       SANDBOX_EXPECTED_POLICY_HASH: ${SANDBOX_EXPECTED_POLICY_HASH:-}
