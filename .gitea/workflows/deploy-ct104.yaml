@@ -95,5 +95,10 @@ jobs:
             fi
             echo "\${svc}: running"
           done
-          docker compose -f docker-compose.ct104.yml exec -T worker-rlm-root agentctl worker doctor
+          if ! docker compose -f docker-compose.ct104.yml exec -T worker-rlm-root agentctl worker doctor; then
+            echo "worker doctor failed; dumping service status/logs" >&2
+            docker compose -f docker-compose.ct104.yml ps -a >&2 || true
+            docker compose -f docker-compose.ct104.yml logs --tail=80 worker-rlm-root worker-report worker-ci-repair >&2 || true
+            exit 1
+          fi
           REMOTE
