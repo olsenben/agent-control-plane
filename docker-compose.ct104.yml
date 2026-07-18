@@ -37,3 +37,27 @@ services:
     volumes:
       - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
       - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
+
+  worker-ci-repair:
+    build: .
+    restart: unless-stopped
+    command:
+      ["agentctl", "worker", "run", "--queues", "ci-repair", "--concurrency", "1"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${REDIS_URL}
+      AGENT_RUNS_DIR: /mnt/agent-runs
+      AGENT_CACHE_DIR: /mnt/agent-cache
+      AGENT_STATE_ROOT: /data/agent-state
+      GIT_TERMINAL_PROMPT: "0"
+      FIX_REMOTE_PUBLISH_ENABLED: ${FIX_REMOTE_PUBLISH_ENABLED:-true}
+      SANDBOX_BACKEND: ${SANDBOX_BACKEND:-srt}
+      SANDBOX_EXPECTED_POLICY_HASH: ${SANDBOX_EXPECTED_POLICY_HASH:-}
+      SANDBOX_REQUIRE_ATTESTATION: ${SANDBOX_REQUIRE_ATTESTATION:-true}
+    volumes:
+      - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
+      - ${AGENT_CACHE_HOST_PATH:-/mnt/agent-cache}:/mnt/agent-cache
+      - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
+      - ${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}:/root/.git-credentials:ro
+      - ./config/git-worker.gitconfig:/root/.gitconfig:ro

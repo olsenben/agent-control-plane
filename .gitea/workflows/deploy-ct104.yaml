@@ -83,10 +83,10 @@ jobs:
             rm -f "\$ASKPASS"
           fi
           test -f .env || { echo ".env missing on host; bootstrap manually on CT104" >&2; exit 1; }
-          docker compose -f docker-compose.ct104.yml build worker-rlm-root worker-report
+          docker compose -f docker-compose.ct104.yml build worker-rlm-root worker-report worker-ci-repair
           docker compose -f docker-compose.ct104.yml up -d
           sleep 5
-          for svc in worker-rlm-root worker-report; do
+          for svc in worker-rlm-root worker-report worker-ci-repair; do
             if [ -z "\$(docker compose -f docker-compose.ct104.yml ps --status running -q "\$svc")" ]; then
               echo "\${svc} is not running after deploy" >&2
               docker compose -f docker-compose.ct104.yml ps "\$svc" >&2 || true

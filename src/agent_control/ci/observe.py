@@ -367,6 +367,14 @@ def apply_observation(
         )
         failure_class = evidence_manifest.failure_class if evidence_manifest else "unknown"
         required_ids = required_command_ids_for_failure_class(failure_class)
+        from agent_control.ci.scope import resolve_allowed_files_for_fix
+
+        allowed_files = resolve_allowed_files_for_fix(
+            state_root,
+            repository=pending.repository,
+            fix_run_id=pending.fix_run_id,
+            issue_id=pending.issue_id,
+        )
         if failure_class in __import__(
             "agent_shared.models.ci", fromlist=["AUTO_REPAIRABLE_FAILURE_CLASSES"]
         ).AUTO_REPAIRABLE_FAILURE_CLASSES and not required_ids:
@@ -382,15 +390,33 @@ def apply_observation(
                 ),
             )
         else:
+            current_pr_head = pending.expected_head_commit_sha
+            try:
+                from agent_control.gitea_client import GiteaClient
+                from agent_shared.repo_identity import split_repo_full_name
+
+                owner, repo = split_repo_full_name(pending.repository)
+                if pending.agent_branch:
+                    tip = GiteaClient(settings).get_branch_sha(
+                        owner, repo, pending.agent_branch
+                    )
+                    if tip:
+                        current_pr_head = tip
+            except Exception:
+                logger.exception(
+                    "ci_repair_head_fetch_failed fix_run_id=%s", pending.fix_run_id
+                )
+
             dispatch = consider_repair_dispatch(
                 state_root,
                 result=result,
                 pending=pending,
                 evidence=evidence_manifest,
                 attestation=attestation,
-                current_pr_head=pending.expected_head_commit_sha,
+                current_pr_head=current_pr_head,
                 branch_ok=branch_ok,
                 no_unrecognized_commits=True,
+                allowed_files=allowed_files,
                 required_command_ids=required_ids,
                 settings=settings,
             )
