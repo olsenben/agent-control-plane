@@ -11,6 +11,7 @@ from agent_shared.models.jobs import JobSafety
 from agent_workers.flows.runner import run_flow_session
 from agent_workers.jobs.report import process_report
 from agent_workers.rlm.fake_engine import FakeRLMEngine
+from tests.support.policy_pin import install_fake_policy_pin
 
 
 def test_fix_no_push_guard_in_safety_and_dispatch() -> None:
@@ -87,6 +88,7 @@ def test_apply_failure_still_reports_inbox(tmp_path: Path, monkeypatch: pytest.M
         return dest
 
     monkeypatch.setattr("agent_workers.flows.runner.clone_repo", _fake_clone)
+    install_fake_policy_pin(monkeypatch)
 
     bad_fix = FixResult(
         changes=[
@@ -129,6 +131,11 @@ def test_apply_failure_still_reports_inbox(tmp_path: Path, monkeypatch: pytest.M
         "repo_url": "http://example/repo",
         "primary_branch": "main",
         "policy_ref": "main",
+        "policy_source_repo": "ai-sdlc-lab/demo-app",
+        "policy_source_remote": "http://192.168.4.60:3000/ai-sdlc-lab/demo-app",
+        "policy_source_ref": "main",
+        "policy_source_sha": "0123456789abcdef0123456789abcdef01234567",
+        "policy_schema_version": "policy_source.v1",
         "base_ref": "main",
         "target_sha": None,
         "task_ref": "main",
@@ -218,6 +225,7 @@ def test_gate_failure_reports_inbox_with_deny(tmp_path: Path, monkeypatch: pytes
         return dest
 
     monkeypatch.setattr("agent_workers.flows.runner.clone_repo", _fake_clone)
+    install_fake_policy_pin(monkeypatch)
 
     secret_fix = FixResult(
         changes=[
@@ -270,6 +278,11 @@ def test_gate_failure_reports_inbox_with_deny(tmp_path: Path, monkeypatch: pytes
         "repo_url": "http://example/repo",
         "primary_branch": "main",
         "policy_ref": "main",
+        "policy_source_repo": "ai-sdlc-lab/demo-app",
+        "policy_source_remote": "http://192.168.4.60:3000/ai-sdlc-lab/demo-app",
+        "policy_source_ref": "main",
+        "policy_source_sha": "0123456789abcdef0123456789abcdef01234567",
+        "policy_schema_version": "policy_source.v1",
         "base_ref": "main",
         "target_sha": None,
         "task_ref": "main",

@@ -142,6 +142,10 @@ def test_pr_lock_serializes(tmp_path: Path) -> None:
 
 
 def test_consider_dispatch_single_reservation(tmp_path: Path) -> None:
+    from unittest.mock import patch
+
+    from tests.support.policy_pin import FAKE_POLICY_PIN
+
     ph = policy_hash()
     settings = Settings(
         FIX_CI_OBSERVE_ENABLED=True,
@@ -184,32 +188,41 @@ def test_consider_dispatch_single_reservation(tmp_path: Path) -> None:
         failure_class="lint_failure",
         has_terminal_failed_job=True,
     )
-    d1 = consider_repair_dispatch(
-        tmp_path,
-        result=result,
-        pending=pending,
-        evidence=evidence,
-        attestation=_strong_attestation(ph),
-        current_pr_head="abc",
-        settings=settings,
-        required_command_ids=["ruff_check"],
-    )
+    with patch(
+        "agent_control.project_registry.resolve_policy_source_pin",
+        return_value=FAKE_POLICY_PIN,
+    ):
+        d1 = consider_repair_dispatch(
+            tmp_path,
+            result=result,
+            pending=pending,
+            evidence=evidence,
+            attestation=_strong_attestation(ph),
+            current_pr_head="abc",
+            settings=settings,
+            required_command_ids=["ruff_check"],
+        )
     assert d1["dispatched"] is True
     assert d1["repair_attempt"] == 1
     assert d1.get("reservation")
+    assert d1["reservation"]["policy_source_sha"] == FAKE_POLICY_PIN.policy_source_sha
     release_pr_lock(Path(d1["lock_path"]))
 
     # Duplicate observation: reservation exists — no second job
-    d2 = consider_repair_dispatch(
-        tmp_path,
-        result=result,
-        pending=pending,
-        evidence=evidence,
-        attestation=_strong_attestation(ph),
-        current_pr_head="abc",
-        settings=settings,
-        required_command_ids=["ruff_check"],
-    )
+    with patch(
+        "agent_control.project_registry.resolve_policy_source_pin",
+        return_value=FAKE_POLICY_PIN,
+    ):
+        d2 = consider_repair_dispatch(
+            tmp_path,
+            result=result,
+            pending=pending,
+            evidence=evidence,
+            attestation=_strong_attestation(ph),
+            current_pr_head="abc",
+            settings=settings,
+            required_command_ids=["ruff_check"],
+        )
     assert d2["dispatched"] is False
     assert "reservation_exists" in d2["reason_codes"]
     if d2.get("lock_path"):

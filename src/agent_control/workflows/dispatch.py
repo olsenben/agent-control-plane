@@ -9,6 +9,7 @@ from agent_control.graph.context_pack import compile_context_pack
 from agent_control.workflows.issue_task_backfill import maybe_backfill_command_intent
 from agent_control.project_registry import (
     build_trigger_context,
+    resolve_policy_source_pin,
     resolve_project,
     resolve_refs,
 )
@@ -78,6 +79,7 @@ def build_rlm_job(
     owner, repo = split_project(project)
     cfg = resolve_project(project, settings=settings)
     refs = resolve_refs(project, trigger_event, settings=settings)
+    pin = resolve_policy_source_pin(project, settings=settings)
     flow_meta = FLOW_VERSIONS.get(flow, FLOW_VERSIONS["inspect"])
 
     trigger_event_id = trigger_event.get("event_id", "unknown")
@@ -128,7 +130,7 @@ def build_rlm_job(
         repo=repo,
         repo_url=cfg.repo_url,
         primary_branch=cfg.default_branch,
-        policy_ref=refs.policy_ref,
+        **pin.as_job_fields(),
         base_ref=refs.base_ref,
         target_sha=refs.target_sha,
         task_ref=refs.task_ref,

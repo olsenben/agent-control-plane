@@ -6,10 +6,17 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import yaml
 
 from agent_control.config import Settings, get_settings
+
+POLICY_SCHEMA_VERSION = "policy_source.v1"
+
+
+class PolicySourcePinError(RuntimeError):
+    """CT103 could not resolve an immutable protected-default-branch policy pin."""
 
 
 @dataclass(frozen=True)
@@ -22,6 +29,27 @@ class ProjectConfig:
 
 
 @dataclass(frozen=True)
+class PolicySourcePin:
+    """Immutable policy identity resolved once on CT103 for a job/attempt."""
+
+    policy_source_repo: str
+    policy_source_remote: str
+    policy_source_ref: str
+    policy_source_sha: str
+    policy_schema_version: str = POLICY_SCHEMA_VERSION
+
+    def as_job_fields(self) -> dict[str, str]:
+        return {
+            "policy_source_repo": self.policy_source_repo,
+            "policy_source_remote": self.policy_source_remote,
+            "policy_source_ref": self.policy_source_ref,
+            "policy_source_sha": self.policy_source_sha,
+            "policy_schema_version": self.policy_schema_version,
+            "policy_ref": self.policy_source_ref,
+        }
+
+
+@dataclass(frozen=True)
 class RefResolution:
     policy_ref: str
     policy_sha: str | None
@@ -30,6 +58,102 @@ class RefResolution:
     base_ref: str
     target_sha: str | None
     primary_branch: str
+
+
+def normalize_policy_remote(repo_url: str) -> str:
+    """Canonical remote identity: scheme://host[:port]/owner/repo (no creds, no .git).
+
+    ``file://`` URLs are allowed in tests; identity is the normalized filesystem path.
+    """
+    parsed = urlparse(repo_url.strip())
+    scheme = (parsed.scheme or "https").lower()
+    if scheme == "file":
+        path = (parsed.path or "").rstrip("/")
+        if path.endswith(".git"):
+            path = path[:-4]
+        if not path:
+            raise PolicySourcePinError(f"invalid policy remote url: {repo_url!r}")
+        return f"file://{path}"
+
+    host = (parsed.hostname or "").lower()
+    if not host:
+        raise PolicySourcePinError(f"invalid policy remote url: {repo_url!r}")
+    netloc = host
+    if parsed.port:
+        netloc = f"{host}:{parsed.port}"
+    path = (parsed.path or "").rstrip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    if not path.startswith("/"):
+        path = "/" + path
+    return urlunparse((scheme, netloc, path, "", "", ""))
+
+
+def resolve_policy_source_pin(
+    project: str,
+    settings: Settings | None = None,
+    *,
+    existing: PolicySourcePin | None = None,
+    registry_path: Path | None = None,
+) -> PolicySourcePin:
+    """Resolve protected-default-branch tip once. Reuse ``existing`` when SHA already set."""
+    if existing is not None and existing.policy_source_sha.strip():
+        return existing
+
+    settings = settings or get_settings()
+    cfg = resolve_project(project, settings=settings, registry_path=registry_path)
+    ref = (cfg.protected_policy_ref or cfg.default_branch or "main").replace("refs/heads/", "")
+    remote = normalize_policy_remote(cfg.repo_url)
+
+    from agent_control.gitea_client import GiteaClient
+    from agent_shared.project_ids import split_project
+
+    owner, repo = split_project(project)
+    try:
+        sha = str(GiteaClient(settings).get_branch_sha(owner, repo, ref) or "").strip()
+    except Exception as exc:  # noqa: BLE001 — fail closed on any resolve error
+        raise PolicySourcePinError(f"failed to resolve policy SHA for {project}@{ref}: {exc}") from exc
+    if not sha or len(sha) < 7:
+        raise PolicySourcePinError(f"empty policy SHA for {project}@{ref}")
+
+    return PolicySourcePin(
+        policy_source_repo=project,
+        policy_source_remote=remote,
+        policy_source_ref=ref,
+        policy_source_sha=sha,
+        policy_schema_version=POLICY_SCHEMA_VERSION,
+    )
+
+
+def pin_from_job_fields(
+    *,
+    policy_source_repo: str = "",
+    policy_source_remote: str = "",
+    policy_source_ref: str = "",
+    policy_source_sha: str = "",
+    policy_schema_version: str = POLICY_SCHEMA_VERSION,
+    project: str = "",
+    repo_url: str = "",
+    policy_ref: str = "main",
+) -> PolicySourcePin | None:
+    """Rebuild a pin from job/reservation fields when SHA is already recorded."""
+    sha = (policy_source_sha or "").strip()
+    if not sha:
+        return None
+    repo = (policy_source_repo or project or "").strip()
+    ref = (policy_source_ref or policy_ref or "main").replace("refs/heads/", "")
+    remote = (policy_source_remote or "").strip()
+    if not remote and repo_url:
+        remote = normalize_policy_remote(repo_url)
+    if not repo or not remote:
+        return None
+    return PolicySourcePin(
+        policy_source_repo=repo,
+        policy_source_remote=remote,
+        policy_source_ref=ref,
+        policy_source_sha=sha,
+        policy_schema_version=policy_schema_version or POLICY_SCHEMA_VERSION,
+    )
 
 
 def _default_registry_path() -> Path:

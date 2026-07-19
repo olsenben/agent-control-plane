@@ -20,8 +20,8 @@ Finish remaining executor trust-boundary work after 6D.2 publish brokerage: poli
 
 | Unit | Scope |
 |------|--------|
-| **PR 0** | 6D.2 comments + docs; CT104 PAT revoke; full credential scrub; cleanliness gate |
-| **PR 1** | `policy_source_*` pin; detached RO policy checkout; remote identity verify |
+| **PR 0** | 6D.2 comments + docs; CT104 PAT revoke; full credential scrub; cleanliness gate — **done** |
+| **PR 1** | `policy_source_*` pin; detached RO policy checkout; remote identity verify — **done** |
 | **PR 2** | `tool_policy.v2` (fail-closed missing); migrations; effective-policy hash |
 | **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown |
 | **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests |
@@ -46,6 +46,17 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 - [x] Working tree clean for PR 0 commit (local ops scripts remain untracked)
 
 **PR 0 signed off (ops):** 2026-07-19 — CT104 scrub + Gitea DB delete of named `GITEA_AGENT_TOKEN` / `GITEA_BOT_TOKEN` rows; quarantine shredded.
+
+## PR 1 acceptance
+
+- [x] Job carries `policy_source_repo|remote|ref|sha|schema_version` from CT103 resolve
+- [x] Retry reuses existing pin (`resolve_policy_source_pin(existing=…)`)
+- [x] Worker detached checkout; `HEAD == policy_source_sha`; remote identity verified
+- [x] Task-branch policy fallback removed (clone failure does not load task tree as policy)
+- [x] Repair reservation records pin; CT104 prepares sibling RO policy workspace
+- [x] Unit tests: pin resolve, HEAD/remote mismatch, detached checkout, runner fail-closed
+
+**PR 1 signed off (code):** 2026-07-19 — tests green (`test_policy_source_pin` + fake-run / repair suite).
 
 ## Related
 

@@ -268,8 +268,13 @@ def _fetch_remote_head(reservation: RepairReservation) -> str | None:
 
 
 def _prepare_workspace(reservation: RepairReservation) -> Path | None:
-    """Clone agent branch at expected_sha into a disposable repair workspace."""
-    from agent_workers.repo.policy_loader import clone_repo
+    """Clone agent branch at expected_sha; pinned policy tree is a sibling RO checkout."""
+    from agent_control.project_registry import pin_from_job_fields
+    from agent_workers.repo.policy_loader import (
+        PolicyWorkspaceError,
+        checkout_pinned_policy_workspace,
+        clone_repo,
+    )
     from agent_workers.settings import get_worker_settings
 
     settings = get_worker_settings()
@@ -286,6 +291,32 @@ def _prepare_workspace(reservation: RepairReservation) -> Path | None:
     owner, repo = reservation.repository.split("/", 1)
     base = settings.gitea_base_url.rstrip("/")
     repo_url = f"{base}/{owner}/{repo}.git"
+
+    pin = pin_from_job_fields(
+        policy_source_repo=reservation.policy_source_repo,
+        policy_source_remote=reservation.policy_source_remote,
+        policy_source_ref=reservation.policy_source_ref,
+        policy_source_sha=reservation.policy_source_sha,
+        policy_schema_version=reservation.policy_schema_version,
+        project=reservation.repository,
+        repo_url=repo_url,
+    )
+    if pin is None:
+        logger.error("repair_missing_policy_pin key=%s", reservation.repair_key)
+        return None
+
+    policy_root = root.parent / f"{root.name}__policy"
+    try:
+        checkout_pinned_policy_workspace(
+            settings,
+            pin,
+            policy_root,
+            clone_url=repo_url,
+        )
+    except PolicyWorkspaceError:
+        logger.exception("repair_policy_checkout_failed key=%s", reservation.repair_key)
+        return None
+
     try:
         clone_repo(settings, repo_url, reservation.agent_branch, root)
     except Exception:
@@ -306,6 +337,8 @@ def _prepare_workspace(reservation: RepairReservation) -> Path | None:
     head = _git_run(root, ["git", "rev-parse", "HEAD"])
     if head.stdout.strip() != reservation.expected_head_commit_sha:
         return None
+    # Persist policy workspace path for later verifiers (PR2+)
+    (root / ".policy_workspace").write_text(str(policy_root), encoding="utf-8")
     return root
 
 

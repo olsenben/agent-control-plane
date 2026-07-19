@@ -36,6 +36,12 @@ class RepairReservation:
     created_at: float = field(default_factory=time.time)
     terminal_reason: str | None = None
     new_head_commit_sha: str | None = None
+    # V4.1.1 PR1 — immutable policy pin (resolved on CT103 at reservation time)
+    policy_source_repo: str = ""
+    policy_source_remote: str = ""
+    policy_source_ref: str = ""
+    policy_source_sha: str = ""
+    policy_schema_version: str = "policy_source.v1"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

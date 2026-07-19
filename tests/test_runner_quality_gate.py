@@ -13,6 +13,7 @@ from agent_shared.models.jobs import JobSafety
 from agent_shared.models.runs import RLMResult
 from agent_workers.flows.runner import run_flow_session
 from agent_workers.rlm.fake_engine import FakeRLMEngine
+from tests.support.policy_pin import install_fake_policy_pin
 
 
 def _fake_clone(_settings: object, _repo_url: str, _ref: str, dest: Path) -> Path:
@@ -45,6 +46,11 @@ def _plan_job_payload(state: Path) -> dict:
         "repo_url": "http://example/repo",
         "primary_branch": "main",
         "policy_ref": "main",
+        "policy_source_repo": "ai-sdlc-lab/demo-app",
+        "policy_source_remote": "http://192.168.4.60:3000/ai-sdlc-lab/demo-app",
+        "policy_source_ref": "main",
+        "policy_source_sha": "0123456789abcdef0123456789abcdef01234567",
+        "policy_schema_version": "policy_source.v1",
         "base_ref": "main",
         "target_sha": None,
         "task_ref": "main",
@@ -92,6 +98,11 @@ def _fix_job_payload(state: Path) -> dict:
         "repo_url": "http://example/repo",
         "primary_branch": "main",
         "policy_ref": "main",
+        "policy_source_repo": "ai-sdlc-lab/demo-app",
+        "policy_source_remote": "http://192.168.4.60:3000/ai-sdlc-lab/demo-app",
+        "policy_source_ref": "main",
+        "policy_source_sha": "0123456789abcdef0123456789abcdef01234567",
+        "policy_schema_version": "policy_source.v1",
         "base_ref": "main",
         "target_sha": None,
         "task_ref": "main",
@@ -151,6 +162,7 @@ def test_runner_does_not_overwrite_failed_quality_gate_with_completed(
     monkeypatch.setenv("AGENT_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("MODEL_ROUTING_POLICY", "fake")
     monkeypatch.setattr("agent_workers.flows.runner.clone_repo", _fake_clone)
+    install_fake_policy_pin(monkeypatch)
 
     def _failed_quality(self, job, workspace, policy, **kwargs):
         return RLMResult(
@@ -193,6 +205,7 @@ def test_empty_patch_never_calls_attempt_remote_publish(
     monkeypatch.setenv("MODEL_ROUTING_POLICY", "fake")
     monkeypatch.setenv("FIX_REMOTE_PUBLISH_ENABLED", "true")
     monkeypatch.setattr("agent_workers.flows.runner.clone_repo", _fake_clone)
+    install_fake_policy_pin(monkeypatch)
 
     good_fix = FixResult(
         changes=[

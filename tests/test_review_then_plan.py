@@ -13,6 +13,7 @@ from agent_shared.models.review import ReviewFinding, ReviewResult
 from agent_shared.models.state import VerificationState
 from agent_control.workflows.dispatch import build_rlm_job
 from agent_workers.jobs.rlm_root import process_rlm_root
+from tests.support.policy_pin import install_fake_policy_pin
 
 
 @pytest.fixture
@@ -33,6 +34,7 @@ def runs_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         return dest
 
     monkeypatch.setattr("agent_workers.flows.runner.clone_repo", _fake_clone)
+    install_fake_policy_pin(monkeypatch)
     return runs
 
 

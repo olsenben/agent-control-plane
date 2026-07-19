@@ -337,6 +337,21 @@ def consider_repair_dispatch(
                 "lock_path": str(lock),
             }
 
+        from agent_control.project_registry import PolicySourcePinError, resolve_policy_source_pin
+
+        try:
+            pin = resolve_policy_source_pin(pending.repository, settings=settings)
+        except PolicySourcePinError as exc:
+            logger.warning("repair_policy_pin_failed repo=%s err=%s", pending.repository, exc)
+            return {
+                "dispatched": False,
+                "blocked": True,
+                "reason_codes": ["policy_source_pin_unresolved"],
+                "label": "agent:blocked",
+                "repair_key": gate.repair_key,
+                "lock_path": str(lock),
+            }
+
         reservation = RepairReservation(
             repair_key=gate.repair_key,
             repository=pending.repository,
@@ -353,6 +368,11 @@ def consider_repair_dispatch(
             required_command_ids=list(required_command_ids or []),
             issue_id=pending.issue_id,
             artifact_root=pending.artifact_root,
+            policy_source_repo=pin.policy_source_repo,
+            policy_source_remote=pin.policy_source_remote,
+            policy_source_ref=pin.policy_source_ref,
+            policy_source_sha=pin.policy_source_sha,
+            policy_schema_version=pin.policy_schema_version,
         )
         created = create_repair_reservation(state_root, reservation)
         if created is None:

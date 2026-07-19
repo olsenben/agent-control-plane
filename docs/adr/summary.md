@@ -8,6 +8,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0002 | Anthropic SRT as initial OS sandbox backend | proposed | 2026-07-14 | SRT via SandboxBackend; attestation + fallback deny; CT104 spike gates fix/repair |
 | ADR-0003 | Cap-bounded bwrap for SRT inside CT104 Docker | proposed | 2026-07-18 | SYS_ADMIN+NET_ADMIN + seccomp/apparmor unconfined on SRT workers; shared runtime mounts; fail closed on bwrap launch |
 | ADR-0004 | CT103-only Gitea write (publish brokerage) | accepted | 2026-07-18 | CT104 patch bundles only; CT103 publish-broker sole mutation authority |
+| ADR-0005 | Protected-default-branch policy_source_sha pin | proposed | 2026-07-19 | CT103 resolves immutable policy identity; workers fail-closed detached checkout |
 
 ## Review log
 
@@ -22,3 +23,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-18 `d3d3ea2` — ADR-0003 proposed: CT104 Docker-on-LXC needs bounded caps for bwrap; 5.8+6F.2 demo acceptance on `demo-app` PR #5 @ `16886456…` (`repair_pushed`, CI green, pending re-pointed)
 - 2026-07-18 — ADR-0004 accepted: V4.1.1 CT103 publish brokerage; retire CT104 Gitea write tokens; see `slice-6d2-ct103-publish-brokerage.md`
 - 2026-07-19 `e7d9f2b` — no new ADR: 6D.2 PR0 closeout (ingest comments + CT104 PAT revoke/scrub); boundary already ADR-0004; umbrella [slice-v411-closeout.md](../slice-v411-closeout.md)
+- 2026-07-19 — ADR-0005 proposed: `policy_source_sha` pin + fail-closed policy workspace (V4.1.1 PR1)

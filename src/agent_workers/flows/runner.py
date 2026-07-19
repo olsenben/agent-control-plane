@@ -54,7 +54,14 @@ from agent_workers.rlm.output_quality import (
 from agent_workers.rlm.engine import get_engine
 from agent_workers.runtime.capabilities import detect_capabilities, python_version
 from agent_workers.security.redactor import SecretRedactor
-from agent_workers.repo.policy_loader import clone_repo, load_policy, write_policy_artifacts
+from agent_workers.repo.policy_loader import (
+    PolicyWorkspaceError,
+    checkout_pinned_policy_workspace,
+    clone_repo,
+    load_policy,
+    write_policy_artifacts,
+)
+from agent_control.project_registry import pin_from_job_fields
 from agent_workers.settings import WorkerSettings, get_worker_settings
 from agent_workers.tools.registry import make_registry
 
@@ -171,12 +178,25 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         session.emit(SessionEventType.BOOTSTRAP_STARTED)
         repo_workspace = run_path / "repo"
         policy_workspace = run_path / "policy_repo"
-        try:
-            clone_repo(settings, job.repo_url, job.policy_ref, policy_workspace)
-            clone_repo(settings, job.repo_url, job.task_ref, repo_workspace)
-        except Exception:
-            repo_workspace.mkdir(parents=True, exist_ok=True)
-            policy_workspace = repo_workspace
+        pin = pin_from_job_fields(
+            policy_source_repo=job.policy_source_repo,
+            policy_source_remote=job.policy_source_remote,
+            policy_source_ref=job.policy_source_ref,
+            policy_source_sha=job.policy_source_sha,
+            policy_schema_version=job.policy_schema_version,
+            project=job.project,
+            repo_url=job.repo_url,
+            policy_ref=job.policy_ref,
+        )
+        if pin is None:
+            raise PolicyWorkspaceError("job missing immutable policy_source_sha pin")
+        checkout_pinned_policy_workspace(
+            settings,
+            pin,
+            policy_workspace,
+            clone_url=job.repo_url,
+        )
+        clone_repo(settings, job.repo_url, job.task_ref, repo_workspace)
 
         bootstrap = BootstrapInfo(
             run_id=job.run_id,
@@ -184,7 +204,7 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
             queue="rlm-root",
             repo_url=job.repo_url,
             checkout_ref=job.task_ref,
-            policy_ref=job.policy_ref,
+            policy_ref=job.policy_source_ref or job.policy_ref,
             artifact_root=str(run_path),
             python_version=python_version(),
         )

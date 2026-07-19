@@ -77,6 +77,12 @@ class RLMJob(BaseModel):
     repo_url: str
     primary_branch: str = "main"
     policy_ref: str = "main"
+    # V4.1.1 PR1 — CT103-resolved immutable policy identity (retry reuses these fields)
+    policy_source_repo: str = ""
+    policy_source_remote: str = ""
+    policy_source_ref: str = "main"
+    policy_source_sha: str = ""
+    policy_schema_version: str = "policy_source.v1"
     base_ref: str = "main"
     target_sha: str | None = None
     task_ref: str = "main"
