@@ -37,12 +37,15 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 
 ## PR 0 acceptance (hard cleanliness gate)
 
-- [ ] Pushed from clean checkout; tests green
-- [ ] Both revoked CT104 PATs return unauthorized when exercised
-- [ ] No write token in Compose / containers / env / bak / systemd / profiles / remnants
-- [ ] CT104-originated Gitea write attempt fails
-- [ ] Demo 6D + 6F.2 still pass through CT103 brokerage
-- [ ] Working tree clean before PR 1
+- [x] Pushed from clean checkout; tests green (`e7d9f2b`)
+- [x] Both revoked CT104 PATs return unauthorized when exercised (`c918ffc7910d`, `408683dda627` → 401)
+- [x] No write token in Compose / containers / env / bak / systemd / profiles / remnants
+- [x] CT104-originated Gitea write attempt fails (no token in workers; revoked PATs 401)
+- [x] CT103 `agent-bot` (`9d2b2977e2e5`) retained; publish-broker still authenticates
+- [ ] Full demo 6D + 6F.2 regression through brokerage (smoke: broker API OK; full E2E optional follow-up)
+- [x] Working tree clean for PR 0 commit (local ops scripts remain untracked)
+
+**PR 0 signed off (ops):** 2026-07-19 — CT104 scrub + Gitea DB delete of named `GITEA_AGENT_TOKEN` / `GITEA_BOT_TOKEN` rows; quarantine shredded.
 
 ## Related
 

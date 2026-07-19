@@ -21,3 +21,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-17 `6c40869` / `c3e5d59` — no ADR: 5.8 command_runner + 6F.2 reservation/lease implement ADR-0002 follow-up; push publish wiring still open
 - 2026-07-18 `d3d3ea2` — ADR-0003 proposed: CT104 Docker-on-LXC needs bounded caps for bwrap; 5.8+6F.2 demo acceptance on `demo-app` PR #5 @ `16886456…` (`repair_pushed`, CI green, pending re-pointed)
 - 2026-07-18 — ADR-0004 accepted: V4.1.1 CT103 publish brokerage; retire CT104 Gitea write tokens; see `slice-6d2-ct103-publish-brokerage.md`
+- 2026-07-19 `e7d9f2b` — no new ADR: 6D.2 PR0 closeout (ingest comments + CT104 PAT revoke/scrub); boundary already ADR-0004; umbrella [slice-v411-closeout.md](../slice-v411-closeout.md)
