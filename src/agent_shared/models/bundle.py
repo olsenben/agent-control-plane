@@ -29,6 +29,10 @@ class PatchBundleManifest(BaseModel):
     gate_snapshot_sha256: str | None = None
     result_filename: str | None = None
     result_sha256: str | None = None
+    sandbox_attestation_filename: str | None = None
+    sandbox_attestation_sha256: str | None = None
+    execution_attestation_filename: str | None = None
+    execution_attestation_sha256: str | None = None
     producer_protocol: str = PRODUCER_PROTOCOL_V1
     created_at: str
 

@@ -23,7 +23,7 @@ Finish remaining executor trust-boundary work after 6D.2 publish brokerage: poli
 | **PR 0** | 6D.2 comments + docs; CT104 PAT revoke; full credential scrub; cleanliness gate — **done** |
 | **PR 1** | `policy_source_*` pin; detached RO policy checkout; remote identity verify — **done** |
 | **PR 2** | `tool_policy.v2` (fail-closed missing); migrations; effective-policy hash — **done** |
-| **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown |
+| **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown — **in progress** |
 | **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests |
 | **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) |
 | **Ops enable** | Observe-only → repair-no-publish → one-class CT103 publish on ACP |
@@ -71,9 +71,19 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 
 **PR 2 signed off (code+ops):** 2026-07-19 — `34c9619`; demo-app `tools.yaml` @ `c9d3bdc`; `LIVE_TOOL_POLICY_OK` on CT103.
 
+## PR 3 acceptance
+
+- [ ] Pre-exec `sandbox_attestation.v1` before fix/repair work (nonce, policy pin, hashes, scrub, ready)
+- [ ] Post-teardown `execution_attestation.v1` bound to preflight + bundle digest
+- [ ] Durable READY bundle (with preflight) before workspace destroy
+- [ ] CT103 publish deny on quarantined / missing / invalid attestations
+- [ ] Clone hygiene (hooksPath, askpass, credential.helper, GIT_CONFIG_NOSYSTEM, token remotes)
+- [ ] ADR-0007 proposed; tests green; CT103/CT104 tip deployed
+
 ## Related
 
 - [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md)
 - [adr/0004-ct103-publish-brokerage.md](adr/0004-ct103-publish-brokerage.md)
+- [adr/0007-dual-attestation-lifecycle.md](adr/0007-dual-attestation-lifecycle.md)
 - [architecture.md](architecture.md)
 - Cursor plan: `v4.1.1_closeout_bundle_*.plan.md`

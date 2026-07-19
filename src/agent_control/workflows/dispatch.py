@@ -13,6 +13,7 @@ from agent_control.project_registry import (
     resolve_project,
     resolve_refs,
 )
+from agent_workers.executor.lifecycle import issue_ct103_nonce
 from agent_shared.constants import FLOW_VERSIONS, INTENT_KIND_TO_FLOW, RiskClass
 from agent_shared.models.intent import CommandIntent
 from agent_shared.models.jobs import (
@@ -150,6 +151,7 @@ def build_rlm_job(
         model_policy=settings.model_routing_policy,
         state_path=state_path,
         context_pack=context_pack,
+        attestation_nonce=issue_ct103_nonce(),
     )
 
 

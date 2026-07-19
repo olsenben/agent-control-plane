@@ -35,6 +35,7 @@ from agent_shared.project_ids import (
     make_run_id,
     split_project,
 )
+from agent_workers.executor.lifecycle import issue_ct103_nonce
 
 
 def fix_remote_publish_enabled(settings: Settings | None = None) -> bool:
@@ -185,6 +186,7 @@ def build_fix_rlm_job(
         state_path=state_path,
         context_pack=context_pack,
         fix_authorization=binding,
+        attestation_nonce=issue_ct103_nonce(),
     )
 
 

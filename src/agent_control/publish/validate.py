@@ -54,14 +54,11 @@ _SAFE_GIT_CONFIG = [
 
 
 def _safe_clone_env(auth_url: str, settings: Settings) -> dict[str, str]:
+    from agent_shared.git_hygiene import apply_safe_git_config_env
+
     _ = git_non_interactive_env(settings, repo_url=auth_url)  # ensure settings side effects
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-    configs = [("credential.helper", "")] + list(_SAFE_GIT_CONFIG)
-    env["GIT_CONFIG_COUNT"] = str(len(configs))
-    for i, (k, v) in enumerate(configs):
-        env[f"GIT_CONFIG_KEY_{i}"] = k
-        env[f"GIT_CONFIG_VALUE_{i}"] = v
-    return env
+    return apply_safe_git_config_env(env)
 
 
 def _validate_host(repo_url: str, allowed_base: str) -> None:
@@ -137,6 +134,10 @@ def prepare_workspace_at_sha(
     co = git_run(work, ["git", "checkout", "--detach", trusted_sha], env=env)
     if co.returncode != 0:
         raise ValidationError("checkout_failed", co.stderr or f"cannot checkout {trusted_sha}")
+
+    from agent_shared.git_hygiene import scrub_clone_credentials, strip_token_from_url
+
+    scrub_clone_credentials(work, token_free_remote=strip_token_from_url(repo_url))
     return work
 
 

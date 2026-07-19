@@ -10,6 +10,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0004 | CT103-only Gitea write (publish brokerage) | accepted | 2026-07-18 | CT104 patch bundles only; CT103 publish-broker sole mutation authority |
 | ADR-0005 | Protected-default-branch policy_source_sha pin | proposed | 2026-07-19 | CT103 resolves immutable policy identity; workers fail-closed detached checkout |
 | ADR-0006 | tool_policy.v2 narrowing-only command allowance | proposed | 2026-07-19 | Empty allowance on missing/invalid tools.yaml; effective-policy hash gates repair |
+| ADR-0007 | Dual sandbox and execution attestations | proposed | 2026-07-19 | Durable preflight + post-teardown attestations; publish deny if quarantined/missing |
 
 ## Review log
 
@@ -26,3 +27,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-19 `e7d9f2b` — no new ADR: 6D.2 PR0 closeout (ingest comments + CT104 PAT revoke/scrub); boundary already ADR-0004; umbrella [slice-v411-closeout.md](../slice-v411-closeout.md)
 - 2026-07-19 — ADR-0005 proposed: `policy_source_sha` pin + fail-closed policy workspace (V4.1.1 PR1)
 - 2026-07-19 — ADR-0006 proposed: `tool_policy.v2` fail-closed empty allowance + effective command-policy hash (V4.1.1 PR2)
+- 2026-07-19 — ADR-0007 proposed: dual sandbox/execution attestations + durable bundle-before-teardown (V4.1.1 PR3)

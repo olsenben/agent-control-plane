@@ -28,6 +28,10 @@ ALLOWED_ARTIFACT_NAMES = frozenset(
         "diff_gate_result.json",
         "fix_result.json",
         "repair_result.json",
+        "sandbox_attestation.v1.json",
+        "execution_attestation.v1.json",
+        "evidence.json",
+        "publication_log.json",
         MANIFEST_NAME,
         READY_MARKER,
     }
@@ -110,6 +114,7 @@ def write_ready_bundle(
     producer_tree_sha: str | None = None,
     gate_snapshot: dict[str, Any] | bytes | None = None,
     result_payload: dict[str, Any] | bytes | None = None,
+    extra_artifacts: dict[str, bytes] | None = None,
     max_patch_bytes: int = DEFAULT_MAX_PATCH_BYTES,
     max_artifact_bytes: int = DEFAULT_MAX_ARTIFACT_BYTES,
 ) -> PatchBundleManifest:
@@ -175,6 +180,26 @@ def write_ready_bundle(
             _assert_regular_file(result_path)
             result_sha = sha256_file(result_path)
 
+        sandbox_name: str | None = None
+        sandbox_sha: str | None = None
+        exec_name: str | None = None
+        exec_sha: str | None = None
+        if extra_artifacts:
+            for name, blob in extra_artifacts.items():
+                _assert_safe_name(name)
+                if len(blob) > max_artifact_bytes:
+                    raise BundleError(f"Artifact {name} exceeds max artifact size")
+                art_path = tmp / name
+                art_path.write_bytes(blob)
+                _assert_regular_file(art_path)
+                digest = sha256_file(art_path)
+                if name == "sandbox_attestation.v1.json":
+                    sandbox_name = name
+                    sandbox_sha = digest
+                elif name == "execution_attestation.v1.json":
+                    exec_name = name
+                    exec_sha = digest
+
         created_at = datetime.now(timezone.utc).isoformat()
         manifest = PatchBundleManifest(
             schema_version=BUNDLE_SCHEMA_VERSION,
@@ -191,6 +216,10 @@ def write_ready_bundle(
             gate_snapshot_sha256=gate_sha,
             result_filename=result_name,
             result_sha256=result_sha,
+            sandbox_attestation_filename=sandbox_name,
+            sandbox_attestation_sha256=sandbox_sha,
+            execution_attestation_filename=exec_name,
+            execution_attestation_sha256=exec_sha,
             producer_protocol=PRODUCER_PROTOCOL_V1,
             created_at=created_at,
         )
@@ -279,6 +308,18 @@ def load_ready_bundle(
         _assert_regular_file(result_path)
         if sha256_file(result_path) != manifest.result_sha256:
             raise BundleError("result hash mismatch")
+
+    if manifest.sandbox_attestation_filename:
+        sap = root / manifest.sandbox_attestation_filename
+        _assert_regular_file(sap)
+        if sha256_file(sap) != manifest.sandbox_attestation_sha256:
+            raise BundleError("sandbox attestation hash mismatch")
+
+    if manifest.execution_attestation_filename:
+        eap = root / manifest.execution_attestation_filename
+        _assert_regular_file(eap)
+        if sha256_file(eap) != manifest.execution_attestation_sha256:
+            raise BundleError("execution attestation hash mismatch")
 
     return manifest, root
 

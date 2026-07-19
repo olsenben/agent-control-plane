@@ -18,6 +18,7 @@ from agent_shared.models.ci import (
     PendingCiRecord,
 )
 from agent_shared.repo_identity import split_repo_full_name
+from agent_workers.executor.lifecycle import issue_ct103_nonce
 
 logger = logging.getLogger(__name__)
 
@@ -428,6 +429,7 @@ def consider_repair_dispatch(
             command_registry_hash=tool_policy.command_registry_hash,
             effective_command_policy_hash=tool_policy.effective_command_policy_hash,
             tool_policy_status=tool_policy.status,
+            attestation_nonce=issue_ct103_nonce(),
         )
         created = create_repair_reservation(state_root, reservation)
         if created is None:

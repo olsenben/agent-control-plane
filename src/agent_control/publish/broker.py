@@ -94,13 +94,36 @@ def broker_publish_fix(
     )
 
     try:
-        manifest, _ = load_ready_bundle(
+        manifest, bundle_root = load_ready_bundle(
             state_root,
             run_id=run_id,
             kind="fix",
             attempt_id=attempt_id,
             bundle_id=bundle_id,
         )
+        from agent_control.publish.eligibility import evaluate_publish_eligible
+
+        eligibility = evaluate_publish_eligible(
+            bundle_dir=bundle_root,
+            manifest=manifest,
+            require_attestations=True,
+        )
+        if not eligibility.eligible:
+            cas_transition(
+                state_root,
+                run_id=run_id,
+                kind="fix",
+                attempt_id=attempt_id,
+                bundle_id=bundle_id,
+                from_state="validating",
+                to_state="rejected",
+                messages=eligibility.reason_codes + eligibility.messages,
+            )
+            return {
+                "ok": False,
+                "reason": "attestation_gate",
+                "detail": eligibility.reason_codes,
+            }
         snapshot = copy_bundle_to_snapshot(
             state_root,
             run_id=run_id,
@@ -469,13 +492,26 @@ def broker_publish_repair(
         return {"ok": True, "idempotent": True}
 
     try:
-        manifest, _ = load_ready_bundle(
+        manifest, bundle_root = load_ready_bundle(
             state_root,
             run_id=run_id,
             kind="repair",
             attempt_id=attempt_id,
             bundle_id=bundle_id,
         )
+        from agent_control.publish.eligibility import evaluate_publish_eligible
+
+        eligibility = evaluate_publish_eligible(
+            bundle_dir=bundle_root,
+            manifest=manifest,
+            require_attestations=True,
+        )
+        if not eligibility.eligible:
+            return {
+                "ok": False,
+                "reason": "attestation_gate",
+                "detail": eligibility.reason_codes,
+            }
         snapshot = copy_bundle_to_snapshot(
             state_root,
             run_id=run_id,

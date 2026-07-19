@@ -103,3 +103,5 @@ class RLMJob(BaseModel):
     state_path: str | None = None
     context_pack: ContextPack | None = None
     fix_authorization: FixAuthorizationBinding | None = None
+    # V4.1.1 PR3 — CT103-issued anti-replay nonce bound into dual attestations
+    attestation_nonce: str = ""

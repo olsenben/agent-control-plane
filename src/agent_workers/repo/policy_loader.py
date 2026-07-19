@@ -218,12 +218,14 @@ def clone_repo(
     dest: Path,
 ) -> Path:
     """Clone a branch tip into the writable agent/task workspace (not policy authority)."""
+    from agent_shared.git_hygiene import hygienic_clone_env, scrub_clone_credentials, strip_token_from_url
+    from urllib.parse import urlparse, urlunparse
+
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         shutil.rmtree(dest)
     authed_url = authenticated_repo_url_from_credentials(repo_url)
-    git_env = git_non_interactive_env(repo_url=authed_url)
-    env = {**os.environ, **git_env}
+    env = hygienic_clone_env(authed_url)
     if settings.git_ro_key_path and settings.git_ro_key_path.exists():
         env["GIT_SSH_COMMAND"] = f"ssh -i {settings.git_ro_key_path} -o StrictHostKeyChecking=no"
     subprocess.run(
@@ -241,6 +243,13 @@ def clone_repo(
         capture_output=True,
         env=env,
     )
+    # Token-free remote for scrub target
+    parsed = urlparse(repo_url)
+    path = (parsed.path or "").rstrip("/")
+    if not path.endswith(".git"):
+        path = f"{path}.git"
+    token_free = urlunparse((parsed.scheme, parsed.netloc.split("@")[-1], path, "", "", ""))
+    scrub_clone_credentials(dest, token_free_remote=token_free or strip_token_from_url(authed_url))
     return dest
 
 

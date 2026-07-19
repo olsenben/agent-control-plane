@@ -21,7 +21,7 @@ from agent_shared.constants import (
 )
 from agent_shared.models.jobs import RLMJob
 from agent_shared.models.session import BootstrapInfo, RedactionReport, SystemContext
-from agent_shared.bundles import BundleError, write_ready_bundle
+from agent_shared.bundles import BundleError
 from agent_shared.git_patch import git_write_tree
 from agent_workers.artifacts.session_events import SessionEventWriter
 from agent_workers.artifacts.writer import (
@@ -33,6 +33,10 @@ from agent_workers.artifacts.writer import (
     write_metadata,
 )
 from agent_workers.context.broker import ContextBroker
+from agent_workers.executor.lifecycle import (
+    ExecutorLifecycle,
+    resolve_runtime_attestation,
+)
 from agent_workers.flows.failure_report import (
     dispatch_report,
     finalize_failed_run,
@@ -75,8 +79,9 @@ def _write_fix_patch_bundle(
     settings: WorkerSettings,
     session: SessionEventWriter,
     gate_result,
+    lifecycle: ExecutorLifecycle,
 ) -> None:
-    """CT104 producer: write immutable READY bundle; never mutate Gitea."""
+    """CT104 producer: durable READY bundle + teardown + execution attestation."""
     patch_path = run_path / APPROVED_PATCH_NAME
     if not patch_path.is_file():
         result.fix_status = "worker_failed"
@@ -103,9 +108,8 @@ def _write_fix_patch_bundle(
     fix_payload = result.fix_result.model_dump(mode="json") if result.fix_result else None
 
     try:
-        manifest = write_ready_bundle(
+        manifest = lifecycle.finalize_durable_bundle(
             settings.agent_state_root,
-            run_id=job.run_id,
             kind="fix",
             attempt_id="1",
             producer_base_sha=producer_base,
@@ -113,7 +117,11 @@ def _write_fix_patch_bundle(
             producer_tree_sha=producer_tree,
             gate_snapshot=gate_payload,
             result_payload=fix_payload,
+            artifact_dir=run_path,
         )
+        lifecycle.final_target_head = producer_tree or ""
+        lifecycle.teardown_workspace()
+        lifecycle.write_execution_attestation(artifact_dir=run_path)
     except BundleError as exc:
         write_json(
             run_path / "error.json",
@@ -123,10 +131,18 @@ def _write_fix_patch_bundle(
         result.fix_status = "worker_failed"
         result.summary = f"Failed to write patch bundle: {exc}"
         return
+    except Exception as exc:
+        write_json(
+            run_path / "error.json",
+            {"stage": "attestation_lifecycle", "message": str(exc)},
+        )
+        result.status = "failed"
+        result.fix_status = "worker_failed"
+        result.summary = f"Attestation lifecycle failed: {exc}"
+        return
 
     result.fix_status = FIX_STATUS_PATCH_BUNDLE_READY
     result.producer_protocol = PRODUCER_PROTOCOL_PATCH_BUNDLE_V1
-    # Stash bundle ids on result for run_completed_builder (dynamic attrs)
     result.bundle_id = manifest.bundle_id
     result.attempt_id = manifest.attempt_id
     result.bundle_kind = "fix"
@@ -232,6 +248,48 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
         else:
             update_metadata_status(meta_path, RunStatus.POLICY_LOADED)
         session.emit(SessionEventType.POLICY_LOAD_COMPLETED)
+
+        producer_base = ""
+        if job.fix_authorization:
+            producer_base = job.fix_authorization.approved_base_sha or ""
+        producer_base = producer_base or job.target_sha or ""
+
+        lifecycle = ExecutorLifecycle(
+            run_id=job.run_id,
+            job_id=job.job_id,
+            ct103_nonce=job.attestation_nonce or "",
+            policy_source_repo=job.policy_source_repo,
+            policy_source_sha=job.policy_source_sha,
+            target_source_sha=producer_base,
+            command_registry_hash=getattr(effective, "command_registry_hash", "") or "",
+            effective_command_policy_hash=getattr(effective, "effective_command_policy_hash", "")
+            or "",
+            durable_root=settings.agent_state_root,
+            quarantine_root=settings.agent_state_root / "quarantine",
+        )
+        lifecycle.mark_workspace_prepared(repo_workspace, scrub=True)
+
+        allow_sim = job.model_policy == "fake"
+        needs_attest = job.fix_authorization is not None or (
+            job.command_intent is not None and job.command_intent.kind == "fix"
+        )
+        if needs_attest:
+            if not lifecycle.ct103_nonce:
+                if allow_sim:
+                    from agent_workers.executor.lifecycle import issue_ct103_nonce
+
+                    lifecycle.ct103_nonce = issue_ct103_nonce()
+                else:
+                    raise RuntimeError("missing_ct103_attestation_nonce")
+            runtime = resolve_runtime_attestation(
+                repo_workspace,
+                allow_simulation=allow_sim,
+            )
+            lifecycle.write_sandbox_attestation(
+                run_path,
+                runtime_attestation=runtime,
+            )
+            lifecycle.mark_work_started()
 
         context_receipt = {
             "schema_version": "context_receipt.v1",
@@ -344,6 +402,19 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                         session.emit(SessionEventType.FIX_FAILED, message="patch quality gate failed")
                     else:
                         session.emit(SessionEventType.FIX_APPLY_COMPLETED)
+                        if lifecycle.sandbox_attestation is None:
+                            # Late path: fix result without pre-work attestation
+                            if not lifecycle.ct103_nonce:
+                                raise RuntimeError("missing_ct103_attestation_nonce")
+                            runtime = resolve_runtime_attestation(
+                                repo_workspace,
+                                allow_simulation=allow_sim,
+                            )
+                            lifecycle.write_sandbox_attestation(
+                                run_path,
+                                runtime_attestation=runtime,
+                            )
+                            lifecycle.mark_work_started()
                         _write_fix_patch_bundle(
                             repo_workspace=repo_workspace,
                             run_path=run_path,
@@ -352,6 +423,7 @@ def run_flow_session(job_payload: dict[str, Any], settings: WorkerSettings | Non
                             settings=settings,
                             session=session,
                             gate_result=gate_result,
+                            lifecycle=lifecycle,
                         )
                         if result.fix_status is None:
                             result.fix_status = FIX_STATUS_PATCH_BUNDLE_READY

@@ -43,10 +43,55 @@ class DenySandboxBackend:
         timeout_seconds: float,
         env: dict[str, str] | None = None,
     ) -> CommandResult:
+        _ = (argv, cwd, workspace, timeout_seconds, env)
         return CommandResult(
             exit_code=126,
             stdout="",
             stderr="sandbox_denied",
+            violated=True,
+            violation_codes=["sandbox_unavailable"],
+        )
+
+
+class SimulationSandboxBackend:
+    """Deterministic strong attestation for unit tests / fake model_policy only."""
+
+    name = "simulation"
+
+    def attest(self, *, workspace: Path, policy_hash: str) -> SandboxAttestation:
+        from agent_control.aci.backends.base import ProbeResult
+        from agent_control.aci.backends.probes import host_identity
+
+        _ = workspace  # workspace exists; probes are injected, not executed
+        return SandboxAttestation(
+            backend=self.name,
+            backend_version="sim-1",
+            mode="strong",
+            policy_hash=policy_hash or "simulated",
+            host_identity=host_identity(),
+            probes=[
+                ProbeResult(
+                    name="simulated_canary",
+                    passed=True,
+                    detail="simulation_backend",
+                )
+            ],
+        )
+
+    def run(
+        self,
+        argv: list[str],
+        *,
+        cwd: Path,
+        workspace: Path,
+        timeout_seconds: float,
+        env: dict[str, str] | None = None,
+    ) -> CommandResult:
+        _ = (argv, cwd, workspace, timeout_seconds, env)
+        return CommandResult(
+            exit_code=126,
+            stdout="",
+            stderr="simulation_backend_does_not_execute",
             violated=True,
             violation_codes=["sandbox_unavailable"],
         )
@@ -145,9 +190,11 @@ def get_sandbox_backend(
     name: str = "srt",
     *,
     expected_policy_hash: str | None = None,
-) -> SrtSandboxBackend | DenySandboxBackend:
+) -> SrtSandboxBackend | DenySandboxBackend | SimulationSandboxBackend:
     if name in ("srt", "bwrap"):
         return SrtSandboxBackend(expected_policy_hash=expected_policy_hash)
+    if name in ("simulation", "sim"):
+        return SimulationSandboxBackend()
     return DenySandboxBackend()
 
 

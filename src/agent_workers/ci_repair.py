@@ -501,13 +501,17 @@ def _hand_off_repair_bundle(
     reservation: RepairReservation,
     workspace: Path,
 ) -> dict[str, Any]:
-    """Write immutable repair bundle and enqueue CT103 broker (no Gitea push)."""
+    """Write durable repair bundle with dual attestations; enqueue CT103 broker."""
     from agent_control.publish.state import try_enqueue_cas
     from agent_control.queue import enqueue_publish
-    from agent_shared.bundles import BundleError, write_ready_bundle
+    from agent_shared.bundles import BundleError
     from agent_shared.constants import (
         EVENT_FIX_CI_REPAIR_BUNDLE_READY,
         PRODUCER_PROTOCOL_PATCH_BUNDLE_V1,
+    )
+    from agent_workers.executor.lifecycle import (
+        ExecutorLifecycle,
+        resolve_runtime_attestation,
     )
     from agent_workers.settings import get_worker_settings
 
@@ -516,7 +520,6 @@ def _hand_off_repair_bundle(
     if not patch_path.is_file():
         patch_path = workspace.parent / "repair_patch.diff"
     if not patch_path.is_file():
-        # Derive from last commit vs parent if worker committed locally
         from agent_workers.publish.remote import _git_run
 
         diff = _git_run(workspace, ["git", "diff", f"{reservation.expected_head_commit_sha}..HEAD"])
@@ -526,10 +529,41 @@ def _hand_off_repair_bundle(
         patch_path.write_text(diff.stdout, encoding="utf-8")
 
     attempt_id = str(reservation.repair_attempt or 1)
+    artifact_dir = Path(reservation.artifact_root) if reservation.artifact_root else workspace.parent
+    nonce = reservation.attestation_nonce or ""
+    if not nonce:
+        return {"ok": False, "reason_codes": ["missing_ct103_attestation_nonce"]}
+
+    lifecycle = ExecutorLifecycle(
+        run_id=reservation.fix_run_id,
+        job_id=reservation.job_id or "",
+        ct103_nonce=nonce,
+        policy_source_repo=reservation.policy_source_repo,
+        policy_source_sha=reservation.policy_source_sha,
+        target_source_sha=reservation.expected_head_commit_sha,
+        command_registry_hash=reservation.command_registry_hash,
+        effective_command_policy_hash=reservation.effective_command_policy_hash,
+        durable_root=state_root,
+        quarantine_root=state_root / "quarantine",
+    )
+    lifecycle.mark_workspace_prepared(workspace, scrub=True)
+    # Repair already executed verify under sandbox; re-attest for durable claim.
+    # Simulation only when settings force simulation backend (tests).
+    allow_sim = False
     try:
-        manifest = write_ready_bundle(
+        from agent_control.config import get_settings as _gs
+
+        allow_sim = (_gs().sandbox_backend or "").lower() in ("simulation", "sim")
+    except Exception:
+        allow_sim = False
+    try:
+        runtime = resolve_runtime_attestation(workspace, allow_simulation=allow_sim)
+        lifecycle.write_sandbox_attestation(artifact_dir, runtime_attestation=runtime)
+        lifecycle.mark_work_started()
+        for cid in reservation.required_command_ids or []:
+            lifecycle.record_command(cid)
+        manifest = lifecycle.finalize_durable_bundle(
             state_root,
-            run_id=reservation.fix_run_id,
             kind="repair",
             attempt_id=attempt_id,
             producer_base_sha=reservation.expected_head_commit_sha,
@@ -540,9 +574,19 @@ def _hand_off_repair_bundle(
                 "producer_protocol": PRODUCER_PROTOCOL_PATCH_BUNDLE_V1,
                 "event": EVENT_FIX_CI_REPAIR_BUNDLE_READY,
             },
+            artifact_dir=artifact_dir,
         )
+        lifecycle.final_target_head = reservation.expected_head_commit_sha
+        lifecycle.teardown_workspace()
+        lifecycle.write_execution_attestation(artifact_dir=artifact_dir)
     except BundleError as exc:
         return {"ok": False, "reason_codes": ["bundle_write_failed"], "detail": str(exc)}
+    except Exception as exc:
+        return {
+            "ok": False,
+            "reason_codes": ["attestation_lifecycle_failed"],
+            "detail": str(exc),
+        }
 
     try_enqueue_cas(
         state_root,

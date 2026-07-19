@@ -48,6 +48,8 @@ class RepairReservation:
     command_registry_hash: str = ""
     effective_command_policy_hash: str = ""
     tool_policy_status: str = "empty_missing"
+    # V4.1.1 PR3 — CT103-issued attestation nonce
+    attestation_nonce: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
