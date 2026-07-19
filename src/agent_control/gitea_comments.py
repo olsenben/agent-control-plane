@@ -58,9 +58,10 @@ def format_fix_started(
     if len(allowed_files) > 8:
         files_line += f" (+{len(allowed_files) - 8} more)"
     tail = (
-        f"CT104 will apply patch, push branch `agent/{run_id}`, and open PR (Slice 6D)."
+        "CT104 will produce an immutable patch bundle; CT103 publish-broker "
+        f"validates and may push `agent/{run_id}` + open PR (V4.1.1 / 6D.2)."
         if remote_publish_enabled
-        else "CT104 is generating a workspace-local patch (no push/PR in 6B)."
+        else "CT104 is generating a workspace-local patch bundle (no remote publish)."
     )
     return "\n".join(
         [

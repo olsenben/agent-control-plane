@@ -112,6 +112,38 @@ def _maybe_enqueue_publish(
             pass
 
 
+# Risk 0/1 run comments formerly posted by CT104 worker-report.
+_RUN_COMMENT_KINDS = frozenset({"inspect", "explain", "review", "plan"})
+
+
+def _maybe_post_run_comment(
+    event: AgentRunCompletedEvent,
+    settings: Settings,
+) -> None:
+    """Post plan/review/inspect/explain (and failed-fix) summaries via CT103 bot token.
+
+    Successful fix bundles are covered by publish-queue / publish-broker comments.
+    """
+    if event.project is None or event.issue_id is None:
+        return
+    summary = (event.summary or "").strip()
+    if not summary:
+        return
+
+    kind = event.command_kind or ""
+    if kind in _RUN_COMMENT_KINDS:
+        pass
+    elif kind == "fix" and event.status == "failed":
+        pass
+    else:
+        return
+
+    try:
+        post_issue_comment(event.project, event.issue_id, summary, settings=settings)
+    except Exception:
+        pass
+
+
 def handle_fix_ingest_side_effects(
     state_root: Path,
     event: AgentRunCompletedEvent,
@@ -128,6 +160,7 @@ def handle_fix_ingest_side_effects(
     if event.fix_status == "pr_opened_pending_ci" and event.producer_protocol != PRODUCER_PROTOCOL_PATCH_BUNDLE_V1:
         return
 
+    _maybe_post_run_comment(event, settings)
     _maybe_enqueue_publish(state_root, event, settings)
 
     if event.command_kind != "fix" or not event.approval_id or not event.approval_target_id:

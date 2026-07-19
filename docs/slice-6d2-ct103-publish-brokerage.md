@@ -1,7 +1,7 @@
 # Slice 6D.2 — CT103 publish brokerage (V4.1.1)
 
-**Status:** implemented (code) — homelab barrier cutover pending  
-**Date:** 2026-07-18  
+**Status:** Homelab signed off 2026-07-19 (barrier cutover)  
+**Date:** 2026-07-18 (code); acceptance 2026-07-19  
 **Plan:** V4.1.1 Executor Trust-Boundary Hardening §0.7  
 **Prerequisite:** [slice-6d-branch-push-pr.md](slice-6d-branch-push-pr.md), [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md)
 
@@ -64,18 +64,13 @@ Webhook observe accepts active pending **or** matching publish intent.
 
 ## Homelab cutover (barrier)
 
-1. Disable enqueue / remote publication
-2. Drain CT104 jobs
-3. Deploy CT103 with brokerage disabled, then enable `publish-broker`
-4. Deploy CT104 bundle-only workers without write tokens
-5. Rotate/revoke tokens formerly on CT104
-6. Enable `FIX_REMOTE_PUBLISH_ENABLED` on CT103
-7. Fix E2E + repair E2E
-8. Re-enable enqueue
+**Completed 2026-07-18/19** on `demo-app` (seeded fix+repair broker smoke; CT104 `.env` write tokens stripped).
+
+Operator closeout (PR 0 of [slice-v411-closeout.md](slice-v411-closeout.md)): revoke/rotate Gitea PATs that ever lived on CT104; scrub bak/backups/systemd/profiles/remnants; recreate CT104 containers.
 
 ## Acceptance
 
-CT104 can propose immutable patch bundles but cannot mutate Gitea. CT103 resolves authorization from trusted state, snapshots and independently validates the bundle, constructs a deterministic commit without executing repository code, records CI intent before push, and performs idempotent remote publication.
+CT104 can propose immutable patch bundles but cannot mutate Gitea. CT103 resolves authorization from trusted state, snapshots and independently validates the bundle, constructs a deterministic commit without executing repository code, records CI intent before push, and performs idempotent remote publication. Plan/review/inspect/explain (and failed-fix) issue comments are posted by CT103 results-ingest using `GITEA_BOT_TOKEN`.
 
 ## Related
 

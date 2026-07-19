@@ -53,9 +53,10 @@ Detail: [POLICY_GATES.md](POLICY_GATES.md).
 
 - Webhook intake, event append, reducer, dispatch
 - Memory writeback (SQLite), graph snapshot queries
-- **`publish-broker`**: sole Gitea mutation (push / PR / comments) after independent validation
+- **`worker-state` / results-ingest**: Gitea issue comments for plan/review/inspect/explain (+ failed fix summaries) via `GITEA_BOT_TOKEN`
+- **`publish-broker`**: sole repo mutation (push / PR) + publish lifecycle comments after independent validation
 - Policy gate evaluation, risk tag attachment
-- No direct repo mutation
+- No direct `main` / protected-branch mutation
 
 ## Write permissions
 
@@ -63,9 +64,9 @@ Detail: [POLICY_GATES.md](POLICY_GATES.md).
 |----------|-------|----------------------|-------------------|
 | `agent-state` events | Append (reducer) | Read via mount | Read |
 | Memory DB | Read/write | No | No |
-| Target repo | No | Read-only clone | Agent branch only |
+| Target repo | Via `publish-broker` only | Read-only clone | Patch bundle only (no push) |
 | `main` / protected branches | No | No | **Never** |
-| Gitea comments | Via ingest path | Via worker-report | Via worker-report |
+| Gitea comments | CT103 ingest + publish-broker | **No** | **No** |
 
 ## Model endpoints
 
@@ -161,6 +162,8 @@ Model self-review is **not** an acceptance gate.
 | **Slice 5.6a — SRT sandbox spike** | **2026-07-17** | Host 2b/2c + `worker-rlm-root` strong PASS; 2e fail-closed; **2d** env pin CT103+CT104 (`srt` / `5de9f107fc05367e849f893c815efd18` / require attestation); see [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) |
 | **Slice 6F.2 — repair gate demo** | **2026-07-17** | `demo-app` issue #4 / PR #5 @ `4ebaab0…`; runs 481/482; evidence collected; `agent.fix_ci_repair_requested` + `agent.fix_ci_repair_blocked`; see [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
 | **Slice 5.8 + 6F.2 — sandboxed repair** | **2026-07-18** | Same PR #5: reservation → CT104 `ci-repair` → SRT verify → non-force push `16886456…`; CT103 pending re-point; Gitea CI green; `main` untouched; ACP `d3d3ea2` + ADR-0003; see [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) |
+| **Slice 6D.2 / V4.1.1 — publish brokerage** | **2026-07-19** | Barrier cutover: CT104 write tokens stripped; `publish-broker` sole push/PR; seeded fix `71527138…` + repair FF `c88f1e86…` on `demo-app`; plan/review comments via CT103 ingest; see [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md), ADR-0004 |
+| **V4.1.1 closeout (umbrella)** | **in progress** | PR 0+; policy provenance, dual attestation, CT102 sched/cred split, staged ACP one-class repair — [slice-v411-closeout.md](slice-v411-closeout.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

@@ -103,7 +103,7 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | Phase | Status | Target |
 |-------|--------|--------|
 | Inspect MVP | **Done** | End-to-end plumbing |
-| Explain smoke | Next | Second Risk 0 command |
+| Explain smoke | **Done** (V4 sequence) | Risk 0 `/agent explain` signed off; excluded from V4.1.1 closeout |
 | **Review MVP** | **Done** | Review + graph blast-radius + context-pack + memory (4A/4B); homelab issue #4 (2026-06-21 UTC) |
 | Plan MVP | **Done** | Graph-informed plan + CI hints + structured comment + prior memory (issue #4) |
 | **Slice 5 — structured output boundary** | **Done** | Pre-merge, normalizers, repair retry, `parse_failure.json`; homelab review `run-19a15588…` → plan `run-d71996d3…` (2026-06-21 UTC). See [slice-5-structured-output-hardening.md](slice-5-structured-output-hardening.md) |
@@ -121,10 +121,11 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **Sandbox attestation (5.6a)** | **Done (homelab)** | Host **2b/2c** + worker-runtime **strong PASS**; **2e** fail-closed; **2d** live env pin verified CT103+CT104 (`srt` / `5de9f107…`). See [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) |
 | **6F.2 — CI repair loop** | **Done (homelab demo)** | Gate @ `4ebaab0…`; sandboxed push @ `16886456…` (`repair_pushed`, CI green, pending re-point). See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
 | **5.8 + 6F.2 complete** | **Done (homelab demo)** | See [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md); ADR-0003 for CT104 bwrap caps |
-| Later | — | Invocation ack + bot identity. Explain smoke, command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph |
-| **Next** | **6D.2 / V4.1.1** | **CT103 publish brokerage** — CT104 patch bundles only; `publish-broker` sole Gitea write |
+| **6D.2 / V4.1.1 — CT103 publish brokerage** | **Done (homelab)** | CT104 patch bundles only; `publish-broker` sole Gitea write; barrier cutover 2026-07-18/19. See [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md), ADR-0004 |
+| **Next** | **V4.1.1 closeout** | Multi-PR: policy SHA + tool_policy.v2, dual attestation, CT102 sched/cred split, staged ACP one-class repair. See [slice-v411-closeout.md](slice-v411-closeout.md) |
+| Later | — | Invocation ack + bot identity. Command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph. V4.1 session/2070 items 5.4–5.7 |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — … **2026-07-18: 5.8+6F.2 sandboxed repair** on `demo-app` PR #5 @ `16886456…`. **Next: barrier cutover for 6D.2 / V4.1.1 publish brokerage** (`scripts/cutover-6d2-publish-brokerage.sh`).
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — … **2026-07-19: 6D.2 / V4.1.1 publish brokerage** barrier cutover (CT104 write tokens stripped; fix+repair broker smoke). **Next: V4.1.1 closeout** ([slice-v411-closeout.md](slice-v411-closeout.md)).
 
 ### Review MVP acceptance (full)
 
