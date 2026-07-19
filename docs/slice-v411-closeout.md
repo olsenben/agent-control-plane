@@ -26,7 +26,7 @@ Finish remaining executor trust-boundary work after 6D.2 publish brokerage: poli
 | **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown — **done** |
 | **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests — **done (docs/ADR)** |
 | **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) — **done** |
-| **Ops enable** | Observe-only → repair-no-publish → one-class CT103 publish on ACP |
+| **Ops enable** | Observe-only → repair-no-publish → one-class CT103 publish on ACP — **stage 1–2 done; stage 3 open** |
 
 ## Dependency order
 
@@ -112,9 +112,11 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 | Repair gate (synthetic strong sandbox) | Pass — `STAGE2_REPAIR_GATE_OK` |
 | Bundle + dual attest; publish still denied | Pass — `STAGE2_BUNDLE_ATTEST_OK` / `STAGE2_BROKER_POLICY_DENY_OK` |
 | CT102 deploy not on PR | Pass — `deploy*.yaml` no `pull_request`; `ci.yaml` is `docker-ci` only (ops separation; ADR-0008) |
-| ACP `tools.yaml` @ tip | **Gap then fixed** — was `empty_missing`; add `.agent/policies/tools.yaml` v2 with `ruff_check` before live lint E2E |
+| ACP `tools.yaml` @ tip | Pass — added `.agent/policies/tools.yaml` v2 (`ruff_check` only) @ `3c11499`; `ACP_TOOLS_OK` |
 
 **Not yet (stage 3):** `FIX_CI_REPAIR_PUBLISH_ENABLED=true` + real ACP lint failure → CT103 brokerage publish.
+
+**Signed ops stage 1–2:** 2026-07-19 — policy gates + bundle/attest + publish deny + CT102 workflow PR check; ACP tools pin green.
 
 ## Related
 
