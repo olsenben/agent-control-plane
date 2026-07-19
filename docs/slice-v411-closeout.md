@@ -22,7 +22,7 @@ Finish remaining executor trust-boundary work after 6D.2 publish brokerage: poli
 |------|--------|
 | **PR 0** | 6D.2 comments + docs; CT104 PAT revoke; full credential scrub; cleanliness gate — **done** |
 | **PR 1** | `policy_source_*` pin; detached RO policy checkout; remote identity verify — **done** |
-| **PR 2** | `tool_policy.v2` (fail-closed missing); migrations; effective-policy hash — **in progress** |
+| **PR 2** | `tool_policy.v2` (fail-closed missing); migrations; effective-policy hash — **done** |
 | **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown |
 | **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests |
 | **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) |
@@ -67,7 +67,9 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 - [x] Record `command_registry_hash` + `effective_command_policy_hash` (sha256 canonical JSON)
 - [x] `repair_allowed` / verify gate match effective hash; empty allowance blocks repair
 - [x] Migrate `demo-app` + `agent-template` `tools.yaml` to `tool_policy.v2`
-- [ ] Homelab: push demo-app policy migration; CT103/CT104 tip green
+- [x] Homelab: push demo-app policy migration; CT103/CT104 tip green
+
+**PR 2 signed off (code+ops):** 2026-07-19 — `34c9619`; demo-app `tools.yaml` @ `c9d3bdc`; `LIVE_TOOL_POLICY_OK` on CT103.
 
 ## Related
 
