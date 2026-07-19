@@ -6,27 +6,28 @@ from pathlib import Path
 from agent_control.gitea_comments import format_fix_started
 
 
-def test_format_fix_started_6d_when_remote_publish_enabled() -> None:
+def test_format_fix_started_broker_when_remote_publish_enabled() -> None:
     body = format_fix_started(
         run_id="run-abc",
         approval_target_id="WI-0001",
         allowed_files=["README.md"],
         remote_publish_enabled=True,
     )
-    assert "Slice 6D" in body
+    assert "V4.1.1 / 6D.2" in body
+    assert "publish-broker" in body
     assert "agent/run-abc" in body
-    assert "push branch" in body.lower() or "open PR" in body
+    assert "open PR" in body
 
 
-def test_format_fix_started_6b_when_remote_publish_disabled() -> None:
+def test_format_fix_started_local_when_remote_publish_disabled() -> None:
     body = format_fix_started(
         run_id="run-abc",
         approval_target_id="WI-0001",
         allowed_files=["README.md"],
         remote_publish_enabled=False,
     )
-    assert "6B" in body
-    assert "no push" in body.lower() or "workspace-local" in body.lower()
+    assert "workspace-local" in body.lower()
+    assert "no remote publish" in body.lower()
 
 
 def test_gitea_comments_does_not_import_dispatch_fix() -> None:
