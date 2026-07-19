@@ -11,6 +11,8 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0005 | Protected-default-branch policy_source_sha pin | proposed | 2026-07-19 | CT103 resolves immutable policy identity; workers fail-closed detached checkout |
 | ADR-0006 | tool_policy.v2 narrowing-only command allowance | proposed | 2026-07-19 | Empty allowance on missing/invalid tools.yaml; effective-policy hash gates repair |
 | ADR-0007 | Dual sandbox and execution attestations | proposed | 2026-07-19 | Durable preflight + post-teardown attestations; publish deny if quarantined/missing |
+| ADR-0008 | CT102 scheduling and credential-domain split | proposed | 2026-07-19 | Named ops boundary on shared act_runner; not strong principal isolation |
+| ADR-0009 | Central repair allowlist and bounded ACP lint class | proposed | 2026-07-19 | Empty allowlist denies; lint_failure default; publish flag staged |
 
 ## Review log
 
@@ -28,3 +30,5 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-19 — ADR-0005 proposed: `policy_source_sha` pin + fail-closed policy workspace (V4.1.1 PR1)
 - 2026-07-19 — ADR-0006 proposed: `tool_policy.v2` fail-closed empty allowance + effective command-policy hash (V4.1.1 PR2)
 - 2026-07-19 — ADR-0007 proposed: dual sandbox/execution attestations + durable bundle-before-teardown (V4.1.1 PR3)
+- 2026-07-19 — ADR-0008 proposed: CT102 scheduling/credential-domain split (ops unit)
+- 2026-07-19 — ADR-0009 proposed: repair allowlist + bounded ACP lint class (V4.1.1 PR4)

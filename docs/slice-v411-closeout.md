@@ -24,8 +24,8 @@ Finish remaining executor trust-boundary work after 6D.2 publish brokerage: poli
 | **PR 1** | `policy_source_*` pin; detached RO policy checkout; remote identity verify — **done** |
 | **PR 2** | `tool_policy.v2` (fail-closed missing); migrations; effective-policy hash — **done** |
 | **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown — **done** |
-| **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests |
-| **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) |
+| **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests — **done (docs/ADR)** |
+| **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) — **in progress** |
 | **Ops enable** | Observe-only → repair-no-publish → one-class CT103 publish on ACP |
 
 ## Dependency order
@@ -82,10 +82,27 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 
 **PR 3 signed off (code+ops):** 2026-07-19 — `aafd962`; Actions 533–535 success; `LIVE_ATTEST_IMPORT_OK` / `CT104_ATTEST_OK`.
 
+## Ops + ADR — CT102 scheduling/credential-domain split
+
+- [x] ADR-0008 proposed: named boundary, residual shared-host/Docker risk, acceptance tests, physical-separation trigger
+- [x] Update `runners.md`, `deploy.md`, `cicd-setup.md` (no strong-isolation claim)
+- [ ] Ops follow-up: separate CI/deploy Linux users + negative PR→deploy scheduling test on live CT102
+
+## PR 4 acceptance
+
+- [x] Central `decide_repair_repository` (allowed, reason_code, normalized repo, match, class, policy hash)
+- [x] `FIX_CI_REPAIR_ALLOWED_REPOS` empty = deny; no wildcards; invalid fails startup
+- [x] Default class `lint_failure`; path envelope prohibits trust-boundary paths
+- [x] Demo intentional-fail heuristic hard-gated to `demo-app` only
+- [x] `FIX_CI_REPAIR_PUBLISH_ENABLED` default false (broker gate)
+- [ ] Homelab tip green + closeout sign-off
+
 ## Related
 
 - [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md)
 - [adr/0004-ct103-publish-brokerage.md](adr/0004-ct103-publish-brokerage.md)
 - [adr/0007-dual-attestation-lifecycle.md](adr/0007-dual-attestation-lifecycle.md)
+- [adr/0008-ct102-scheduling-credential-domain.md](adr/0008-ct102-scheduling-credential-domain.md)
+- [adr/0009-repair-allowlist-bounded-class.md](adr/0009-repair-allowlist-bounded-class.md)
 - [architecture.md](architecture.md)
 - Cursor plan: `v4.1.1_closeout_bundle_*.plan.md`

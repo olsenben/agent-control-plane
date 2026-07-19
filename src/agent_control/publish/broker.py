@@ -532,6 +532,22 @@ def broker_publish_repair(
     owner, repo = split_project(project)
     url = repo_url or f"{settings.gitea_base_url.rstrip('/')}/{owner}/{repo}.git"
 
+    from agent_control.ci.repair_policy import decide_repair_repository
+
+    publish_decision = decide_repair_repository(
+        project,
+        allowlist_raw=settings.fix_ci_repair_allowed_repos,
+        allowed_classes_raw=settings.fix_ci_repair_allowed_classes,
+        publish_enabled=settings.fix_ci_repair_publish_enabled,
+        for_publish=True,
+    )
+    if not publish_decision.allowed:
+        return {
+            "ok": False,
+            "reason": "repair_repo_policy",
+            "detail": publish_decision.reason_code,
+        }
+
     # Synthetic binding for gate scope
     # Repair is not plan-bound; omit blast hash so the closed-world gate skips
     # plan/blast consistency (still enforces allowlist + other gate rules).

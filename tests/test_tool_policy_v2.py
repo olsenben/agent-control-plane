@@ -241,6 +241,10 @@ def test_evaluate_repair_allowed_requires_effective_hash_match() -> None:
         FIX_CI_OBSERVE_ENABLED=True,
         FIX_CI_FAILURE_EVIDENCE_ENABLED=True,
         FIX_CI_REPAIR_ENABLED=True,
+        FIX_CI_REPAIR_ALLOWED_REPOS="ai-sdlc-lab/demo-app",
+        FIX_CI_REPAIR_ALLOWED_CLASSES=(
+            "test_failure,lint_failure,build_failure,deterministic_typecheck_failure"
+        ),
         SANDBOX_EXPECTED_POLICY_HASH="",
     )
     pending = PendingCiRecord(

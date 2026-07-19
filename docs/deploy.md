@@ -136,7 +136,9 @@ Docker container `act_runner` on CT102 with labels `docker-ci,deploy`:
 - `docker-ci` — CI for target repos and `agent-control-plane` tests
 - `deploy` — SSH deploy to CT103 (`agent-control-plane` only)
 
-See [runners.md](runners.md) and [cicd-setup.md](cicd-setup.md).
+See [runners.md](runners.md), [cicd-setup.md](cicd-setup.md), and
+[adr/0008-ct102-scheduling-credential-domain.md](adr/0008-ct102-scheduling-credential-domain.md)
+(scheduling/credential-domain split; shared-host residual risk explicit).
 
 ## CT103 deploy target (no runner)
 

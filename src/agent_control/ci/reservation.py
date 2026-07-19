@@ -50,6 +50,10 @@ class RepairReservation:
     tool_policy_status: str = "empty_missing"
     # V4.1.1 PR3 — CT103-issued attestation nonce
     attestation_nonce: str = ""
+    # V4.1.1 PR4 — repair allowlist decision snapshot
+    repair_class: str = ""
+    matched_allowlist_entry: str = ""
+    repair_repo_policy_hash: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

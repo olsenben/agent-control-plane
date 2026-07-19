@@ -10,6 +10,10 @@ from pathlib import Path
 
 from agent_control.aci.backends.base import SandboxAttestation
 from agent_control.ci.aggregate import workflow_paths_match
+from agent_control.ci.repair_policy import (
+    decide_repair_repository,
+    filter_repair_allowed_files,
+)
 from agent_control.config import Settings, get_settings
 from agent_shared.models.ci import (
     AUTO_REPAIRABLE_FAILURE_CLASSES,
@@ -115,6 +119,18 @@ def evaluate_repair_allowed(
         reasons.append(f"failure_class_not_auto:{failure_class}")
         if failure_class in ("unknown",):
             label = "agent:needs-human"
+
+    repo_decision = decide_repair_repository(
+        pending.repository,
+        failure_class=failure_class if evidence else None,
+        allowlist_raw=settings.fix_ci_repair_allowed_repos,
+        allowed_classes_raw=settings.fix_ci_repair_allowed_classes,
+        publish_enabled=settings.fix_ci_repair_publish_enabled,
+        for_publish=False,
+    )
+    if not repo_decision.allowed:
+        reasons.append(repo_decision.reason_code)
+        label = "agent:blocked"
 
     if not branch_ok:
         reasons.append("branch_policy")
@@ -401,6 +417,28 @@ def consider_repair_dispatch(
                 "lock_path": str(lock),
             }
 
+        scoped_files, rejected = filter_repair_allowed_files(list(allowed_files or []))
+        if rejected and not scoped_files:
+            return {
+                "dispatched": False,
+                "blocked": True,
+                "reason_codes": ["repair_path_envelope_empty"],
+                "label": "agent:blocked",
+                "repair_key": gate.repair_key,
+                "lock_path": str(lock),
+                "rejected_paths": rejected,
+            }
+
+        failure_class = evidence.failure_class if evidence else ""
+        repo_decision = decide_repair_repository(
+            pending.repository,
+            failure_class=failure_class or None,
+            allowlist_raw=settings.fix_ci_repair_allowed_repos,
+            allowed_classes_raw=settings.fix_ci_repair_allowed_classes,
+            publish_enabled=settings.fix_ci_repair_publish_enabled,
+            for_publish=False,
+        )
+
         reservation = RepairReservation(
             repair_key=gate.repair_key,
             repository=pending.repository,
@@ -413,7 +451,7 @@ def consider_repair_dispatch(
                 evidence.evidence_observation_id if evidence else ""
             ),
             agent_branch=pending.agent_branch or "",
-            allowed_files=list(allowed_files or []),
+            allowed_files=scoped_files,
             required_command_ids=list(effective_ids),
             issue_id=pending.issue_id,
             artifact_root=pending.artifact_root,
@@ -430,6 +468,9 @@ def consider_repair_dispatch(
             effective_command_policy_hash=tool_policy.effective_command_policy_hash,
             tool_policy_status=tool_policy.status,
             attestation_nonce=issue_ct103_nonce(),
+            repair_class=failure_class or "",
+            matched_allowlist_entry=repo_decision.matched_allowlist_entry or "",
+            repair_repo_policy_hash=repo_decision.effective_policy_hash,
         )
         created = create_repair_reservation(state_root, reservation)
         if created is None:

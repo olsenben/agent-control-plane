@@ -79,6 +79,11 @@ CT102 → CT103/CT104 **deploy SSH** (runner to host) is separate from Gitea git
 
 Re-register with `docker-ci,deploy` — see [runners.md](runners.md).
 
+**ADR-0008:** This is a *scheduling and credential-domain split* on one host, not a
+strong principal boundary. Deploy workflows are limited to protected `main` /
+`workflow_dispatch`. Do not treat runner labels alone as authorization against a
+malicious PR that requests `deploy`.
+
 ## Verification
 
 ```bash

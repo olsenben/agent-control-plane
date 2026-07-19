@@ -112,6 +112,24 @@ class Settings(BaseSettings):
         alias="FIX_CI_REPAIR_MAX_ATTEMPTS",
         description="Automatic repair attempts per repair lineage (v1 default 1)",
     )
+    fix_ci_repair_allowed_repos: str = Field(
+        default="",
+        alias="FIX_CI_REPAIR_ALLOWED_REPOS",
+        description=(
+            "Exact owner/repo allowlist for automatic repair (comma-separated). "
+            "No wildcards. Empty = deny all."
+        ),
+    )
+    fix_ci_repair_allowed_classes: str = Field(
+        default="lint_failure",
+        alias="FIX_CI_REPAIR_ALLOWED_CLASSES",
+        description="Comma-separated failure classes eligible for auto-repair",
+    )
+    fix_ci_repair_publish_enabled: bool = Field(
+        default=False,
+        alias="FIX_CI_REPAIR_PUBLISH_ENABLED",
+        description="Stage 3: allow CT103 brokerage publication for repair bundles",
+    )
     sandbox_backend: str = Field(
         default="srt",
         alias="SANDBOX_BACKEND",
@@ -174,6 +192,16 @@ class Settings(BaseSettings):
                 return True
         return False
 
+    def repair_allowed_repos_list(self) -> list[str]:
+        from agent_control.ci.repair_policy import parse_repair_allowlist
+
+        return parse_repair_allowlist(self.fix_ci_repair_allowed_repos)
+
+    def repair_allowed_classes_set(self) -> frozenset[str]:
+        from agent_control.ci.repair_policy import parse_repair_classes
+
+        return parse_repair_classes(self.fix_ci_repair_allowed_classes)
+
     def external_roles_set(self) -> set[str]:
         return {r.strip() for r in self.model_external_roles.split(",") if r.strip()}
 
@@ -186,6 +214,11 @@ class Settings(BaseSettings):
                 "FIX_CI_REPAIR_ENABLED requires FIX_CI_OBSERVE_ENABLED and "
                 "FIX_CI_FAILURE_EVIDENCE_ENABLED"
             )
+        # Fail closed on invalid repair allowlist at startup
+        from agent_control.ci.repair_policy import parse_repair_allowlist, parse_repair_classes
+
+        parse_repair_allowlist(self.fix_ci_repair_allowed_repos)
+        parse_repair_classes(self.fix_ci_repair_allowed_classes)
         return self
 
 

@@ -395,6 +395,14 @@ def _produce_and_apply_patch(reservation: RepairReservation, workspace: Path) ->
     if not injected.is_file():
         injected = workspace / "repair_patch.diff"
     if not injected.is_file():
+        from agent_control.ci.repair_policy import intentional_fail_heuristic_allowed
+
+        if not intentional_fail_heuristic_allowed(reservation.repository):
+            return {
+                "ok": False,
+                "reason_codes": ["repair_proposal_unavailable", "demo_heuristic_denied"],
+                "label": "agent:needs-human",
+            }
         generated = _generate_intentional_fail_removal_patch(workspace, reservation.allowed_files)
         if generated is None:
             return {
