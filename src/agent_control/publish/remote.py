@@ -149,7 +149,12 @@ def open_or_find_pr(
 ) -> tuple[int, str | None, bool]:
     """Idempotent PR create/find by head branch."""
     existing = client.list_pull_requests(owner, repo, head=agent_branch, state="open")
+    # Gitea may ignore `head=` — always match head ref client-side.
+    head_suffix = agent_branch.split(":", 1)[-1]
     for pr in existing:
+        pr_head = (pr.get("head") or {}).get("ref", "")
+        if pr_head not in (agent_branch, head_suffix):
+            continue
         pr_base = pr.get("base", {}).get("ref", "")
         if pr_base != base_ref:
             raise RemoteMutationError(

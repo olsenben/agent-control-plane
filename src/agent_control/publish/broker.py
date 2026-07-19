@@ -497,12 +497,14 @@ def broker_publish_repair(
     url = repo_url or f"{settings.gitea_base_url.rstrip('/')}/{owner}/{repo}.git"
 
     # Synthetic binding for gate scope
+    # Repair is not plan-bound; omit blast hash so the closed-world gate skips
+    # plan/blast consistency (still enforces allowlist + other gate rules).
     binding = FixAuthorizationBinding(
         approval_id="repair",
         approval_target_id="repair",
         plan_run_id=run_id,
         plan_hash="repair",
-        blast_radius_hash="repair",
+        blast_radius_hash="",
         allowed_files=list(allowed_files),
         approved_base_sha=expected_head_commit_sha,
     )
