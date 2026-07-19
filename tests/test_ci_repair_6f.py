@@ -144,7 +144,7 @@ def test_pr_lock_serializes(tmp_path: Path) -> None:
 def test_consider_dispatch_single_reservation(tmp_path: Path) -> None:
     from unittest.mock import patch
 
-    from tests.support.policy_pin import FAKE_POLICY_PIN
+    from support.policy_pin import FAKE_POLICY_PIN
 
     ph = policy_hash()
     settings = Settings(

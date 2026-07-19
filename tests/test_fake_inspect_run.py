@@ -11,7 +11,7 @@ from agent_shared.models.state import VerificationState
 from agent_control.workflows.dispatch import build_rlm_job
 from agent_workers.jobs.rlm_root import process_rlm_root
 from agent_workers.jobs.report import process_report
-from tests.support.policy_pin import install_fake_policy_pin
+from support.policy_pin import install_fake_policy_pin
 
 
 @pytest.fixture

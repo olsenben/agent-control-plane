@@ -11,7 +11,7 @@ from agent_shared.models.jobs import JobSafety
 from agent_workers.flows.runner import run_flow_session
 from agent_workers.jobs.report import process_report
 from agent_workers.rlm.fake_engine import FakeRLMEngine
-from tests.support.policy_pin import install_fake_policy_pin
+from support.policy_pin import install_fake_policy_pin
 
 
 def test_fix_no_push_guard_in_safety_and_dispatch() -> None:

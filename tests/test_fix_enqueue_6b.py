@@ -12,6 +12,12 @@ from agent_control.events import load_project_events
 from agent_shared.models.intent import CommandIntent
 from conftest import sample_plan, seed_plan_completed
 from agent_control.approval.service import grant_approval
+from support.policy_pin import install_fake_policy_pin
+
+
+@pytest.fixture(autouse=True)
+def _fake_policy_pin(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_fake_policy_pin(monkeypatch)
 
 
 def test_build_fix_rlm_job_has_binding(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -42,7 +48,8 @@ def test_build_fix_rlm_job_has_binding(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 @patch("agent_control.approval.dispatch_fix.enqueue_rlm_root", return_value="job-1")
-def test_enqueue_emits_fix_enqueued(mock_enqueue, tmp_path: Path) -> None:
+def test_enqueue_emits_fix_enqueued(mock_enqueue, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_STATE_ROOT", str(tmp_path))
     target = seed_plan_completed(tmp_path)
     approval, _, _ = grant_approval(
         tmp_path,
@@ -75,7 +82,8 @@ def test_enqueue_emits_fix_enqueued(mock_enqueue, tmp_path: Path) -> None:
 
 
 @patch("agent_control.approval.dispatch_fix.enqueue_rlm_root", return_value=None)
-def test_enqueue_failure_does_not_consume(mock_enqueue, tmp_path: Path) -> None:
+def test_enqueue_failure_does_not_consume(mock_enqueue, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_STATE_ROOT", str(tmp_path))
     target = seed_plan_completed(tmp_path)
     approval, _, _ = grant_approval(
         tmp_path,

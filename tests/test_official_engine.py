@@ -204,18 +204,36 @@ def test_official_engine_plan_parse_failure_writes_artifact(tmp_path: Path) -> N
     job = _plan_job()
     job["context_pack"] = pack.model_dump(mode="json")
 
+    from agent_shared.models.parse_failure import ParseFailureArtifact
+    from agent_workers.rlm.model_output import StructuredParseFailure
+    from agent_workers.rlm.plan_parser import PlanParseError
+
+    failure = ParseFailureArtifact(
+        run_id=job["run_id"],
+        command_kind="plan",
+        parse_errors=["forced parse failure"],
+        context_sources=list(pack.context_sources),
+        blast_radius=pack.blast_radius,
+    )
+
+    def _boom(*_a, **_k):
+        raise PlanParseError("Could not parse plan output") from StructuredParseFailure(failure)
+
     with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
         with _patch_gpu_endpoint():
-            with patch(
-                "agent_workers.rlm.official_engine.chat_completion",
-                return_value={"content": '{"scope_summary": 123}', "provider": "gpu", "base_url": _gpu_endpoint().base_url, "usage": {}},
-            ):
+            with patch("agent_workers.rlm.quality_loop.resolve_rlm_external_endpoint", return_value=None):
                 with patch(
-                    "agent_workers.rlm.model_output.attempt_repair",
-                    return_value='{"scope_summary": 456}',
+                    "agent_workers.rlm.official_engine.chat_completion",
+                    return_value={
+                        "content": "{}",
+                        "provider": "gpu",
+                        "base_url": _gpu_endpoint().base_url,
+                        "usage": {},
+                    },
                 ):
-                    with pytest.raises(ValueError, match="Failed to parse plan output"):
-                        engine.run(job, workspace, {}, artifact_dir=str(tmp_path))
+                    with patch("agent_workers.rlm.official_engine.parse_plan_output", side_effect=_boom):
+                        with pytest.raises(ValueError, match="Failed to parse plan output"):
+                            engine.run(job, workspace, {}, artifact_dir=str(tmp_path))
 
     artifact_path = tmp_path / "parse_failure.json"
     assert artifact_path.exists()

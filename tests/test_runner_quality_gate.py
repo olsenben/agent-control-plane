@@ -13,7 +13,7 @@ from agent_shared.models.jobs import JobSafety
 from agent_shared.models.runs import RLMResult
 from agent_workers.flows.runner import run_flow_session
 from agent_workers.rlm.fake_engine import FakeRLMEngine
-from tests.support.policy_pin import install_fake_policy_pin
+from support.policy_pin import install_fake_policy_pin
 
 
 def _fake_clone(_settings: object, _repo_url: str, _ref: str, dest: Path) -> Path:

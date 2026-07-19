@@ -14,6 +14,12 @@ from agent_shared.models.intent import CommandIntent
 from agent_shared.models.jobs import TriggerContext
 from agent_shared.models.review import BlastRadiusContext
 from agent_shared.models.state import VerificationState
+from support.policy_pin import install_fake_policy_pin
+
+
+@pytest.fixture(autouse=True)
+def _fake_policy_pin(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_fake_policy_pin(monkeypatch)
 
 
 @pytest.mark.parametrize(

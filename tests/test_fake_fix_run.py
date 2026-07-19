@@ -12,7 +12,7 @@ from agent_control.approval.plan_lookup import resolve_plan_for_target
 from agent_control.results_ingest import ingest_result_file
 from agent_workers.jobs.rlm_root import process_rlm_root
 from agent_workers.jobs.report import process_report
-from tests.support.policy_pin import install_fake_policy_pin
+from support.policy_pin import install_fake_policy_pin
 
 
 @pytest.fixture
