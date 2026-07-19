@@ -300,6 +300,20 @@ def load_policy(
     if agents_md.exists() and str(agents_md.relative_to(workspace)) not in loaded_files:
         loaded_files.append("AGENTS.md")
 
+    from agent_control.sandbox.tool_policy import load_tool_policy_from_workspace
+
+    tool_policy = load_tool_policy_from_workspace(workspace)
+    if tool_policy.loaded_path and tool_policy.status != "empty_missing":
+        if tool_policy.loaded_path not in loaded_files:
+            loaded_files.append(tool_policy.loaded_path)
+    elif tool_policy.status == "empty_missing":
+        warnings.append("tools_yaml_missing_empty_allowance")
+    if tool_policy.status in ("empty_invalid", "empty_unsupported"):
+        warnings.extend(tool_policy.warnings)
+        warnings.append(f"tools_yaml_{tool_policy.status}_empty_allowance")
+    else:
+        warnings.extend(tool_policy.warnings)
+
     policy_source = PolicySource(
         source=source,
         policy_ref=policy_ref,
@@ -338,6 +352,16 @@ def load_policy(
             ".env*",
         ],
         warnings=warnings,
+        allowed_command_ids=list(tool_policy.allowed_command_ids),
+        command_constraints={
+            cid: c.to_dict() for cid, c in tool_policy.constraints.items()
+        },
+        deny_freeform_shell=tool_policy.deny_freeform_shell,
+        allow_network=tool_policy.allow_network,
+        tool_policy_status=tool_policy.status,
+        command_registry_hash=tool_policy.command_registry_hash,
+        effective_command_policy_hash=tool_policy.effective_command_policy_hash,
+        command_policy_hash_algorithm=tool_policy.hash_algorithm,
     )
     return policy_source, effective, warnings
 

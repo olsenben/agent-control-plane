@@ -22,7 +22,7 @@ Finish remaining executor trust-boundary work after 6D.2 publish brokerage: poli
 |------|--------|
 | **PR 0** | 6D.2 comments + docs; CT104 PAT revoke; full credential scrub; cleanliness gate — **done** |
 | **PR 1** | `policy_source_*` pin; detached RO policy checkout; remote identity verify — **done** |
-| **PR 2** | `tool_policy.v2` (fail-closed missing); migrations; effective-policy hash |
+| **PR 2** | `tool_policy.v2` (fail-closed missing); migrations; effective-policy hash — **in progress** |
 | **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown |
 | **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests |
 | **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) |
@@ -57,6 +57,17 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 - [x] Unit tests: pin resolve, HEAD/remote mismatch, detached checkout, runner fail-closed
 
 **PR 1 signed off (code):** 2026-07-19 — tests green (`test_policy_source_pin` + fake-run / repair suite).
+
+## PR 2 acceptance
+
+- [x] Load `tools.yaml` only from pinned policy workspace (or Gitea raw @ `policy_source_sha` on CT103)
+- [x] Missing / invalid / unsupported / unreadable → empty `allowed_command_ids` (deny execution)
+- [x] Reject repo argv/executable/shell/env/cwd/network-enable/new IDs/unknown keys
+- [x] Narrowing only: `allowed_command_ids` + constraints (timeout ≤ central; path globs validated)
+- [x] Record `command_registry_hash` + `effective_command_policy_hash` (sha256 canonical JSON)
+- [x] `repair_allowed` / verify gate match effective hash; empty allowance blocks repair
+- [x] Migrate `demo-app` + `agent-template` `tools.yaml` to `tool_policy.v2`
+- [ ] Homelab: push demo-app policy migration; CT103/CT104 tip green
 
 ## Related
 

@@ -33,3 +33,12 @@ class EffectivePolicy(BaseModel):
     allowed_tools: list[str] = Field(default_factory=list)
     protected_paths: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    # V4.1.1 PR2 — tool_policy.v2 intersection
+    allowed_command_ids: list[str] = Field(default_factory=list)
+    command_constraints: dict[str, dict] = Field(default_factory=dict)
+    deny_freeform_shell: bool = True
+    allow_network: bool = False
+    tool_policy_status: str = "empty_missing"
+    command_registry_hash: str = ""
+    effective_command_policy_hash: str = ""
+    command_policy_hash_algorithm: str = "sha256"

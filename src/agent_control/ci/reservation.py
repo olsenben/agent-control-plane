@@ -42,6 +42,12 @@ class RepairReservation:
     policy_source_ref: str = ""
     policy_source_sha: str = ""
     policy_schema_version: str = "policy_source.v1"
+    # V4.1.1 PR2 — tool_policy.v2 effective hashes + allowance
+    allowed_command_ids: list[str] = field(default_factory=list)
+    command_constraints: dict[str, Any] = field(default_factory=dict)
+    command_registry_hash: str = ""
+    effective_command_policy_hash: str = ""
+    tool_policy_status: str = "empty_missing"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

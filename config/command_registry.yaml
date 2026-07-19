@@ -1,5 +1,6 @@
 # Deployed control-plane policy only — never load from a target repo checkout.
-# Repos may narrow allowed IDs by intersection; they must not supply argv/env/cwd/timeouts.
+# Repos may narrow allowed IDs via tool_policy.v2 (.agent/policies/tools.yaml);
+# they must not supply argv/env/cwd/timeouts/executables.
 
 commands:
   pytest_narrow:

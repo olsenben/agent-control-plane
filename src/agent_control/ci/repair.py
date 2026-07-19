@@ -70,6 +70,9 @@ def evaluate_repair_allowed(
     repair_attempt_count: int,
     branch_ok: bool,
     no_unrecognized_commits: bool,
+    effective_command_policy_hash: str | None = None,
+    expected_effective_command_policy_hash: str | None = None,
+    tool_policy_execution_allowed: bool | None = None,
 ) -> RepairGateResult:
     reasons: list[str] = []
     label = "agent:blocked"
@@ -132,6 +135,17 @@ def evaluate_repair_allowed(
         and attestation.policy_hash != settings.sandbox_expected_policy_hash
     ):
         reasons.append("sandbox_policy_hash_mismatch")
+        label = "agent:blocked"
+
+    if tool_policy_execution_allowed is False:
+        reasons.append("tool_policy_empty_allowance")
+        label = "agent:blocked"
+    if (
+        expected_effective_command_policy_hash
+        and effective_command_policy_hash
+        and expected_effective_command_policy_hash != effective_command_policy_hash
+    ):
+        reasons.append("effective_command_policy_hash_mismatch")
         label = "agent:blocked"
 
     if current_pr_head is None or current_pr_head != pending.expected_head_commit_sha:
@@ -265,6 +279,52 @@ def consider_repair_dispatch(
         }
 
     attempt_count = get_lineage_attempt_count(state_root, lineage_id)
+
+    from agent_control.gitea_client import GiteaClient
+    from agent_control.project_registry import PolicySourcePinError, resolve_policy_source_pin
+    from agent_control.sandbox.tool_policy import (
+        TOOLS_RELATIVE_PATH,
+        intersect_command_ids,
+        load_tool_policy_from_text,
+    )
+
+    try:
+        pin = resolve_policy_source_pin(pending.repository, settings=settings)
+    except PolicySourcePinError as exc:
+        logger.warning("repair_policy_pin_failed repo=%s err=%s", pending.repository, exc)
+        return {
+            "dispatched": False,
+            "blocked": True,
+            "reason_codes": ["policy_source_pin_unresolved"],
+            "label": "agent:blocked",
+            "repair_key": key_preview,
+        }
+
+    tools_text: str | None = None
+    try:
+        owner, repo = split_repo_full_name(pin.policy_source_repo)
+        tools_text = GiteaClient(settings).get_file_raw(
+            owner,
+            repo,
+            TOOLS_RELATIVE_PATH,
+            ref=pin.policy_source_sha,
+        )
+    except Exception as exc:
+        logger.warning(
+            "repair_tools_yaml_fetch_failed repo=%s sha=%s err=%s",
+            pending.repository,
+            pin.policy_source_sha,
+            exc,
+        )
+        tools_text = None
+
+    tool_policy = load_tool_policy_from_text(
+        tools_text,
+        loaded_path=TOOLS_RELATIVE_PATH,
+    )
+    mapped_ids = list(required_command_ids or [])
+    effective_ids = intersect_command_ids(mapped_ids, tool_policy.allowed_command_ids)
+
     gate = evaluate_repair_allowed(
         settings=settings,
         result=result,
@@ -275,6 +335,9 @@ def consider_repair_dispatch(
         repair_attempt_count=attempt_count,
         branch_ok=branch_ok,
         no_unrecognized_commits=no_unrecognized_commits,
+        effective_command_policy_hash=tool_policy.effective_command_policy_hash,
+        expected_effective_command_policy_hash=tool_policy.effective_command_policy_hash,
+        tool_policy_execution_allowed=bool(effective_ids) and tool_policy.execution_allowed,
     )
     if not gate.allowed:
         return {
@@ -337,21 +400,6 @@ def consider_repair_dispatch(
                 "lock_path": str(lock),
             }
 
-        from agent_control.project_registry import PolicySourcePinError, resolve_policy_source_pin
-
-        try:
-            pin = resolve_policy_source_pin(pending.repository, settings=settings)
-        except PolicySourcePinError as exc:
-            logger.warning("repair_policy_pin_failed repo=%s err=%s", pending.repository, exc)
-            return {
-                "dispatched": False,
-                "blocked": True,
-                "reason_codes": ["policy_source_pin_unresolved"],
-                "label": "agent:blocked",
-                "repair_key": gate.repair_key,
-                "lock_path": str(lock),
-            }
-
         reservation = RepairReservation(
             repair_key=gate.repair_key,
             repository=pending.repository,
@@ -365,7 +413,7 @@ def consider_repair_dispatch(
             ),
             agent_branch=pending.agent_branch or "",
             allowed_files=list(allowed_files or []),
-            required_command_ids=list(required_command_ids or []),
+            required_command_ids=list(effective_ids),
             issue_id=pending.issue_id,
             artifact_root=pending.artifact_root,
             policy_source_repo=pin.policy_source_repo,
@@ -373,6 +421,13 @@ def consider_repair_dispatch(
             policy_source_ref=pin.policy_source_ref,
             policy_source_sha=pin.policy_source_sha,
             policy_schema_version=pin.policy_schema_version,
+            allowed_command_ids=list(tool_policy.allowed_command_ids),
+            command_constraints={
+                cid: c.to_dict() for cid, c in tool_policy.constraints.items()
+            },
+            command_registry_hash=tool_policy.command_registry_hash,
+            effective_command_policy_hash=tool_policy.effective_command_policy_hash,
+            tool_policy_status=tool_policy.status,
         )
         created = create_repair_reservation(state_root, reservation)
         if created is None:

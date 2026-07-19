@@ -107,10 +107,47 @@ def run_ci_repair_job(job_payload: dict[str, Any]) -> dict[str, Any]:
         if not reservation.required_command_ids:
             return _block(state_root, reservation, ["no_mapped_verifier"], "agent:blocked")
 
+        policy_ws_marker = workspace / ".policy_workspace"
+        policy_ws = (
+            Path(policy_ws_marker.read_text(encoding="utf-8").strip())
+            if policy_ws_marker.is_file()
+            else None
+        )
+        from agent_control.sandbox.tool_policy import load_tool_policy_from_workspace
+
+        live_policy = (
+            load_tool_policy_from_workspace(policy_ws)
+            if policy_ws is not None and policy_ws.is_dir()
+            else None
+        )
+        if live_policy is None:
+            return _block(state_root, reservation, ["tool_policy_workspace_missing"], "agent:blocked")
+        if (
+            reservation.effective_command_policy_hash
+            and live_policy.effective_command_policy_hash
+            != reservation.effective_command_policy_hash
+        ):
+            return _block(
+                state_root,
+                reservation,
+                ["effective_command_policy_hash_mismatch"],
+                "agent:blocked",
+            )
+
         verify = run_verification_sandbox(
             Path("."),
             workspace,
             list(reservation.required_command_ids),
+            allowed_command_ids=list(
+                reservation.allowed_command_ids or live_policy.allowed_command_ids
+            ),
+            command_constraints=dict(
+                reservation.command_constraints
+                or {cid: c.to_dict() for cid, c in live_policy.constraints.items()}
+            ),
+            expected_effective_command_policy_hash=reservation.effective_command_policy_hash
+            or None,
+            effective_command_policy_hash=live_policy.effective_command_policy_hash,
         )
         if not verify.get("passed"):
             reason = "verification_failed"

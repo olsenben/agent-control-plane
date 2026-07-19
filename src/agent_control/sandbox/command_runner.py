@@ -199,8 +199,15 @@ def run_registered_command(
     registry_path: Path | None = None,
     extra_argv: list[str] | None = None,
     session_id: str | None = None,
+    allowed_command_ids: list[str] | frozenset[str] | set[str] | None = None,
+    command_constraints: dict[str, Any] | None = None,
 ) -> RegisteredCommandResult:
-    """Resolve trusted argv and execute only through SandboxBackend (no shell, no fallback)."""
+    """Resolve trusted argv and execute only through SandboxBackend (no shell, no fallback).
+
+    When ``allowed_command_ids`` is provided (including empty), the ID must be in that
+    set — empty means deny all (tool_policy.v2 fail-closed). ``None`` skips the
+    repo-policy gate (central registry only; used by unit tests).
+    """
     if extra_argv:
         raise ValueError("caller_argv_forbidden")
 
@@ -208,8 +215,47 @@ def run_registered_command(
     session = session_id or str(uuid.uuid4())
     started = time.monotonic()
 
+    if allowed_command_ids is not None and command_id not in set(allowed_command_ids):
+        return RegisteredCommandResult(
+            command_id=command_id,
+            exit_code=126,
+            stdout="",
+            stderr="tool_policy_command_denied",
+            violated=True,
+            violation_codes=["tool_policy_rejected"],
+            duration_seconds=time.monotonic() - started,
+            session_id=session,
+            backend="none",
+        )
+
     try:
         spec = get_registered_command(command_id, registry_path=registry_path)
+        if command_constraints and command_id in command_constraints:
+            from agent_control.sandbox.tool_policy import (
+                CommandConstraint,
+                effective_timeout_seconds,
+            )
+
+            raw_c = command_constraints[command_id] or {}
+            constraint = CommandConstraint(
+                allowed_path_globs=tuple(raw_c.get("allowed_path_globs") or ()),
+                max_timeout_seconds=(
+                    float(raw_c["max_timeout_seconds"])
+                    if raw_c.get("max_timeout_seconds") is not None
+                    else None
+                ),
+            )
+            narrowed = effective_timeout_seconds(
+                command_id, spec.timeout_seconds, {command_id: constraint}
+            )
+            spec = RegisteredCommand(
+                command_id=spec.command_id,
+                argv=list(spec.argv),
+                cwd=spec.cwd,
+                timeout_seconds=narrowed,
+                environment_allowlist=list(spec.environment_allowlist),
+                max_output_bytes=spec.max_output_bytes,
+            )
         cwd = _resolve_cwd(workspace, spec.cwd)
     except (KeyError, ValueError, FileNotFoundError) as exc:
         return RegisteredCommandResult(
@@ -279,6 +325,8 @@ def run_required_verifiers(
     settings: Settings | None = None,
     registry_path: Path | None = None,
     session_id: str | None = None,
+    allowed_command_ids: list[str] | frozenset[str] | set[str] | None = None,
+    command_constraints: dict[str, Any] | None = None,
 ) -> list[RegisteredCommandResult]:
     session = session_id or str(uuid.uuid4())
     results: list[RegisteredCommandResult] = []
@@ -290,6 +338,8 @@ def run_required_verifiers(
                 settings=settings,
                 registry_path=registry_path,
                 session_id=session,
+                allowed_command_ids=allowed_command_ids,
+                command_constraints=command_constraints,
             )
         )
         if results[-1].violated or results[-1].exit_code != 0:

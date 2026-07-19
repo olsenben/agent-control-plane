@@ -188,9 +188,23 @@ def test_consider_dispatch_single_reservation(tmp_path: Path) -> None:
         failure_class="lint_failure",
         has_terminal_failed_job=True,
     )
-    with patch(
-        "agent_control.project_registry.resolve_policy_source_pin",
-        return_value=FAKE_POLICY_PIN,
+    tools_yaml = """
+schema: tool_policy.v2
+allowed_command_ids:
+  - ruff_check
+  - pytest_narrow
+deny_freeform_shell: true
+allow_network: false
+"""
+    with (
+        patch(
+            "agent_control.project_registry.resolve_policy_source_pin",
+            return_value=FAKE_POLICY_PIN,
+        ),
+        patch(
+            "agent_control.gitea_client.GiteaClient.get_file_raw",
+            return_value=tools_yaml,
+        ),
     ):
         d1 = consider_repair_dispatch(
             tmp_path,
@@ -206,12 +220,20 @@ def test_consider_dispatch_single_reservation(tmp_path: Path) -> None:
     assert d1["repair_attempt"] == 1
     assert d1.get("reservation")
     assert d1["reservation"]["policy_source_sha"] == FAKE_POLICY_PIN.policy_source_sha
+    assert d1["reservation"]["required_command_ids"] == ["ruff_check"]
+    assert d1["reservation"]["effective_command_policy_hash"]
     release_pr_lock(Path(d1["lock_path"]))
 
     # Duplicate observation: reservation exists — no second job
-    with patch(
-        "agent_control.project_registry.resolve_policy_source_pin",
-        return_value=FAKE_POLICY_PIN,
+    with (
+        patch(
+            "agent_control.project_registry.resolve_policy_source_pin",
+            return_value=FAKE_POLICY_PIN,
+        ),
+        patch(
+            "agent_control.gitea_client.GiteaClient.get_file_raw",
+            return_value=tools_yaml,
+        ),
     ):
         d2 = consider_repair_dispatch(
             tmp_path,

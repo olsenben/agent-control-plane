@@ -66,6 +66,18 @@ class GiteaClient:
         commit = data.get("commit") or {}
         return str(commit.get("id") or commit.get("sha") or "")
 
+    def get_file_raw(self, owner: str, repo: str, path: str, *, ref: str) -> str | None:
+        """Return file text at ref, or None if missing. Raises on other API errors."""
+        encoded_path = quote(path, safe="/")
+        encoded_ref = quote(ref, safe="")
+        url = f"{self.base_url}/api/v1/repos/{owner}/{repo}/raw/{encoded_path}?ref={encoded_ref}"
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.get(url, headers=self._headers())
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            return resp.text
+
     def list_pull_requests(
         self,
         owner: str,
