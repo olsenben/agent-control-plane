@@ -99,6 +99,23 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 
 **PR 4 signed off (code+ops):** 2026-07-19 — `38fc591`; Actions 539–541 success; `LIVE_REPAIR_POLICY_OK` (allowlist empty denies despite live `FIX_CI_REPAIR_ENABLED=true`).
 
+## Ops enablement (staged)
+
+**Host knobs (CT103):** `FIX_CI_REPAIR_ALLOWED_REPOS=ai-sdlc-lab/agent-control-plane`, `FIX_CI_REPAIR_ALLOWED_CLASSES=lint_failure` (default), `FIX_CI_REPAIR_PUBLISH_ENABLED=false`; observe/evidence/repair enabled; worker-state recreated.
+
+| Stage | Result |
+|-------|--------|
+| Config live | Pass — allowlist ACP only; repair publish off; remote publish remains on for fix brokerage |
+| ACP lint class allow | Pass — `STAGE2_REPO_LINT_OK` |
+| Non-lint / demo deny | Pass — `test_failure` + `demo-app` denied |
+| Publish deny | Pass — `repair_publish_disabled` at decide + broker policy |
+| Repair gate (synthetic strong sandbox) | Pass — `STAGE2_REPAIR_GATE_OK` |
+| Bundle + dual attest; publish still denied | Pass — `STAGE2_BUNDLE_ATTEST_OK` / `STAGE2_BROKER_POLICY_DENY_OK` |
+| CT102 deploy not on PR | Pass — `deploy*.yaml` no `pull_request`; `ci.yaml` is `docker-ci` only (ops separation; ADR-0008) |
+| ACP `tools.yaml` @ tip | **Gap then fixed** — was `empty_missing`; add `.agent/policies/tools.yaml` v2 with `ruff_check` before live lint E2E |
+
+**Not yet (stage 3):** `FIX_CI_REPAIR_PUBLISH_ENABLED=true` + real ACP lint failure → CT103 brokerage publish.
+
 ## Related
 
 - [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md)

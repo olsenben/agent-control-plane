@@ -1,0 +1,13 @@
+schema: tool_policy.v2
+
+# Narrowing only — argv lives in config/command_registry.yaml.
+# V4.1.1 staged ACP repair: lint_failure → ruff_check only.
+allowed_command_ids:
+  - ruff_check
+
+constraints:
+  ruff_check:
+    max_timeout_seconds: 60
+
+deny_freeform_shell: true
+allow_network: false
