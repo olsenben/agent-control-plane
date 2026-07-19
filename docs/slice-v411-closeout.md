@@ -25,7 +25,7 @@ Finish remaining executor trust-boundary work after 6D.2 publish brokerage: poli
 | **PR 2** | `tool_policy.v2` (fail-closed missing); migrations; effective-policy hash — **done** |
 | **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown — **done** |
 | **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests — **done (docs/ADR)** |
-| **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) — **in progress** |
+| **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) — **done** |
 | **Ops enable** | Observe-only → repair-no-publish → one-class CT103 publish on ACP |
 
 ## Dependency order
@@ -95,7 +95,9 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 - [x] Default class `lint_failure`; path envelope prohibits trust-boundary paths
 - [x] Demo intentional-fail heuristic hard-gated to `demo-app` only
 - [x] `FIX_CI_REPAIR_PUBLISH_ENABLED` default false (broker gate)
-- [ ] Homelab tip green + closeout sign-off
+- [x] Homelab tip green + closeout sign-off
+
+**PR 4 signed off (code+ops):** 2026-07-19 — `38fc591`; Actions 539–541 success; `LIVE_REPAIR_POLICY_OK` (allowlist empty denies despite live `FIX_CI_REPAIR_ENABLED=true`).
 
 ## Related
 
