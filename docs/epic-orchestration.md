@@ -14,11 +14,11 @@ This is an **operator / Cursor playbook**, not a new CT104 worker type. Authorit
 | **Proof controller** | CT102 + deploy jobs + `/readyz` smoke | Authoritative pass/fail for the deploy gate |
 | **Repair controller** | Slice 6F.2 / `ci-repair` (when in scope) | One leased repair path only |
 
-Do **not** spawn parallel repo-mutating Cursor leaves. Parallelism is for read-only research only.
+Do **not** spawn parallel Cursor leaves that mutate the **same** `main` tip. Optional **disjoint lanes** (separate worktrees/branches) are allowed per [handoff/lanes.md](handoff/lanes.md); only one **deploy-verify owner** pins CT103/CT104.
 
 ## Hard rules
 
-1. **One active slice.** No starting ticket N+1 until ticket N has a filled [DEPLOY_VERIFY_TEMPLATE.md](handoff/DEPLOY_VERIFY_TEMPLATE.md) and ledger status `Done`.
+1. **One active slice per lane tip.** No advancing a lane’s next ticket until that ticket’s merge has a filled [DEPLOY_VERIFY_TEMPLATE.md](handoff/DEPLOY_VERIFY_TEMPLATE.md) and ledger status `Done` (identity lane: code may finish earlier; merge waits on graph tip green).
 2. **Phase ≠ epic done.** Finishing 5.6 is not finishing V4. Continue to the next incomplete ticket whose deps are satisfied.
 3. **Context discipline.** Boss keeps only: wave #, next ticket ID, done count, blocker one-liner. No diffs, logs, or proof prose in boss context.
 4. **Authority.** No Gitea write tokens on CT104; no unsandboxed Risk 2; model self-review is not an acceptance gate.
