@@ -13,6 +13,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0007 | Dual sandbox and execution attestations | proposed | 2026-07-19 | Durable preflight + post-teardown attestations; publish deny if quarantined/missing |
 | ADR-0008 | CT102 scheduling and credential-domain split | proposed | 2026-07-19 | Split `runner-ci`/`runner-deploy`; PR deploy label still schedulable; shared Docker residual |
 | ADR-0009 | Central repair allowlist and bounded ACP lint class | proposed | 2026-07-19 | Empty allowlist denies; lint_failure default; publish flag staged |
+| ADR-0010 | CT103-authoritative typed agent sessions | proposed | 2026-07-19 | Durable sess-≠run-; CT103 correlation; ingest vs publish terminal owners |
 
 ## Review log
 
@@ -32,3 +33,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-19 — ADR-0007 proposed: dual sandbox/execution attestations + durable bundle-before-teardown (V4.1.1 PR3)
 - 2026-07-19 — ADR-0008 proposed: CT102 scheduling/credential-domain split (ops unit)
 - 2026-07-19 — ADR-0009 proposed: repair allowlist + bounded ACP lint class (V4.1.1 PR4)
+- 2026-07-19 `dab1e89` — ADR-0010 proposed: CT103 typed sessions (5.4a); `sess-` ≠ `run-`; CT103 correlation authority

@@ -1,12 +1,24 @@
 # Slice 5.4a — CT103-authoritative typed sessions
 
-**Status:** Implemented (acceptance pending homelab fake review)  
-**Date:** 2026-07-19  
+**Status:** Implemented — 5.4a accepted (homelab fake review 2026-07-20)  
+**Date:** 2026-07-19 (code); acceptance 2026-07-20 UTC  
 **Umbrella:** [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md)
 
 ## Goal
 
 Every `/agent review|plan|fix|repair` creates a durable `agent_session.v1` on CT103 with append-only `agent.session_*` ledger events. CT104 echoes `session_id` in evidence only; correlation fields are CT103-derived.
+
+## Homelab acceptance (2026-07-20)
+
+| Check | Evidence |
+|-------|----------|
+| Tip deploy CT103+CT104 | `dab1e89` |
+| Fake `/agent review` demo-app#2 | `sess-206dce2b82bd42feaa3aa3518e387b5e` / `run-76d29fc7a5b95f1394b8a92a8e546e68` |
+| `session_id ≠ run_id` + run index | POSITIVE_OK |
+| Ledger spine | `session_started` → `subject_context_resolved` → worker map → exactly one `session_finished` |
+| Mismatch reject | `SessionMismatchError`; session stays finished; no second terminal |
+
+Ops note: CT104 `~/.git-credentials` had malformed lines after tip deploy; repaired to `http://oauth2:…@192.168.4.60:3000` before the successful review.
 
 ## Session identity
 

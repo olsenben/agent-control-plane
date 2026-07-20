@@ -164,7 +164,8 @@ Model self-review is **not** an acceptance gate.
 | **Slice 5.8 + 6F.2 — sandboxed repair** | **2026-07-18** | Same PR #5: reservation → CT104 `ci-repair` → SRT verify → non-force push `16886456…`; CT103 pending re-point; Gitea CI green; `main` untouched; ACP `d3d3ea2` + ADR-0003; see [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) |
 | **Slice 6D.2 / V4.1.1 — publish brokerage** | **2026-07-19** | Barrier cutover: CT104 write tokens stripped; `publish-broker` sole push/PR; seeded fix `71527138…` + repair FF `c88f1e86…` on `demo-app`; plan/review comments via CT103 ingest; see [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md), ADR-0004 |
 | **V4.1.1 closeout (umbrella)** | **2026-07-19** | Trust-boundary PRs + staged ACP repair + demo brokerage E2E + CT102 user split — [slice-v411-closeout.md](slice-v411-closeout.md) |
-| **Next — V4.1.2 / Slice 5.4** | **in progress** | Typed sessions (5.4a) → preflight → verification gate → selective writeback — [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) |
+| **Slice 5.4a — typed sessions** | **2026-07-20** | Fake `/agent review` demo-app#2 → `sess-206dce2b…` finished; mismatch fail-closed — [slice-5.4-typed-sessions.md](slice-5.4-typed-sessions.md), ADR-0010 |
+| **Next — V4.1.2 / 5.4b+** | **open** | Failure taxonomy (5.4b) → preflight (5.5) → verification gate (5.6) → selective writeback (5.7) — [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 
