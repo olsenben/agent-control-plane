@@ -174,7 +174,8 @@ Model self-review is **not** an acceptance gate.
 | **T09 — non-demo 6F.2 ACP** | **2026-07-20** | tip `38e01d6`; `agentctl repair stage-status` → `t09_complete=true` — [slice-t09-non-demo-6f2-acp.md](slice-t09-non-demo-6f2-acp.md) |
 | **T13 — flag-gated tournaments** | **2026-07-20** | tip `078d030`; spawn/rewards deny-by-default — [slice-t13-patch-tournaments.md](slice-t13-patch-tournaments.md), ADR-0019 |
 | **V4 epic remaining track** | **closed** | T01–T11 + T13 Done; T12 Deferred — [handoff/boss-ledger.md](handoff/boss-ledger.md) |
-| **V5 governance epic** | **ready** | Next: T01 AgentFacts-lite — [handoff/boss-ledger-v5.md](handoff/boss-ledger-v5.md) |
+| **V5 governance epic** | **in progress** | T01 Done tip `bdbdc99`; Next T02 — [handoff/boss-ledger-v5.md](handoff/boss-ledger-v5.md) |
+| **V5 T01 AgentFacts-lite** | **2026-07-20** | tip `bdbdc99`; Actions 705–707; `agentctl agentfacts check` ok + unsigned fail — [slice-v5-t01-agentfacts-lite.md](slice-v5-t01-agentfacts-lite.md), ADR-0020 |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

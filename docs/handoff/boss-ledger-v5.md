@@ -8,14 +8,14 @@ Epic supervisor state. Boss reads **this file first** for post-V4 work. Prior ep
 | **Plan doc** | `gitea_agentic_sdlc_cursor_step_plan_v4.md` §0.4–§0.5 Future experiments + §29 Future |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) (same loop; this ledger) |
 | **Status doc** | This ledger + per-slice `docs/slice-*.md` |
-| **Umbrella** | TBD — first slice doc when T01 starts |
+| **Umbrella** | [slice-v5-t01-agentfacts-lite.md](../slice-v5-t01-agentfacts-lite.md) |
 | **Integration branch** | `main` |
 | **Epic status** | in_progress |
-| **Tickets done (count)** | 0 / 6 |
-| **Next ticket** | T01 AgentFacts-lite |
-| **Latest handoff** | — |
-| **Coordinator waves completed** | 0 |
-| **Last boss action** | 2026-07-20 — continuous V5 run (no pause between phases after DEPLOY_VERIFY PASS) |
+| **Tickets done (count)** | 1 / 6 |
+| **Next ticket** | T02 Memory-as-governance |
+| **Latest handoff** | [coordinator-handoff-003.md](coordinator-handoff-003.md) |
+| **Coordinator waves completed** | 1 |
+| **Last boss action** | 2026-07-20 — T01 DEPLOY_VERIFY PASS `bdbdc99`; advance to T02 |
 | **Lanes** | [lanes.md](lanes.md) — retired; main only until dual-lane needed |
 | **Environment constraints** | Same as V4: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth; SRT fail-closed Risk 2 |
 
@@ -27,13 +27,15 @@ All tickets **T01–T06** `Done` with deploy verify PASS (or explicit `Deferred`
 
 V4 full build tip `16738d0` — see prior [boss-ledger.md](boss-ledger.md) and [AGENT_CARD.md](../AGENT_CARD.md).
 
+V5 T01 tip `bdbdc99` — AgentFacts-lite; see [slice-v5-t01-agentfacts-lite.md](../slice-v5-t01-agentfacts-lite.md), ADR-0020.
+
 ## Remaining tickets (dependency order)
 
 Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 
 | ID | Slice | Deps | Deploy smoke (minimum) | Status |
 |----|-------|------|------------------------|--------|
-| **T01** | **AgentFacts-lite** — signed capability / limitation manifests | — | Machine + human card stay in sync; unsigned or stale manifest fails a documented check | Todo |
+| **T01** | **AgentFacts-lite** — signed capability / limitation manifests | — | Machine + human card stay in sync; unsigned or stale manifest fails a documented check | Done |
 | **T02** | **Memory-as-governance** — block fix on repeated_failed_fix history | T01 | Fix path deny when memory says repeated failure class without new evidence; audit event emitted | Todo |
 | **T03** | **Review replay console** — issue → context → model → policy → memory | T01 | Operator can replay one finished review session end-to-end from durable artifacts | Todo |
 | **T04** | **Architecture drift detector** — ADR vs graph edges | T01 | Drift report lists missing/extra edges vs ADR facts; fail-soft on CT103 | Todo |
@@ -57,6 +59,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | Wave | Date (UTC) | Handoff file | Next ticket | Notes |
 |------|------------|--------------|-------------|-------|
 | 0 | 2026-07-20 | — | T01 | Ledger created; V4 closed |
+| 1 | 2026-07-20 | [coordinator-handoff-003.md](coordinator-handoff-003.md) | T02 | T01 Done tip `bdbdc99`; Actions 705–707 |
 
 ## Boss prompt skeleton
 
