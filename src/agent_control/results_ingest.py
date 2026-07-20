@@ -244,7 +244,10 @@ def ingest_result_file(
     if event_model.status == "completed" and (
         event_model.terminal_status in (None, "completed")
     ):
-        writeback_from_completed(enriched, settings=settings)
+        from agent_control.memory.session_writeback import should_defer_ingest_writeback
+
+        if not should_defer_ingest_writeback(state_root, event_model):
+            writeback_from_completed(enriched, settings=settings)
     if created:
         try:
             handle_ingest_session_update(state_root, enriched)

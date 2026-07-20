@@ -275,6 +275,55 @@ def append_memory_preflight_failed(
     )
 
 
+def append_memory_admitted(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    record_id: str,
+    epistemic_status: str,
+    evidence_refs: list[str],
+) -> tuple[Path, bool]:
+    at = _now()
+    payload = {
+        **correlation_payload(session, run_id=run_id, event_at=at),
+        "record_id": record_id,
+        "epistemic_status": epistemic_status,
+        "evidence_refs": list(evidence_refs),
+        "admission_policy_version": "session_trace_5.7.0",
+    }
+    return append_session_event(
+        state_root,
+        event_type="agent.memory_admitted",
+        session=session,
+        run_id=run_id,
+        payload=payload,
+    )
+
+
+def append_memory_rejected(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    reason: str,
+) -> tuple[Path, bool]:
+    at = _now()
+    payload = {
+        **correlation_payload(session, run_id=run_id, event_at=at),
+        "reason": reason,
+        "admission_policy_version": "session_trace_5.7.0",
+    }
+    return append_session_event(
+        state_root,
+        event_type="agent.memory_rejected",
+        session=session,
+        run_id=run_id,
+        payload=payload,
+        delivery_suffix=reason[:64] if reason else "rejected",
+    )
+
+
 def append_context_packet_created(
     state_root: Path,
     session: AgentSession,

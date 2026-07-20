@@ -637,6 +637,7 @@ def handle_ingest_session_update(
                 reason_code=SessionTerminalReason.INGEST_COMPLETED,
                 reason="validated result persisted",
             )
+            _maybe_admit_session_memory(state_root, updated, event)
         else:
             terminal_status, reason = classify_unsuccessful_terminal(
                 domain_reasons=[event.terminal_status or ""],
@@ -659,6 +660,34 @@ def handle_ingest_session_update(
         }
 
     return {"skipped": True, "reason": f"unhandled_command_kind:{kind}"}
+
+
+def _maybe_admit_session_memory(
+    state_root: Path,
+    session: AgentSession,
+    event: AgentRunCompletedEvent,
+) -> None:
+    """Slice 5.7: selective writeback after session_finished (review/plan)."""
+    from agent_control.memory.session_writeback import admit_session_trace_memory
+    from agent_control.session.events import append_memory_admitted, append_memory_rejected
+
+    result = admit_session_trace_memory(state_root, session, event)
+    if result.get("admitted"):
+        append_memory_admitted(
+            state_root,
+            session,
+            run_id=event.run_id,
+            record_id=str(result["record_id"]),
+            epistemic_status=str(result["epistemic_status"]),
+            evidence_refs=list(result.get("evidence_refs") or []),
+        )
+    else:
+        append_memory_rejected(
+            state_root,
+            session,
+            run_id=event.run_id,
+            reason=str(result.get("reason") or "rejected"),
+        )
 
 
 def handle_publish_session_terminal(

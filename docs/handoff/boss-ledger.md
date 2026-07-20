@@ -13,9 +13,9 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Epic status** | in_progress |
 | **Tickets done (count)** | 1 / 13 remaining track (T01 done; baseline pre-epic — see § Already signed off) |
 | **Next ticket** | T02 |
-| **Latest handoff** | _(T01 deploy verify PASS `8df60fc`)_ |
-| **Coordinator waves completed** | 1 |
-| **Last boss action** | 2026-07-20 — T01 (5.6) deploy verified `8df60fc`; next T02 (5.7) |
+| **Latest handoff** | [coordinator-handoff-002.md](coordinator-handoff-002.md) |
+| **Coordinator waves completed** | 2 |
+| **Last boss action** | 2026-07-20 — T02 (5.7) code+tests green; `deploy_gate_pending` (need commit/push) |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
 ## Done condition
@@ -42,7 +42,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 |----|-------|------|------------------------|--------|
 | **T00** | Baseline pin — 5.5a tip on CT103+CT104 | — | Confirm tip `6f170a4` (or newer 5.5a-descendant) + `/readyz`; record in wave 0 | Done |
 | **T01** | **5.6** Verification evidence gate | T00 | Session cannot finish “verified” without evidence events; fake fix shows `verification_*` / `verification_missing` per policy | Done |
-| **T02** | **5.7** Selective writeback from session trace | T01 | `session_finished` → admitted `memory_record.v1`; second `/agent plan` retrieves it | Todo |
+| **T02** | **5.7** Selective writeback from session trace | T01 | `session_finished` → admitted `memory_record.v1`; second `/agent plan` retrieves it | Deploy gate |
 | **T03** | **V4.1.2 exit** — bundle DoD 1–12 on demo-app | T02 | One review + one plan + one fake fix with queryable sessions; memory loop proven | Todo |
 | **T04** | **§7** Scoped verification claims + adequacy profile | T03 | Agent-authored test claims scoped; adequacy profile documented + enforced on finish path | Todo |
 | **T05** | **8a** Orbit-style code + SDLC/evidence graph edges | T03 | `agentctl graph` shows new edge types + provenance; blast-radius still fail-soft | Todo |
@@ -72,6 +72,7 @@ AgentFacts-lite, memory-as-governance, review replay console, architecture drift
 |------|------------|--------------|-------------|-------|
 | 0 | 2026-07-20 | — | T01 | Baseline 5.5a tip superseded by 5.6 tip `8df60fc` |
 | 1 | 2026-07-20 | — | T02 | T01 5.6 deploy verify PASS `8df60fc` |
+| 2 | 2026-07-20 | coordinator-handoff-002.md | T02 | T02 5.7 implemented; deploy_gate_pending |
 
 ## Boss prompt skeleton (fill from this ledger)
 

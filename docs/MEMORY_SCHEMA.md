@@ -85,6 +85,9 @@ audit:
 | Rejected/uncertain hypotheses | Every intermediate model token |
 | risk_tags, policy_decision | Secrets or credentials |
 | prompt_hash (for audit linkage) | Unredacted env values |
+| session_id, epistemic_status, evidence_refs (5.7) | Transcripts / full verification logs |
+
+**Slice 5.7:** Typed review/plan memory is admitted only after `session_finished` with a verification claim on the session. Fix memory remains 6E.2 (`ci_verified`). See [slice-5.7-selective-writeback.md](slice-5.7-selective-writeback.md).
 
 Full prompt, retrieved context, model output, and final comment are logged in **run artifacts** (`session_events.jsonl`, run dir) — linked by `run_id`, not duplicated in memory DB.
 

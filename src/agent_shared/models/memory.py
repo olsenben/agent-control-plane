@@ -20,6 +20,8 @@ RiskTagSourceKind = Literal["model_output", "policy_gate", "semgrep", "human"]
 SourceCommand = Literal["inspect", "explain", "review", "plan", "fix"]
 PolicyDecision = Literal["allow", "deny", "pending_approval"]
 Staleness = Literal["fresh", "aging", "stale"]
+EpistemicStatus = Literal["observed", "inferred", "verified", "invalidated"]
+ADMISSION_POLICY_VERSION_57 = "session_trace_5.7.0"
 
 
 class RiskTagSource(BaseModel):
@@ -54,6 +56,7 @@ class MemoryRecord(BaseModel):
     schema_version: str = "memory_record.v1"
     record_id: str
     run_id: str
+    session_id: str | None = None
 
     repo_owner: str
     repo_name: str
@@ -70,6 +73,10 @@ class MemoryRecord(BaseModel):
     source_commit_sha: str | None = None
     confidence: str = "medium"
     memory_quality: MemoryQuality = "model_generated"
+    epistemic_status: EpistemicStatus | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    verification_scope: str | None = None
+    admission_policy_version: str | None = None
 
     created_at: str
     updated_at: str

@@ -135,6 +135,8 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 
 ### PR-S5 — Slice 5.7: Selective writeback from session trace
 
+**Status:** **Implemented** 2026-07-20 — see [slice-5.7-selective-writeback.md](slice-5.7-selective-writeback.md). Deploy verify pending (epic T02).
+
 - On `session_finished`, propose `memory_record.v1` from session+preflight+verification (2070 summarize optional later; start CT103-deterministic extractor).
 - CT103 admission rules: evidence refs, epistemic status, validity, staleness (extend existing memory models).
 - Distinct from 6E.2 CI-verified fix memory (keep both; document when each fires).

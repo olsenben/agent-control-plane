@@ -1,4 +1,4 @@
-"""CT103-authoritative typed agent sessions (Slice 5.4a + 5.4b + 5.5a + 5.6)."""
+"""CT103-authoritative typed agent sessions (Slice 5.4a + 5.4b + 5.5a + 5.6 + 5.7)."""
 
 from agent_control.session.lifecycle import (
     INGEST_TERMINAL_OWNERS,

@@ -16,6 +16,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0010 | CT103-authoritative typed agent sessions | proposed | 2026-07-19 | Durable sess-≠run-; CT103 correlation; ingest vs publish terminal owners |
 | ADR-0011 | Deterministic CT103 context preflight before RLM enqueue | proposed | 2026-07-20 | Mandatory frozen-SHA preflight+packet; degrade optional evidence; no 2070 in 5.5a |
 | ADR-0012 | Session verification evidence gate | proposed | 2026-07-20 | Defer fix/repair finish until 6E CI; machine verification_* events |
+| ADR-0013 | Selective memory writeback from session trace | proposed | 2026-07-20 | Typed review/plan admit after session_finished; evidence refs; 6E.2 stays fix-only |
 
 ## Review log
 
@@ -38,3 +39,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-19 `dab1e89` — ADR-0010 proposed: CT103 typed sessions (5.4a); `sess-` ≠ `run-`; CT103 correlation authority
 - 2026-07-20 `315becd` — ADR-0011 proposed: Slice 5.5a deterministic CT103 context preflight before RLM enqueue
 - 2026-07-20 — ADR-0012 proposed: Slice 5.6 verification evidence gate; defer fix/repair `session_finished` until 6E CI
+- 2026-07-20 — ADR-0013 proposed: Slice 5.7 session-trace selective writeback (distinct from 6E.2)
