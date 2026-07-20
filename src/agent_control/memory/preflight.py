@@ -1,4 +1,4 @@
-"""Deterministic CT103 memory preflight compiler (Slice 5.5a — no 2070)."""
+"""Deterministic CT103 memory preflight compiler (Slice 5.5a + 8b Orbit coverage)."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from agent_control.adr_compiler import list_related_adrs
 from agent_control.config import Settings, get_settings
 from agent_control.events import load_project_events
 from agent_control.graph.blast_radius import compute_blast_radius
+from agent_control.graph.coverage import export_coverage_json
 from agent_control.memory.retrieval import retrieve_prior_memory_dicts
 from agent_shared.models.agent_session import AgentSession
 from agent_shared.models.jobs import TriggerContext
@@ -181,11 +182,12 @@ def compile_memory_preflight(
         component_errors["prior_memory"] = _clip(f"{type(exc).__name__}: {exc}")
         uncertainty.append("prior_memory_unavailable")
 
-    # --- graph / likely files ---
+    # --- graph / likely files + Orbit coverage (8b) ---
     blast = BlastRadiusContext()
     likely_files: list[str] = []
     graph_queries: list[dict] = []
     missing_edges: list[str] = []
+    orbit_coverage: dict[str, Any] = {}
     try:
         files_for_blast = list(changed_files or [])
         if issue_text and not files_for_blast:
@@ -196,12 +198,7 @@ def compile_memory_preflight(
         if trunc_lf:
             truncated_sections.append("likely_files")
             component_results = component_results.model_copy(update={"graph": "truncated"})
-        missing_edges = sorted(set(blast.missing_graph_edges))
-        missing_edges, trunc_me = _bound_list(missing_edges, MAX_MISSING_GRAPH_EDGES)
-        if trunc_me:
-            truncated_sections.append("missing_graph_edges")
-            if component_results.graph == "complete":
-                component_results = component_results.model_copy(update={"graph": "truncated"})
+        missing_edges = list(blast.missing_graph_edges)
         graph_queries = [
             {
                 "query_kind": "blast_radius",
@@ -211,17 +208,57 @@ def compile_memory_preflight(
             }
         ]
         citations.append("graph:blast_radius")
+
+        # Orbit coverage — fail-soft; gaps feed missing_edges + heuristic.
+        try:
+            orbit_coverage = export_coverage_json(project, settings=settings)
+            coverage_missing = list(orbit_coverage.get("missing_graph_edges") or [])
+            missing_edges.extend(coverage_missing)
+            graph_queries.append(
+                {
+                    "query_kind": "coverage",
+                    "edge_count": int(orbit_coverage.get("edge_count") or 0),
+                    "files_indexed": int(orbit_coverage.get("files_indexed") or 0),
+                    "provenance_counts": dict(orbit_coverage.get("provenance_counts") or {}),
+                    "missing_count": len(coverage_missing),
+                    "extractor_version": orbit_coverage.get("extractor_version") or "",
+                    "source_sha": orbit_coverage.get("source_sha") or "",
+                }
+            )
+            citations.append("graph:coverage")
+        except Exception as cov_exc:  # noqa: BLE001
+            uncertainty.append("graph_coverage_unavailable")
+            component_errors["graph_coverage"] = _clip(
+                f"{type(cov_exc).__name__}: {cov_exc}"
+            )
+            if component_results.graph == "complete":
+                component_results = component_results.model_copy(update={"graph": "truncated"})
+
+        missing_edges = sorted(set(missing_edges))
+        missing_edges, trunc_me = _bound_list(missing_edges, MAX_MISSING_GRAPH_EDGES)
+        if trunc_me:
+            truncated_sections.append("missing_graph_edges")
+            if component_results.graph == "complete":
+                component_results = component_results.model_copy(update={"graph": "truncated"})
     except Exception as exc:  # noqa: BLE001
         component_results = component_results.model_copy(update={"graph": "unavailable"})
         component_errors["graph"] = _clip(f"{type(exc).__name__}: {exc}")
         uncertainty.append("graph_unavailable")
 
-    graph_coverage = {
+    graph_coverage: dict[str, Any] = {
         "affected_services": len(blast.affected_services),
         "affected_tests": len(blast.affected_tests),
         "related_adrs": len(blast.related_adrs),
         "missing_graph_edges": len(missing_edges),
         "likely_files": len(likely_files),
+        "edge_count": int(orbit_coverage.get("edge_count") or 0),
+        "files_indexed": int(orbit_coverage.get("files_indexed") or 0),
+        "files_skipped": int(orbit_coverage.get("files_skipped") or 0),
+        "edge_kinds": dict(orbit_coverage.get("edge_kinds") or {}),
+        "provenance_counts": dict(orbit_coverage.get("provenance_counts") or {}),
+        "extractor_version": orbit_coverage.get("extractor_version") or "",
+        "source_sha": orbit_coverage.get("source_sha") or "",
+        "confidence": orbit_coverage.get("confidence") or "low",
     }
 
     # --- ADR / conventions ---
@@ -421,7 +458,7 @@ def compile_memory_preflight(
         invocation_reasons=reasons,
         skip_reason=skip or None,
         decision_summary=(
-            "recursive context advisory only; 2070 not invoked in 5.5a"
+            "recursive context advisory only; 2070 invoke deferred to 8c"
             if required
             else "deterministic preflight sufficient for dispatch"
         ),
