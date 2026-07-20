@@ -18,6 +18,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0012 | Session verification evidence gate | proposed | 2026-07-20 | Defer fix/repair finish until 6E CI; machine verification_* events |
 | ADR-0013 | Selective memory writeback from session trace | proposed | 2026-07-20 | Typed review/plan admit after session_finished; evidence refs; 6E.2 stays fix-only |
 | ADR-0014 | Adequacy profiles scope verification claims | proposed | 2026-07-20 | fixed_verified only when profile passes; agent tests scoped_only by default |
+| ADR-0015 | Orbit dual-graph edges carry provenance | proposed | 2026-07-20 | Provenanced code+SDLC edges; coverage CLI; blast-radius stays fail-soft |
 
 ## Review log
 
@@ -42,3 +43,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0012 proposed: Slice 5.6 verification evidence gate; defer fix/repair `session_finished` until 6E CI
 - 2026-07-20 — ADR-0013 proposed: Slice 5.7 session-trace selective writeback (distinct from 6E.2)
 - 2026-07-20 — ADR-0014 proposed: T04 adequacy profiles; scoped verification / fixed_verified
+- 2026-07-20 — ADR-0015 proposed: T05/8a Orbit dual-graph provenance + coverage; blast-radius fail-soft

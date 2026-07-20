@@ -1,4 +1,4 @@
-"""SQLite graph store."""
+"""SQLite graph store with Orbit provenance fields."""
 
 from __future__ import annotations
 
@@ -8,7 +8,34 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-from agent_control.graph.schema import DDL
+from agent_control.graph.provenance import EXTRACTOR_VERSION, normalize_provenance
+from agent_control.graph.schema import (
+    DDL,
+    _EDGE_EXTRA_COLUMNS,
+    _POST_MIGRATE_INDEXES,
+    _REPO_EXTRA_COLUMNS,
+)
+
+
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {str(r[1]) for r in rows}
+
+
+def migrate_schema(conn: sqlite3.Connection) -> None:
+    """Add Orbit columns to existing graph-lite DBs without wiping data."""
+    repo_cols = _table_columns(conn, "repos")
+    for name, decl in _REPO_EXTRA_COLUMNS:
+        if name not in repo_cols:
+            conn.execute(f"ALTER TABLE repos ADD COLUMN {name} {decl}")
+
+    edge_cols = _table_columns(conn, "edges")
+    for name, decl in _EDGE_EXTRA_COLUMNS:
+        if name not in edge_cols:
+            conn.execute(f"ALTER TABLE edges ADD COLUMN {name} {decl}")
+
+    for stmt in _POST_MIGRATE_INDEXES:
+        conn.execute(stmt)
 
 
 class GraphStore:
@@ -29,6 +56,7 @@ class GraphStore:
     def init_schema(self) -> None:
         with self.connect() as conn:
             conn.executescript(DDL)
+            migrate_schema(conn)
 
     def clear_repo(self, repo: str) -> None:
         with self.connect() as conn:
@@ -45,13 +73,40 @@ class GraphStore:
         tests: list[str],
         adrs: list[dict[str, str]],
         edges: list[dict[str, str]],
+        source_sha: str = "",
+        policy_source_sha: str = "",
+        extractor_version: str = EXTRACTOR_VERSION,
+        files_indexed: int | None = None,
+        files_skipped: int = 0,
+        languages_supported: str = "python",
     ) -> None:
         now = datetime.now(timezone.utc).isoformat()
+        indexed = len(files) if files_indexed is None else files_indexed
         with self.connect() as conn:
+            migrate_schema(conn)
             conn.execute(
-                "INSERT INTO repos(full_name, snapshot_at) VALUES (?, ?) "
-                "ON CONFLICT(full_name) DO UPDATE SET snapshot_at = excluded.snapshot_at",
-                (repo, now),
+                "INSERT INTO repos("
+                "full_name, snapshot_at, source_sha, policy_source_sha, "
+                "extractor_version, files_indexed, files_skipped, languages_supported"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(full_name) DO UPDATE SET "
+                "snapshot_at = excluded.snapshot_at, "
+                "source_sha = excluded.source_sha, "
+                "policy_source_sha = excluded.policy_source_sha, "
+                "extractor_version = excluded.extractor_version, "
+                "files_indexed = excluded.files_indexed, "
+                "files_skipped = excluded.files_skipped, "
+                "languages_supported = excluded.languages_supported",
+                (
+                    repo,
+                    now,
+                    source_sha,
+                    policy_source_sha,
+                    extractor_version,
+                    indexed,
+                    files_skipped,
+                    languages_supported,
+                ),
             )
             conn.execute("DELETE FROM files WHERE repo = ?", (repo,))
             conn.execute("DELETE FROM services WHERE repo = ?", (repo,))
@@ -76,8 +131,10 @@ class GraphStore:
                 [(repo, a["adr_id"], a.get("title", ""), a.get("source_path", "")) for a in adrs],
             )
             conn.executemany(
-                "INSERT INTO edges(repo, kind, src_kind, src, dst_kind, dst, confidence) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO edges("
+                "repo, kind, src_kind, src, dst_kind, dst, confidence, "
+                "provenance, source_sha, extractor_version, last_verified_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     (
                         repo,
@@ -87,6 +144,10 @@ class GraphStore:
                         e["dst_kind"],
                         e["dst"],
                         e.get("confidence", "medium"),
+                        normalize_provenance(e.get("provenance")),
+                        e.get("source_sha") or source_sha,
+                        e.get("extractor_version") or extractor_version,
+                        e.get("last_verified_at") or now,
                     )
                     for e in edges
                 ],
@@ -98,13 +159,36 @@ class GraphStore:
             row = conn.execute("SELECT 1 FROM repos WHERE full_name = ?", (repo,)).fetchone()
             return row is not None
 
-    def list_edges(self, repo: str | None = None) -> list[dict[str, Any]]:
+    def repo_meta(self, repo: str) -> dict[str, Any] | None:
         self.init_schema()
         with self.connect() as conn:
-            if repo:
-                rows = conn.execute("SELECT * FROM edges WHERE repo = ?", (repo,)).fetchall()
-            else:
-                rows = conn.execute("SELECT * FROM edges").fetchall()
+            migrate_schema(conn)
+            row = conn.execute("SELECT * FROM repos WHERE full_name = ?", (repo,)).fetchone()
+            return dict(row) if row else None
+
+    def list_edges(
+        self,
+        repo: str | None = None,
+        *,
+        kind: str | None = None,
+        provenance: str | None = None,
+    ) -> list[dict[str, Any]]:
+        self.init_schema()
+        clauses: list[str] = []
+        params: list[Any] = []
+        if repo:
+            clauses.append("repo = ?")
+            params.append(repo)
+        if kind:
+            clauses.append("kind = ?")
+            params.append(kind)
+        if provenance:
+            clauses.append("provenance = ?")
+            params.append(provenance)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connect() as conn:
+            migrate_schema(conn)
+            rows = conn.execute(f"SELECT * FROM edges {where}", params).fetchall()
             return [dict(r) for r in rows]
 
     def summary(self) -> dict[str, int]:

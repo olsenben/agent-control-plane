@@ -44,6 +44,7 @@ from agent_control.workflows import reward as reward_wf
 from agent_control.workflows import tournament as tournament_wf
 from agent_control.graph.blast_radius import export_blast_radius_json
 from agent_control.graph.context_pack import compile_context_pack, write_context_pack_export
+from agent_control.graph.coverage import export_coverage_json, export_edges_json
 from agent_control.graph.snapshot import snapshot_all
 
 
@@ -253,6 +254,38 @@ def graph_snapshot(project: str | None, local_path: Path | None) -> None:
 def graph_blast_radius(project: str, files: tuple[str, ...]) -> None:
     settings = get_settings()
     payload = export_blast_radius_json(project, list(files), settings=settings)
+    click.echo(json.dumps(payload, indent=2))
+
+
+@graph.command("edges")
+@click.option("--repo", "project", default=None, help="owner/repo filter")
+@click.option("--kind", default=None, help="Edge kind filter (e.g. adr_constrains_file)")
+@click.option("--provenance", default=None, help="Provenance filter (catalog|static_analysis|…)")
+@click.option("--limit", default=500, show_default=True, help="Max edges to return")
+def graph_edges(
+    project: str | None,
+    kind: str | None,
+    provenance: str | None,
+    limit: int,
+) -> None:
+    """List Orbit graph edges with provenance."""
+    settings = get_settings()
+    payload = export_edges_json(
+        project,
+        kind=kind,
+        provenance=provenance,
+        settings=settings,
+        limit=limit,
+    )
+    click.echo(json.dumps(payload, indent=2))
+
+
+@graph.command("coverage")
+@click.option("--repo", "project", default=None, help="owner/repo — default: aggregate")
+def graph_coverage(project: str | None) -> None:
+    """Report edge-kind / provenance coverage and missing Orbit edges."""
+    settings = get_settings()
+    payload = export_coverage_json(project, settings=settings)
     click.echo(json.dumps(payload, indent=2))
 
 

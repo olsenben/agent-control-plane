@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from agent_control.graph.provenance import annotate_edge
+
 
 @dataclass
 class CatalogComponent:
@@ -59,71 +61,102 @@ def catalog_edges(
 
     for dep in component.depends_on:
         edges.append(
-            {
-                "kind": "service_depends_on_service",
-                "src_kind": "service",
-                "src": svc,
-                "dst_kind": "service",
-                "dst": f"service:{dep}",
-                "confidence": "high",
-            }
+            annotate_edge(
+                {
+                    "kind": "service_depends_on_service",
+                    "src_kind": "service",
+                    "src": svc,
+                    "dst_kind": "service",
+                    "dst": f"service:{dep}",
+                    "confidence": "high",
+                },
+                provenance="catalog",
+            )
         )
 
     for ref in component.verified_by:
         if ref.endswith((".yml", ".yaml")) and ".gitea/workflows" in ref.replace("\\", "/"):
             edges.append(
-                {
-                    "kind": "test_runs_in_ci_job",
-                    "src_kind": "test",
-                    "src": f"test:{ref}",
-                    "dst_kind": "ci_job",
-                    "dst": f"ci_job:{ref}",
-                    "confidence": "high",
-                }
+                annotate_edge(
+                    {
+                        "kind": "test_runs_in_ci_job",
+                        "src_kind": "test",
+                        "src": f"test:{ref}",
+                        "dst_kind": "ci_job",
+                        "dst": f"ci_job:{ref}",
+                        "confidence": "high",
+                    },
+                    provenance="catalog",
+                )
             )
             edges.append(
-                {
-                    "kind": "service_verified_by",
-                    "src_kind": "service",
-                    "src": svc,
-                    "dst_kind": "ci_job",
-                    "dst": f"ci_job:{ref}",
-                    "confidence": "high",
-                }
+                annotate_edge(
+                    {
+                        "kind": "service_verified_by",
+                        "src_kind": "service",
+                        "src": svc,
+                        "dst_kind": "ci_job",
+                        "dst": f"ci_job:{ref}",
+                        "confidence": "high",
+                    },
+                    provenance="catalog",
+                )
             )
         else:
             edges.append(
-                {
-                    "kind": "file_tested_by_test",
-                    "src_kind": "service",
-                    "src": svc,
-                    "dst_kind": "test",
-                    "dst": f"test:{ref}",
-                    "confidence": "high",
-                }
+                annotate_edge(
+                    {
+                        "kind": "file_tested_by_test",
+                        "src_kind": "service",
+                        "src": svc,
+                        "dst_kind": "test",
+                        "dst": f"test:{ref}",
+                        "confidence": "high",
+                    },
+                    provenance="catalog",
+                )
             )
 
     for adr_id in component.adr_refs:
         edges.append(
-            {
-                "kind": "adr_mentions_service",
-                "src_kind": "adr",
-                "src": f"adr:{adr_id}",
-                "dst_kind": "service",
-                "dst": svc,
-                "confidence": "high",
-            }
+            annotate_edge(
+                {
+                    "kind": "adr_mentions_service",
+                    "src_kind": "adr",
+                    "src": f"adr:{adr_id}",
+                    "dst_kind": "service",
+                    "dst": svc,
+                    "confidence": "high",
+                },
+                provenance="catalog",
+            )
+        )
+        edges.append(
+            annotate_edge(
+                {
+                    "kind": "adr_constrains_service",
+                    "src_kind": "adr",
+                    "src": f"adr:{adr_id}",
+                    "dst_kind": "service",
+                    "dst": svc,
+                    "confidence": "high",
+                },
+                provenance="catalog",
+            )
         )
 
     edges.append(
-        {
-            "kind": "repo_contains_service",
-            "src_kind": "repo",
-            "src": f"repo:{project}",
-            "dst_kind": "service",
-            "dst": svc,
-            "confidence": "high",
-        }
+        annotate_edge(
+            {
+                "kind": "repo_contains_service",
+                "src_kind": "repo",
+                "src": f"repo:{project}",
+                "dst_kind": "service",
+                "dst": svc,
+                "confidence": "high",
+            },
+            provenance="catalog",
+        )
     )
     return edges
 

@@ -12,10 +12,11 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
 | **Epic status** | in_progress |
 | **Tickets done (count)** | 4 / 13 remaining track (T01–T04 done) |
-| **Next ticket** | T05 |
+| **Next ticket** | T05 (graph lane) ∥ T10 (identity lane, PR-only) |
 | **Latest handoff** | T04 PASS `e5469f7` |
 | **Coordinator waves completed** | 5 |
-| **Last boss action** | 2026-07-20 — T04 adequacy deploy verified `e5469f7`; next T05 |
+| **Last boss action** | 2026-07-20 — dual lanes: graph T05–T07 + identity T10; deploy-verify owner serializes tip pins |
+| **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-graph` / `…-lane-identity` |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
 ## Done condition
@@ -59,7 +60,8 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 
 - **Serial by default:** T00→T01→T02→T03.
 - After T03: T04 ∥ T05 allowed (different owners); T06 waits on T05; T07 waits on T06.
-- T09 / T10 after T03; do not parallelize two Risk-2 enablement tracks.
+- **Active dual-lane (2026-07-20):** Graph agent owns T05→T06→T07 on `epic/lane-graph-t05-t07`. Identity agent owns T10 only on `epic/lane-identity-t10` (PR; no auto-deploy). **One deploy-verify owner** merges + pins CT103/CT104 — see [lanes.md](lanes.md).
+- T09 after T03; do not parallelize two Risk-2 enablement tracks with T10.
 - T11 after T05; T12/T13 never block epic done if user marks Deferred.
 
 ### Backlog (not in done count)
@@ -76,6 +78,7 @@ AgentFacts-lite, memory-as-governance, review replay console, architecture drift
 | 3 | 2026-07-20 | coordinator-handoff-002.md | T03 | T02 5.7 deploy verify PASS `a7dd4c5` |
 | 4 | 2026-07-20 | — | T04 | T03 V4.1.2 exit PASS (review→plan memory loop) |
 | 5 | 2026-07-20 | — | T05 | T04 adequacy deploy verify PASS `e5469f7` |
+| 6 | 2026-07-20 | lanes.md | T05∥T10 | Worktrees + dual-lane spawn; tip pins owned by boss |
 
 ## Boss prompt skeleton (fill from this ledger)
 

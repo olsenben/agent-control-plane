@@ -154,7 +154,17 @@ def export_blast_radius_json(
     changed_files: list[str],
     settings: Settings | None = None,
 ) -> dict[str, Any]:
-    br = compute_blast_radius(repo, changed_files, settings=settings)
+    settings = settings or get_settings()
+    store = GraphStore(settings.graph_db_path)
+    br = compute_blast_radius(repo, changed_files, settings=settings, store=store)
+    meta = store.repo_meta(repo) or {}
+    edges = store.list_edges(repo) if store.has_repo(repo) else []
+    from agent_control.graph.provenance import (
+        EXTRACTOR_VERSION,
+        edge_kind_counts,
+        provenance_counts,
+    )
+
     return {
         "repo": repo,
         "changed_files": changed_files,
@@ -164,4 +174,9 @@ def export_blast_radius_json(
         "related_adrs": br.related_adrs,
         "missing_edges": br.missing_graph_edges,
         "confidence": "medium" if br.affected_services else "low",
+        "source_sha": meta.get("source_sha") or "",
+        "extractor_version": meta.get("extractor_version") or EXTRACTOR_VERSION,
+        "edge_kinds": edge_kind_counts(edges),
+        "provenance_counts": provenance_counts(edges),
+        "fail_soft": True,
     }

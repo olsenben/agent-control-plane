@@ -30,6 +30,9 @@ def compile_adrs(adr_dir: Path) -> list[dict[str, Any]]:
         meta = parse_adr_front_matter(path)
         if meta.get("status") in ("superseded", "withdrawn", "deprecated"):
             continue
+        scope = meta.get("scope") or {}
+        globs = scope.get("globs") if isinstance(scope, dict) else None
+        symbols = scope.get("symbols") if isinstance(scope, dict) else None
         facts.append(
             {
                 "schema": "adr_fact.v1",
@@ -37,6 +40,8 @@ def compile_adrs(adr_dir: Path) -> list[dict[str, Any]]:
                 "title": meta.get("title", path.stem),
                 "state": "active",
                 "source_path": str(path),
+                "scope_globs": [str(g) for g in (globs or [])],
+                "scope_symbols": [str(s) for s in (symbols or [])],
             }
         )
     return facts
