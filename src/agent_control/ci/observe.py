@@ -351,6 +351,7 @@ def apply_observation(
             )
 
     # 6F.2: consider repair only after aggregate gating (flag default off)
+    repair_requested = False
     if settings.fix_ci_repair_enabled and result.verdict == "failing":
         from pathlib import Path as _Path
 
@@ -441,6 +442,8 @@ def apply_observation(
             try:
                 if dispatch.get("blocked"):
                     # reservation_exists is not a new blocked event (dedupe)
+                    if "reservation_exists" in (dispatch.get("reason_codes") or []):
+                        repair_requested = True
                     if "reservation_exists" not in (dispatch.get("reason_codes") or []):
                         append_fix_ci_repair_blocked(
                             state_root,
@@ -596,6 +599,7 @@ def apply_observation(
                                 repair_key=str(dispatch.get("repair_key") or ""),
                             ),
                         )
+                        repair_requested = True
             finally:
                 release_pr_lock(lock_path)
 
@@ -608,6 +612,28 @@ def apply_observation(
             pending=pending,
             result=result,
             settings=settings,
+        )
+
+    # Slice 5.6: session verification gate (defer finish until CI terminal)
+    if result.verdict != previous_verdict or result.verdict in (
+        "verified",
+        "failing",
+        "expired",
+    ):
+        from agent_control.session.verification import apply_ci_verdict_to_session
+
+        apply_ci_verdict_to_session(
+            state_root,
+            project=pending.repository,
+            fix_run_id=pending.fix_run_id,
+            verdict=result.verdict,
+            previous_verdict=previous_verdict,
+            expected_head_commit_sha=pending.expected_head_commit_sha,
+            verdict_revision=result.verdict_revision,
+            artifact=(
+                f"ci_verification:{pending.fix_run_id}:rev{result.verdict_revision}"
+            ),
+            defer_fail_for_repair=repair_requested,
         )
 
     return result

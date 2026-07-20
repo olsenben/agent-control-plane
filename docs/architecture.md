@@ -27,6 +27,8 @@ All three are required. Findings are hypotheses until CI + human verification.
 
 | Doc | Purpose |
 |-----|---------|
+| [epic-orchestration.md](epic-orchestration.md) | Boss/coordinator playbook — finish V4 one slice at a time with deploy gates |
+| [handoff/boss-ledger.md](handoff/boss-ledger.md) | Live epic ledger (next ticket, wave log, remaining T00–T13) |
 | [AGENT_CARD.md](AGENT_CARD.md) | Product-style agent disclosure (MIT AI Agent Index) |
 | [POLICY_GATES.md](POLICY_GATES.md) | Risk 0–3 minimum viable governance (MIT CISR) |
 | [MEMORY_SCHEMA.md](MEMORY_SCHEMA.md) | Selective trajectory memory schema |
@@ -44,6 +46,8 @@ All three are required. Findings are hypotheses until CI + human verification.
 | [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) | 5.8 command_runner + 6F.2 reservation/lease repair (homelab signed off 2026-07-18) |
 | [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) | 6F.1 failure evidence + 6F.2 gated repair |
 | [slice-6f-gitea-actions-contract.md](slice-6f-gitea-actions-contract.md) | Live Gitea jobs/logs API contract |
+| [slice-5.5-deterministic-preflight.md](slice-5.5-deterministic-preflight.md) | Deterministic CT103 context preflight (5.5a) |
+| [slice-5.6-verification-evidence-gate.md](slice-5.6-verification-evidence-gate.md) | Session verification evidence gate (5.6) |
 | [slice-5.6a-srt-sandbox-spike.md](slice-5.6a-srt-sandbox-spike.md) | CT104 SRT/Bubblewrap spike — gate before `/agent fix` |
 | [adr/0002-srt-sandbox-backend.md](adr/0002-srt-sandbox-backend.md) | Anthropic SRT as initial SandboxBackend (fail closed) |
 | [slice-6d1-hollow-artifact-guardrails.md](slice-6d1-hollow-artifact-guardrails.md) | Quality gates, fallback, preflight — no hollow `completed` |
@@ -123,10 +127,10 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **5.8 + 6F.2 complete** | **Done (homelab demo)** | See [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md); ADR-0003 for CT104 bwrap caps |
 | **6D.2 / V4.1.1 — CT103 publish brokerage** | **Done (homelab)** | CT104 patch bundles only; `publish-broker` sole Gitea write; barrier cutover 2026-07-18/19. See [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md), ADR-0004 |
 | **V4.1.1 closeout** | **Done (homelab)** | Trust-boundary PRs + staged ACP repair + demo brokerage E2E + CT102 user split. See [slice-v411-closeout.md](slice-v411-closeout.md) |
-| **Next** | **V4.1.2 / 5.6** | 5.5a deterministic preflight **implemented** ([slice-5.5-deterministic-preflight.md](slice-5.5-deterministic-preflight.md)); next **5.6** verification gate → 5.7. See [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) |
-| Later | — | Invocation ack + bot identity. Command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph. |
+| **Next** | **V4.1.2 / 5.7** | 5.6 **implemented** ([slice-5.6-verification-evidence-gate.md](slice-5.6-verification-evidence-gate.md)); next selective writeback. Track via [handoff/boss-ledger.md](handoff/boss-ledger.md). |
+| Later | — | Adequacy, 8a–8d, ack identity, MCP, tournaments. |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — **2026-07-20: 5.4a+5.4b**; **5.5a code landed** (homelab sign-off pending). **Next: 5.5a homelab + 5.6.**
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — **2026-07-20: 5.4a+5.4b+5.5a**; **5.6 code landed** (homelab sign-off pending). **Next: 5.6 homelab + 5.7.**
 
 ### Review MVP acceptance (full)
 

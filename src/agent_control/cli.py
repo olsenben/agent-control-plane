@@ -748,6 +748,7 @@ def session_show(session_id: str, project: str, as_json: bool) -> None:
         load_preflight_artifact,
     )
     from agent_control.session import load_session
+    from agent_control.session.verification import load_verification_claim
 
     settings = get_settings()
     record = load_session(settings.agent_state_root, project, session_id)
@@ -756,6 +757,7 @@ def session_show(session_id: str, project: str, as_json: bool) -> None:
     payload = record.model_dump(mode="json")
     preflight = load_preflight_artifact(settings.agent_state_root, project, session_id)
     packet = load_context_packet_artifact(settings.agent_state_root, project, session_id)
+    claim = load_verification_claim(settings.agent_state_root, project, session_id)
     if preflight is not None:
         payload["memory_preflight_summary"] = {
             "status": preflight.status,
@@ -774,6 +776,18 @@ def session_show(session_id: str, project: str, as_json: bool) -> None:
             "preflight_digest": packet.preflight_digest,
             "context_pack_digest": packet.context_pack_digest,
             "artifact_digest": packet.artifact_digest,
+        }
+    if claim is not None:
+        payload["verification_summary"] = {
+            "status": claim.status,
+            "source": claim.source,
+            "scope_commit_sha": claim.scope_commit_sha,
+            "claim": claim.claim,
+            "command_id": claim.command_id,
+            "artifact": claim.artifact,
+            "limitations": claim.limitations,
+            "verdict_revision": claim.verdict_revision,
+            "artifact_digest": claim.artifact_digest,
         }
     click.echo(json.dumps(payload, indent=2))
 

@@ -16,6 +16,9 @@ class SessionTerminalError(ValueError):
 class SessionTerminalReason(StrEnum):
     # finished
     INGEST_COMPLETED = "ingest_completed"
+    CI_VERIFIED = "ci_verified"
+    REPAIR_CI_VERIFIED = "repair_ci_verified"
+    # Historical (pre-5.6 finish-at-publish); retained for reading old sessions only.
     PUBLISH_SUCCEEDED = "publish_succeeded"
     REPAIR_PUBLISH_SUCCEEDED = "repair_publish_succeeded"
     # failed
@@ -23,13 +26,14 @@ class SessionTerminalReason(StrEnum):
     WORKER_FAILED = "worker_failed"
     PUBLISH_FAILED = "publish_failed"
     SESSION_FAILED = "session_failed"
+    VERIFICATION_FAILED = "verification_failed"
     # blocked
     POLICY_DENIED = "policy_denied"
     HUMAN_APPROVAL_REQUIRED = "human_approval_required"
     SANDBOX_UNAVAILABLE = "sandbox_unavailable"
     SESSION_BLOCKED = "session_blocked"
-    # reserved (5.5 / 5.6)
     VERIFICATION_MISSING = "verification_missing"
+    # reserved
     CONTEXT_OVERFLOW = "context_overflow"
 
 
@@ -37,8 +41,8 @@ ALLOWED_REASONS_BY_STATUS: dict[SessionTerminalStatus, frozenset[SessionTerminal
     "finished": frozenset(
         {
             SessionTerminalReason.INGEST_COMPLETED,
-            SessionTerminalReason.PUBLISH_SUCCEEDED,
-            SessionTerminalReason.REPAIR_PUBLISH_SUCCEEDED,
+            SessionTerminalReason.CI_VERIFIED,
+            SessionTerminalReason.REPAIR_CI_VERIFIED,
         }
     ),
     "failed": frozenset(
@@ -47,6 +51,7 @@ ALLOWED_REASONS_BY_STATUS: dict[SessionTerminalStatus, frozenset[SessionTerminal
             SessionTerminalReason.WORKER_FAILED,
             SessionTerminalReason.PUBLISH_FAILED,
             SessionTerminalReason.SESSION_FAILED,
+            SessionTerminalReason.VERIFICATION_FAILED,
         }
     ),
     "blocked": frozenset(

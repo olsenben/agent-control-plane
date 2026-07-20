@@ -60,7 +60,7 @@ TYPED_SESSION_COMMANDS = frozenset({"review", "plan", "fix", "repair"})
 # Commands whose successful terminal is results-ingest (not publish).
 INGEST_TERMINAL_OWNERS = frozenset({"review", "plan"})
 
-# Commands that stay nonterminal through worker ingest; publish/verify owns finish.
+# Commands that stay nonterminal through worker ingest; CI verification owns finish.
 PUBLISH_TERMINAL_OWNERS = frozenset({"fix", "repair"})
 
 # Tiny allowlist: worker may contribute only these event kinds (mapped, nonterminal).
@@ -624,6 +624,11 @@ def handle_ingest_session_update(
             "completed",
         )
         if success:
+            from agent_control.session.verification import emit_ingest_verification_missing
+
+            session = emit_ingest_verification_missing(
+                state_root, session, run_id=event.run_id
+            )
             updated = finalize_session(
                 state_root,
                 session,
@@ -666,7 +671,7 @@ def handle_publish_session_terminal(
     reason: str | None = None,
     domain_reasons: list[str] | None = None,
 ) -> AgentSession | None:
-    """Fix/repair terminal owner — publish/verification path."""
+    """Fix/repair terminal owner — publish reject / CI verification path."""
     session = load_session_by_run(state_root, project, run_id)
     if session is None:
         return None

@@ -41,15 +41,46 @@ def format_ci_status_comment(result: CiVerificationResult) -> str:
         lines.append("Reasons: " + ", ".join(f"`{c}`" for c in result.reason_codes[:12]))
         lines.append("")
     if result.verdict == "verified":
+        status = "passed"
+        claim = "CT102 required workflows passed for published agent commit"
+        limitations = (
+            "Scoped to checks actually run on this exact commit; not universal correctness."
+        )
         lines.append("CT102 verified for this exact head commit. Memory writeback eligible (6E.2).")
     elif result.verdict == "failing":
+        status = "failed"
+        claim = "CT102 required workflows failed for published agent commit"
+        limitations = "One or more required workflows failed."
         lines.append(
             "One or more required workflows failed. "
             "Failure evidence is collected when FIX_CI_FAILURE_EVIDENCE_ENABLED is on. "
             "Automatic repair stays gated (`FIX_CI_REPAIR_ENABLED`, sandbox attestation)."
         )
     elif result.verdict == "pending":
+        status = "requested"
+        claim = "CT102 required workflows for published agent commit"
+        limitations = "Publish succeeded; CI not yet terminal. Not fixed_verified."
         lines.append("Awaiting required workflow terminal results for this SHA.")
+    elif result.verdict == "expired":
+        status = "missing"
+        claim = "required CT102 verification evidence expired or never arrived"
+        limitations = "Pending CI expired without a verified/failing terminal verdict."
+        lines.append("Required verification evidence expired.")
+    else:
+        status = result.verdict
+        claim = f"CI verdict {result.verdict}"
+        limitations = "See verdict above."
+    lines.append("")
+    lines.append("Verification:")
+    lines.append(f"- claim: {claim}")
+    lines.append(f"  scope: commit `{result.expected_head_commit_sha}`")
+    lines.append("  command: .gitea/workflows/ci.yaml")
+    lines.append("  source: ct102")
+    lines.append(f"  status: {status}")
+    lines.append(
+        f"  artifact: ci_verification:{result.fix_run_id}:rev{result.verdict_revision}"
+    )
+    lines.append(f"  limitations: {limitations}")
     lines.append("")
     lines.append(comment_marker(result.fix_run_id, result.verdict_revision))
     return "\n".join(lines)

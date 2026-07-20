@@ -29,8 +29,12 @@ from support.policy_pin import install_fake_policy_pin
 
 def test_allowed_reason_status_matrix() -> None:
     assert SessionTerminalReason.INGEST_COMPLETED in ALLOWED_REASONS_BY_STATUS["finished"]
+    assert SessionTerminalReason.CI_VERIFIED in ALLOWED_REASONS_BY_STATUS["finished"]
+    assert SessionTerminalReason.VERIFICATION_FAILED in ALLOWED_REASONS_BY_STATUS["failed"]
+    assert SessionTerminalReason.VERIFICATION_MISSING in ALLOWED_REASONS_BY_STATUS["blocked"]
     assert SessionTerminalReason.WORKER_FAILED in ALLOWED_REASONS_BY_STATUS["failed"]
     assert SessionTerminalReason.POLICY_DENIED in ALLOWED_REASONS_BY_STATUS["blocked"]
+    assert SessionTerminalReason.PUBLISH_SUCCEEDED not in ALLOWED_REASONS_BY_STATUS["finished"]
 
 
 def test_invalid_status_reason_combo_rejected() -> None:

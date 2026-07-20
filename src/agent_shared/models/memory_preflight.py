@@ -49,7 +49,7 @@ class HeuristicInputs(BaseModel):
 class SessionArtifactRef(BaseModel):
     """Durable reference stored on AgentSession after atomic persist."""
 
-    artifact_type: Literal["memory_preflight", "context_packet"]
+    artifact_type: Literal["memory_preflight", "context_packet", "verification_claim"]
     relative_path: str
     digest: str
     byte_size: int

@@ -166,7 +166,9 @@ Model self-review is **not** an acceptance gate.
 | **V4.1.1 closeout (umbrella)** | **2026-07-19** | Trust-boundary PRs + staged ACP repair + demo brokerage E2E + CT102 user split — [slice-v411-closeout.md](slice-v411-closeout.md) |
 | **Slice 5.4a — typed sessions** | **2026-07-20** | Fake `/agent review` demo-app#2 → `sess-206dce2b…` finished; mismatch fail-closed — [slice-5.4-typed-sessions.md](slice-5.4-typed-sessions.md), ADR-0010 |
 | **Slice 5.4b — failure taxonomy** | **2026-07-20** | demo-app#2 early deny `sess-78ce5694…` / `run-78a9139c…` (`human_approval_required`); late broker deny `sess-ca35c33b…` / `run-54b-late-66b1677f…` (`sandbox_unavailable`); tip `dfb3d22` — [slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md) |
-| **Next — V4.1.2 / 5.6** | **open** | 5.5a preflight implemented → verification gate (5.6) → writeback (5.7) — [slice-5.5-deterministic-preflight.md](slice-5.5-deterministic-preflight.md) |
+| **Slice 5.5a — deterministic preflight** | **2026-07-20** | tip `6f170a4`; Actions 590–592; CT103+CT104 tip pin; `PREPARE_OK` `sess-47b90b22…` — [slice-5.5-deterministic-preflight.md](slice-5.5-deterministic-preflight.md) |
+| **Slice 5.6 — verification evidence gate** | **code** | Defer fix/repair finish until 6E; `agent.verification_*`; review emits `verification_missing` — [slice-5.6-verification-evidence-gate.md](slice-5.6-verification-evidence-gate.md), ADR-0012 |
+| **Next — V4 epic / 5.7** | **open** | Selective writeback → V4.1.2 exit; map in [handoff/boss-ledger.md](handoff/boss-ledger.md) — [epic-orchestration.md](epic-orchestration.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 

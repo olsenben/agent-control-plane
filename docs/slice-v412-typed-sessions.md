@@ -1,9 +1,10 @@
 # V4.1.2 Bundle — Typed Sessions → Recursive Context (umbrella)
 
-**Status:** Active — 5.5a **implemented** 2026-07-20 (homelab sign-off pending); next 5.6  
+**Status:** Active — 5.6 **implemented** 2026-07-20 (homelab sign-off pending); next **5.7**  
 **Date:** 2026-07-19  
 **Plan source:** `gitea_agentic_sdlc_cursor_step_plan_v4.md` (§0.2a, §5a, §0.6, DoD §Recursive context, impl order 5.4–5.7 / 8a–8d)  
 **Prerequisite:** V4.1.1 closeout signed ([slice-v411-closeout.md](slice-v411-closeout.md)) — **2026-07-19**  
+**Epic tracking:** [epic-orchestration.md](epic-orchestration.md) + [handoff/boss-ledger.md](handoff/boss-ledger.md) (deploy gate between every ticket)  
 **Excluded from first PRs:** Recurrent/SSM bake-off (8d), mandatory 2070 on every task, AgentFacts / MCP graph server
 
 ## Thesis
@@ -114,7 +115,7 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 
 ### PR-S3 — Slice 5.5a: Deterministic context preflight (no 2070 yet)
 
-**Status:** **Implemented** 2026-07-20 — see [slice-5.5-deterministic-preflight.md](slice-5.5-deterministic-preflight.md). Homelab sign-off pending.
+**Status:** **Deploy verified** 2026-07-20 (`6f170a4`) — see [slice-5.5-deterministic-preflight.md](slice-5.5-deterministic-preflight.md). Epic baseline ticket **T00**.
 
 - CT103 `memory_preflight.v1` at exact frozen source SHA: events, verified memory, ADR facts, graph queries already available, CI evidence pointers.
 - Always set `recursive_context_required: false|true` + `invocation_reasons[]` (heuristic thresholds; 2070 invoke deferred).
@@ -125,10 +126,12 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 
 ### PR-S4 — Slice 5.6: Verification evidence gate (session-scoped)
 
+**Status:** **Implemented** 2026-07-20 — see [slice-5.6-verification-evidence-gate.md](slice-5.6-verification-evidence-gate.md). Homelab sign-off pending.
+
 - Session cannot claim verified from model prose alone.
 - Emit `agent.verification_requested|passed|failed|missing`.
-- Integrate with existing 6E pending/verdict where command is fix/repair; review/plan use adequacy profile / explicit `verification_missing` when no CI claim applies.
-- Block `session_finished` success paths that require verification when evidence missing (command-kind policy).
+- Integrate with existing 6E pending/verdict where command is fix/repair; review/plan use explicit `verification_missing` when no CI claim applies.
+- Block `session_finished` success paths that require verification when evidence missing (fix/repair defer finish until CI).
 
 ### PR-S5 — Slice 5.7: Selective writeback from session trace
 
@@ -174,6 +177,7 @@ Mirror plan DoD items 1–12 for sessions/preflight/verification/writeback; item
 
 ## Related
 
+- [epic-orchestration.md](epic-orchestration.md) + [handoff/boss-ledger.md](handoff/boss-ledger.md)
 - [architecture.md](architecture.md)
 - [slice-v411-closeout.md](slice-v411-closeout.md)
 - [adr/0007-dual-attestation-lifecycle.md](adr/0007-dual-attestation-lifecycle.md) (executor ≠ session)

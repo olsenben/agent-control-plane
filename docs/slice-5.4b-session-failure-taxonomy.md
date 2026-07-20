@@ -21,7 +21,9 @@ Canonical terminal reason codes with strict status/reason validation. Policy and
 
 | Status | Codes |
 |--------|-------|
-| `finished` | `ingest_completed`, `publish_succeeded`, `repair_publish_succeeded` |
+| `finished` | `ingest_completed`, `ci_verified`, `repair_ci_verified` |
+| `failed` | `enqueue_failed`, `worker_failed`, `publish_failed`, `session_failed`, `verification_failed` |
+| `blocked` | `policy_denied`, `human_approval_required`, `sandbox_unavailable`, `session_blocked`, `verification_missing`, `context_overflow` |
 | `failed` | `enqueue_failed`, `worker_failed`, `publish_failed`, `session_failed` |
 | `blocked` | `policy_denied`, `human_approval_required`, `sandbox_unavailable`, `session_blocked` |
 | reserved | `verification_missing`, `context_overflow` (5.5 / 5.6) |
@@ -56,7 +58,8 @@ Emitter validates every `(status, reason_code)` pair against `ALLOWED_REASONS_BY
 | Approval / policy gate | `blocked` | `policy_denied` |
 | Stale base after work | `failed` | `publish_failed` |
 | Push / PR / corrupt artifact | `failed` | `publish_failed` |
-| Success | `finished` | `publish_succeeded` / `repair_publish_succeeded` |
+| Success (publish only) | stay `running` | `agent.verification_requested` (5.6) |
+| Success (CI verified) | `finished` | `ci_verified` / `repair_ci_verified` |
 
 ## Pre-enqueue fix block
 

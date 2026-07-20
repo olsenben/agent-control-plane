@@ -554,7 +554,15 @@ def broker_publish_fix(
                 f"- Branch: `{agent_branch}`\n"
                 f"- Commit: `{validated.commit_sha}`\n"
                 f"- PR: #{pr_number}\n"
-                f"- Bundle: `{bundle_id}`\n"
+                f"- Bundle: `{bundle_id}`\n\n"
+                f"Verification:\n"
+                f"- claim: CT102 required workflows for published agent commit\n"
+                f"  scope: commit `{validated.commit_sha}`\n"
+                f"  command: .gitea/workflows/ci.yaml\n"
+                f"  source: ct102\n"
+                f"  status: requested\n"
+                f"  artifact: pending_ci:{run_id}\n"
+                f"  limitations: Publish succeeded; CI not yet terminal. Not fixed_verified.\n"
             ),
             settings=settings,
         )
@@ -562,15 +570,13 @@ def broker_publish_fix(
         # Comment failure must not mark publication failed
         pass
 
-    from agent_control.session import handle_publish_session_terminal
-    from agent_control.session.reasons import SessionTerminalReason
+    from agent_control.session.verification import request_session_verification
 
-    handle_publish_session_terminal(
+    request_session_verification(
         state_root,
         project=project,
         run_id=run_id,
-        terminal="finished",
-        reason_code=SessionTerminalReason.PUBLISH_SUCCEEDED,
+        commit_sha=validated.commit_sha,
     )
 
     return {
@@ -903,15 +909,13 @@ def broker_publish_repair(
         agent_branch=agent_branch,
     )
 
-    from agent_control.session import handle_publish_session_terminal
-    from agent_control.session.reasons import SessionTerminalReason
+    from agent_control.session.verification import request_session_verification
 
-    handle_publish_session_terminal(
+    request_session_verification(
         state_root,
         project=project,
         run_id=run_id,
-        terminal="finished",
-        reason_code=SessionTerminalReason.REPAIR_PUBLISH_SUCCEEDED,
+        commit_sha=validated.commit_sha,
     )
 
     return {

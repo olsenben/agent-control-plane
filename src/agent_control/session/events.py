@@ -301,3 +301,100 @@ def append_context_packet_created(
         run_id=run_id,
         payload=payload,
     )
+
+
+def _verification_event_payload(
+    session: AgentSession,
+    *,
+    run_id: str,
+    claim: Any,
+    event_at: str,
+) -> dict[str, Any]:
+    return {
+        **correlation_payload(session, run_id=run_id, event_at=event_at),
+        "schema": "verification_claim.v1",
+        "claim": claim.claim,
+        "scope_commit_sha": claim.scope_commit_sha,
+        "source": claim.source,
+        "status": claim.status,
+        "command_id": claim.command_id,
+        "artifact": claim.artifact,
+        "limitations": claim.limitations,
+        "verdict_revision": claim.verdict_revision,
+        "artifact_digest": claim.artifact_digest,
+    }
+
+
+def append_verification_requested(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    claim: Any,
+) -> tuple[Path, bool]:
+    at = _now()
+    return append_session_event(
+        state_root,
+        event_type="agent.verification_requested",
+        session=session,
+        run_id=run_id,
+        payload=_verification_event_payload(session, run_id=run_id, claim=claim, event_at=at),
+        delivery_suffix=f"{claim.scope_commit_sha}:requested",
+    )
+
+
+def append_verification_passed(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    claim: Any,
+) -> tuple[Path, bool]:
+    at = _now()
+    rev = claim.verdict_revision if claim.verdict_revision is not None else 0
+    return append_session_event(
+        state_root,
+        event_type="agent.verification_passed",
+        session=session,
+        run_id=run_id,
+        payload=_verification_event_payload(session, run_id=run_id, claim=claim, event_at=at),
+        delivery_suffix=f"{claim.scope_commit_sha}:rev{rev}:passed",
+    )
+
+
+def append_verification_failed(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    claim: Any,
+) -> tuple[Path, bool]:
+    at = _now()
+    rev = claim.verdict_revision if claim.verdict_revision is not None else 0
+    return append_session_event(
+        state_root,
+        event_type="agent.verification_failed",
+        session=session,
+        run_id=run_id,
+        payload=_verification_event_payload(session, run_id=run_id, claim=claim, event_at=at),
+        delivery_suffix=f"{claim.scope_commit_sha}:rev{rev}:failed",
+    )
+
+
+def append_verification_missing(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    claim: Any,
+) -> tuple[Path, bool]:
+    at = _now()
+    rev = claim.verdict_revision if claim.verdict_revision is not None else 0
+    return append_session_event(
+        state_root,
+        event_type="agent.verification_missing",
+        session=session,
+        run_id=run_id,
+        payload=_verification_event_payload(session, run_id=run_id, claim=claim, event_at=at),
+        delivery_suffix=f"{claim.scope_commit_sha}:rev{rev}:missing",
+    )
