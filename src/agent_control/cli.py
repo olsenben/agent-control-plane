@@ -1108,6 +1108,58 @@ def gitea_open_pr(project: str, head: str, base: str, title: str, body: str) -> 
     click.echo(json.dumps(result, indent=2))
 
 
+@main.group()
+def mcp() -> None:
+    """Read-only MCP state/graph/memory server (T11 / Phase 24)."""
+
+
+@mcp.command("serve")
+@click.option(
+    "--log-path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Append JSONL tool-call audit log",
+)
+def mcp_serve(log_path: Path | None) -> None:
+    """Run the read-only MCP server on stdio (for MCP Inspector)."""
+    from agent_control.mcp.server import run_stdio
+
+    run_stdio(log_path=log_path)
+
+
+@mcp.command("list-tools")
+def mcp_list_tools() -> None:
+    """Print allowlisted read-only tool names (no write surface)."""
+    from agent_control.mcp.registry import FORBIDDEN_TOOLS, list_tools
+
+    click.echo(
+        json.dumps(
+            {
+                "tools": [t["name"] for t in list_tools()],
+                "forbidden": sorted(FORBIDDEN_TOOLS),
+            },
+            indent=2,
+        )
+    )
+
+
+@mcp.command("call")
+@click.argument("tool_name")
+@click.option("--args", "args_json", default="{}", help="JSON object of tool arguments")
+def mcp_call(tool_name: str, args_json: str) -> None:
+    """Invoke one read-only MCP tool and print the schema-validated result."""
+    from agent_control.mcp.registry import invoke_tool
+
+    try:
+        arguments = json.loads(args_json)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"invalid --args JSON: {exc}") from exc
+    if not isinstance(arguments, dict):
+        raise click.ClickException("--args must be a JSON object")
+    result = invoke_tool(tool_name, arguments)
+    click.echo(json.dumps(result, indent=2, default=str))
+
+
 # Export verify_hmac for tests
 __all__ = ["main", "verify_hmac"]
 
