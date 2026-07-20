@@ -10,13 +10,13 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Status doc** | This ledger + per-slice `docs/slice-*.md` |
 | **Umbrella (active)** | [slice-v412-typed-sessions.md](../slice-v412-typed-sessions.md) |
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
-| **Epic status** | in_progress |
-| **Tickets done (count)** | 11 / 13 remaining track (T01–T09, T10–T11 done; T12 Deferred) |
-| **Next ticket** | T13 (flag-gated tournaments; after T09 PASS) |
-| **Latest handoff** | T09 PASS `38e01d6` |
-| **Coordinator waves completed** | 14 |
-| **Last boss action** | 2026-07-20 — T09 deploy verify PASS; next T13 |
-| **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-t08` / `…-lane-t11` |
+| **Epic status** | complete (T12 Deferred with approval) |
+| **Tickets done (count)** | 12 / 13 remaining track (T01–T11, T13 done; T12 Deferred) |
+| **Next ticket** | — (epic track closed; optional bake-off T12 stays Deferred) |
+| **Latest handoff** | T13 PASS `078d030` |
+| **Coordinator waves completed** | 15 |
+| **Last boss action** | 2026-07-20 — T13 deploy verify PASS; epic remaining track closed |
+| **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-t08` / `…-lane-t11` (retire optional) |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
 ## Done condition
@@ -54,7 +54,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T10** | Invocation ack + acting vs invoker identity | T03 | Start + terminal comments; invoker audit fields on session | Done |
 | **T11** | **§10** Read-only MCP graph/memory | T05 | MCP read tools only; no write surface | Done |
 | **T12** | **8d** Controller bake-off (optional) | T07 | Deterministic vs small-transformer vs recurrent metrics; **may Deferred** | Deferred |
-| **T13** | **§11** Patch tournaments / rewards (experiment flag) | T08 | Flag-gated; no default enable | Todo |
+| **T13** | **§11** Patch tournaments / rewards (experiment flag) | T08 | Flag-gated; no default enable | Done |
 
 ### Parallelism policy
 
@@ -79,6 +79,7 @@ AgentFacts-lite, memory-as-governance, review replay console, architecture drift
 | 5 | 2026-07-20 | — | T05 | T04 adequacy deploy verify PASS `e5469f7` |
 | 6 | 2026-07-20 | lanes.md | T05∥T10 | Worktrees + dual-lane spawn; tip pins owned by boss |
 | 14 | 2026-07-20 | — | T13 | T09 stage-status PASS `38e01d6`; next T13 |
+| 15 | 2026-07-20 | — | — | T13 deny-by-default PASS `078d030`; epic track closed (T12 Deferred) |
 
 ## Boss prompt skeleton (fill from this ledger)
 

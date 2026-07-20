@@ -171,7 +171,9 @@ Model self-review is **not** an acceptance gate.
 | **Slice 5.7 — selective writeback** | **2026-07-20** | tip `a7dd4c5`; Actions×3 success; CT103+CT104 tip pin; in-container `test_session_writeback_57.py` 3 passed — [slice-5.7-selective-writeback.md](slice-5.7-selective-writeback.md) |
 | **V4.1.2 exit (T03)** | **2026-07-20** | demo-app#2 review `sess-63968c4e…` → plan `sess-57eaa725…`; prior_memory cites review session + `epistemic_status=inferred` — [slice-v412-exit.md](slice-v412-exit.md) |
 | **T04 — adequacy profiles** | **2026-07-20** | tip `e5469f7`; Actions×3; CT103+CT104 pin; in-container 6 passed — [slice-t04-adequacy-profile.md](slice-t04-adequacy-profile.md) |
-| **Next — V4 epic / T05** | **open** | Orbit-style graph edges (8a); map in [handoff/boss-ledger.md](handoff/boss-ledger.md) |
+| **T09 — non-demo 6F.2 ACP** | **2026-07-20** | tip `38e01d6`; `agentctl repair stage-status` → `t09_complete=true` — [slice-t09-non-demo-6f2-acp.md](slice-t09-non-demo-6f2-acp.md) |
+| **T13 — flag-gated tournaments** | **2026-07-20** | tip `078d030`; spawn/rewards deny-by-default — [slice-t13-patch-tournaments.md](slice-t13-patch-tournaments.md), ADR-0019 |
+| **V4 epic remaining track** | **closed** | T01–T11 + T13 Done; T12 Deferred — [handoff/boss-ledger.md](handoff/boss-ledger.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 
