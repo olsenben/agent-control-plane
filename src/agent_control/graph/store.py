@@ -216,3 +216,90 @@ class GraphStore:
         with self.connect() as conn:
             rows = conn.execute("SELECT adr_id FROM adrs WHERE repo = ?", (repo,)).fetchall()
             return [r["adr_id"] for r in rows]
+
+    def ensure_repo(self, repo: str) -> None:
+        """Ensure a repos row exists without wiping existing graph data."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self.connect() as conn:
+            migrate_schema(conn)
+            row = conn.execute("SELECT 1 FROM repos WHERE full_name = ?", (repo,)).fetchone()
+            if row:
+                return
+            conn.execute(
+                "INSERT INTO repos("
+                "full_name, snapshot_at, source_sha, policy_source_sha, "
+                "extractor_version, files_indexed, files_skipped, languages_supported"
+                ") VALUES (?, ?, '', '', '', 0, 0, 'python')",
+                (repo, now),
+            )
+
+    def upsert_files(self, repo: str, paths: list[str]) -> None:
+        """Insert missing file nodes for *repo* (idempotent)."""
+        if not paths:
+            return
+        with self.connect() as conn:
+            migrate_schema(conn)
+            for path in paths:
+                conn.execute(
+                    "INSERT OR IGNORE INTO files(repo, path) VALUES (?, ?)",
+                    (repo, path),
+                )
+
+    def append_edges(
+        self,
+        repo: str,
+        edges: list[dict[str, str]],
+        *,
+        source_sha: str = "",
+        extractor_version: str = EXTRACTOR_VERSION,
+        replace_source_sha: bool = False,
+        replace_kinds: frozenset[str] | set[str] | None = None,
+    ) -> int:
+        """Append edges without clearing the snapshot. Returns rows inserted.
+
+        When *replace_source_sha* is true and *source_sha* is set, deletes prior
+        edges for this repo with the same source_sha (and optional kind filter)
+        before insert — idempotent re-ingest for SARIF evidence.
+        """
+        if not edges:
+            return 0
+        now = datetime.now(timezone.utc).isoformat()
+        with self.connect() as conn:
+            migrate_schema(conn)
+            if replace_source_sha and source_sha:
+                if replace_kinds:
+                    placeholders = ",".join("?" for _ in replace_kinds)
+                    conn.execute(
+                        f"DELETE FROM edges WHERE repo = ? AND source_sha = ? "
+                        f"AND kind IN ({placeholders})",
+                        (repo, source_sha, *sorted(replace_kinds)),
+                    )
+                else:
+                    conn.execute(
+                        "DELETE FROM edges WHERE repo = ? AND source_sha = ?",
+                        (repo, source_sha),
+                    )
+            rows = [
+                (
+                    repo,
+                    e["kind"],
+                    e["src_kind"],
+                    e["src"],
+                    e["dst_kind"],
+                    e["dst"],
+                    e.get("confidence", "medium"),
+                    normalize_provenance(e.get("provenance")),
+                    e.get("source_sha") or source_sha,
+                    e.get("extractor_version") or extractor_version,
+                    e.get("last_verified_at") or now,
+                )
+                for e in edges
+            ]
+            conn.executemany(
+                "INSERT INTO edges("
+                "repo, kind, src_kind, src, dst_kind, dst, confidence, "
+                "provenance, source_sha, extractor_version, last_verified_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+            return len(rows)

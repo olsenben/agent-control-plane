@@ -112,6 +112,7 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 - AgentFacts-lite uses content-hash integrity (+ optional HMAC); re-sign after card edits
 - `/agent fix` is denied when memory shows repeated CI failure class on overlapping files without new evidence (V5 T02)
 - Review replay is read-only reconstruction; incomplete durable artifacts yield `complete=false` (V5 T03)
+- SARIF ingest attaches security evidence nodes only (Risk 0/1); does not expand Risk 2 or auto-fix (V5 T05)
 
 ## Safety tests
 
@@ -177,7 +178,7 @@ Model self-review is **not** an acceptance gate.
 | **T09 — non-demo 6F.2 ACP** | **2026-07-20** | tip `38e01d6`; `agentctl repair stage-status` → `t09_complete=true` — [slice-t09-non-demo-6f2-acp.md](slice-t09-non-demo-6f2-acp.md) |
 | **T13 — flag-gated tournaments** | **2026-07-20** | tip `078d030`; spawn/rewards deny-by-default — [slice-t13-patch-tournaments.md](slice-t13-patch-tournaments.md), ADR-0019 |
 | **V4 epic remaining track** | **closed** | T01–T11 + T13 Done; T12 Deferred — [handoff/boss-ledger.md](handoff/boss-ledger.md) |
-| **V5 governance epic** | **in progress** | T01–T04 Done tip `5ca8d78`; Next T05 — [handoff/boss-ledger-v5.md](handoff/boss-ledger-v5.md) |
+| **V5 governance epic** | **in progress** | T01–T04 Done tip `5ca8d78`; T05 in progress — [handoff/boss-ledger-v5.md](handoff/boss-ledger-v5.md) |
 | **V5 T01 AgentFacts-lite** | **2026-07-20** | tip `bdbdc99`; Actions 705–707; `agentctl agentfacts check` ok + unsigned fail — [slice-v5-t01-agentfacts-lite.md](slice-v5-t01-agentfacts-lite.md), ADR-0020 |
 | **V5 T02 Memory-as-governance** | **2026-07-20** | tip `f2b8ce9`; Actions 711–713; deny + `agent.memory_governance_denied` — [slice-v5-t02-memory-as-governance.md](slice-v5-t02-memory-as-governance.md), ADR-0021 |
 | **V5 T03 Review replay console** | **2026-07-20** | tip `5ca8d78` (feat `b7fa044`); Actions 723–725; `agentctl replay review` `complete=true` — [slice-v5-t03-review-replay-console.md](slice-v5-t03-review-replay-console.md), ADR-0023 |

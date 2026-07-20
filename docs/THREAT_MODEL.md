@@ -21,6 +21,7 @@ See [POLICY_GATES.md](POLICY_GATES.md) for enforcement.
 | `false_verification_confidence` | AI system safety | Model claims success without CI | Verification invariant |
 | `graph_bypass` | AI system safety | Review/plan skipped graph consultation | Require blast-radius in output |
 | `architecture_drift` | AI system safety | ADR declares X; graph shows Y | `agentctl graph drift` (fail-soft; V5 T04) |
+| `security_finding` | Privacy/security | SARIF/static-analysis finding attached as graph evidence | `agentctl graph sarif-ingest` (Risk 0/1 only; V5 T05) |
 
 ## Event shape (target)
 

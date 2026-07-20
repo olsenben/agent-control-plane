@@ -38,6 +38,10 @@ ORBIT_EDGE_KINDS: tuple[str, ...] = (
     "package_depends_on_package",
     "run_used_memory",
     "run_queried_graph",
+    # V5 T05 — SARIF security/evidence nodes
+    "finding_affects_file",
+    "tool_run_produced_finding",
+    "tool_run_covers_repo",
 )
 
 LANGUAGES_SUPPORTED: tuple[str, ...] = ("python",)

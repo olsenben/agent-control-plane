@@ -333,6 +333,26 @@ def graph_drift(
         )
 
 
+@graph.command("sarif-ingest")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option(
+    "--file",
+    "sarif_file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    required=True,
+    help="Path to a SARIF 2.x document",
+)
+def graph_sarif_ingest(project: str, sarif_file: Path) -> None:
+    """Attach SARIF findings as Orbit security/evidence graph nodes (Risk 0/1 only)."""
+    from agent_control.graph.sarif_ingest import ingest_sarif
+
+    settings = get_settings()
+    payload = ingest_sarif(project, sarif_file, settings=settings)
+    click.echo(json.dumps(payload, indent=2))
+    if not payload.get("ok"):
+        raise click.ClickException("; ".join(payload.get("warnings") or ["sarif ingest failed"]))
+
+
 @graph.command("context-pack")
 @click.option("--repo", "project", required=True, help="owner/repo")
 @click.option("--issue", "issue_number", type=int, required=True)

@@ -114,6 +114,18 @@ agentctl graph blast-radius \
   --files src/agent_control/workflows/dispatch.py
 ```
 
+### `agentctl graph sarif-ingest` (V5 T05)
+
+```bash
+agentctl graph sarif-ingest \
+  --repo ai-sdlc-lab/agent-control-plane \
+  --file tests/fixtures/sample_t05.sarif.json
+```
+
+Attaches SARIF findings as Orbit evidence edges (`finding_affects_file`,
+`tool_run_produced_finding`, `tool_run_covers_repo`). Risk 0/1 evidence only —
+does not expand Risk 2 gates. See [slice-v5-t05-sarif-ingest.md](slice-v5-t05-sarif-ingest.md).
+
 ### `agentctl graph context-pack`
 
 ```bash

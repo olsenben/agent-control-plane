@@ -27,6 +27,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0021 | Memory-as-governance blocks repeated failed fix classes | proposed | 2026-07-20 | Deny fix on ≥N same failure_class without new evidence; audit event |
 | ADR-0022 | Architecture drift detector compares ADR facts to graph edges fail-soft | proposed | 2026-07-20 | ADR vs graph edge report; fail-soft CLI; optional --strict |
 | ADR-0023 | Review replay console from durable session artifacts | proposed | 2026-07-20 | Read-only issue→context→model→policy→memory replay from CT103 artifacts |
+| ADR-0024 | SARIF findings attach as graph security evidence without Risk 2 expansion | proposed | 2026-07-20 | SARIF→finding/tool_run edges; Risk 0/1 evidence only; no fix-gate coupling |
 
 ## Review log
 
