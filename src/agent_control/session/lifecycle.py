@@ -76,7 +76,11 @@ def _subject_from_trigger(
     trigger_context: Any,
     *,
     command_kind: str,
+    subject_kind: SubjectKind | None = None,
+    subject_number: int | None = None,
 ) -> tuple[SubjectKind, int]:
+    if subject_kind is not None and subject_number is not None:
+        return subject_kind, int(subject_number)
     pr = getattr(trigger_context, "pr_number", None)
     issue = getattr(trigger_context, "issue_number", None)
     if isinstance(trigger_context, dict):
@@ -90,12 +94,12 @@ def _subject_from_trigger(
     raise ValueError(f"missing subject number for {command_kind}")
 
 
-def _invoked_by_from_trigger(trigger_context: Any) -> str:
+def _invoked_by_from_trigger(trigger_context: Any, *, fallback: str | None = None) -> str:
     if isinstance(trigger_context, dict):
         author = trigger_context.get("author")
     else:
         author = getattr(trigger_context, "author", None)
-    return str(author or "unknown")
+    return str(author or fallback or "unknown")
 
 
 def create_session_record(
@@ -108,6 +112,9 @@ def create_session_record(
     policy_source_sha: str = "",
     risk_tags: list[str] | None = None,
     session_id: str | None = None,
+    subject_kind: SubjectKind | None = None,
+    subject_number: int | None = None,
+    invoked_by: str | None = None,
 ) -> AgentSession:
     """Build a new agent_session.v1 (not yet persisted)."""
     if command_kind not in TYPED_SESSION_COMMANDS:
@@ -119,15 +126,18 @@ def create_session_record(
     if sid == run_id or sid.startswith("run-"):
         raise ValueError("session_id must be distinct from run_id")
 
-    subject_kind, subject_number = _subject_from_trigger(
-        trigger_context, command_kind=command_kind
+    kind, number = _subject_from_trigger(
+        trigger_context,
+        command_kind=command_kind,
+        subject_kind=subject_kind,
+        subject_number=subject_number,
     )
     _, repo = split_project(project)
     repo_full = normalize_repo_full_name(project) or project
     input_sha = compute_input_state_sha(
         project=repo_full,
-        subject_kind=subject_kind,
-        subject_number=subject_number,
+        subject_kind=kind,
+        subject_number=number,
         command_kind=command_kind,
         head_sha=head_sha or "",
         policy_source_sha=policy_source_sha or "",
@@ -138,8 +148,8 @@ def create_session_record(
         session_id=sid,
         project=repo_full,
         repo=repo,
-        subject_kind=subject_kind,
-        subject_number=subject_number,
+        subject_kind=kind,
+        subject_number=number,
         command_kind=command_kind,
         status=SessionStatus.CREATED,
         run_ids=[run_id],
@@ -148,7 +158,7 @@ def create_session_record(
         head_sha=head_sha or "",
         risk_level=risk_level_for_command(command_kind),
         risk_tags=tags,
-        invoked_by=_invoked_by_from_trigger(trigger_context),
+        invoked_by=_invoked_by_from_trigger(trigger_context, fallback=invoked_by),
         acting_identity=None,
         created_at=now,
         updated_at=now,
@@ -165,6 +175,9 @@ def begin_typed_session(
     trigger_context: Any,
     policy_source_sha: str = "",
     risk_tags: list[str] | None = None,
+    subject_kind: SubjectKind | None = None,
+    subject_number: int | None = None,
+    invoked_by: str | None = None,
 ) -> AgentSession:
     """Persist session + index + session_started + subject_context_resolved.
 
@@ -183,6 +196,9 @@ def begin_typed_session(
         trigger_context=trigger_context,
         policy_source_sha=policy_source_sha,
         risk_tags=risk_tags,
+        subject_kind=subject_kind,
+        subject_number=subject_number,
+        invoked_by=invoked_by,
     )
     session = apply_status_transition(
         session,

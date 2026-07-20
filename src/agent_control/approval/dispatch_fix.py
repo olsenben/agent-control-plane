@@ -222,6 +222,10 @@ def enqueue_fix_after_authorization(
         head_sha=job.target_sha or approval.approved_base_sha or "",
         trigger_context=job.trigger_context,
         policy_source_sha=job.policy_source_sha or "",
+        # Sparse trigger events (tests / CLI) still bind to the approval issue.
+        subject_kind="issue",
+        subject_number=approval.issue_id,
+        invoked_by=approval.approved_by_login,
     )
     job = bind_session_to_job(job, session)
 
