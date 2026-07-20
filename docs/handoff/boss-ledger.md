@@ -12,11 +12,11 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
 | **Epic status** | in_progress |
 | **Tickets done (count)** | 8 / 13 remaining track (T01–T07, T10 done) |
-| **Next ticket** | T08 |
+| **Next ticket** | T08 ∥ T11 (T12 Deferred; then T09; then T13) |
 | **Latest handoff** | T10 PASS `4a9acdc` (graph tip `ee2367b`) |
 | **Coordinator waves completed** | 10 |
-| **Last boss action** | 2026-07-20 — dual-lane closed: T07+T10 deploy PASS; next T08 |
-| **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-graph` / `…-lane-identity` |
+| **Last boss action** | 2026-07-20 — wave2 lanes: T08∥T11; T12 Deferred; tip pins serialized |
+| **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-t08` / `…-lane-t11` |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
 ## Done condition
@@ -49,20 +49,19 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T05** | **8a** Orbit-style code + SDLC/evidence graph edges | T03 | `agentctl graph` shows new edge types + provenance; blast-radius still fail-soft | Done |
 | **T06** | **8b** Preflight consumes graph coverage / missing_edges | T05, T01 | Preflight JSON includes coverage; heuristic uses missing_edges | Done |
 | **T07** | **8c** Conditional 2070 recursive context worker | T06 | `recursive_context_required=true` path returns `recursive_context_result.v1`; false path skips 2070 | Done |
-| **T08** | **§9** Recursive Qwen loop (evidence + CI retries) | T07, T01 | Bounded retry on CI fail with evidence-selected context; no unbounded loop | Todo |
+| **T08** | **§9** Recursive Qwen loop (evidence + CI retries) | T07, T01 | Bounded retry on CI fail with evidence-selected context; no unbounded loop | In Progress |
 | **T09** | Non-demo **6F.2** staged expand (ACP allowlist only) | T03 | Observe → repair-no-publish → one-class publish on ACP; ADR if scope widens | Todo |
 | **T10** | Invocation ack + acting vs invoker identity | T03 | Start + terminal comments; invoker audit fields on session | Done |
-| **T11** | **§10** Read-only MCP graph/memory | T05 | MCP read tools only; no write surface | Todo |
-| **T12** | **8d** Controller bake-off (optional) | T07 | Deterministic vs small-transformer vs recurrent metrics; **may Deferred** | Todo |
+| **T11** | **§10** Read-only MCP graph/memory | T05 | MCP read tools only; no write surface | In Progress |
+| **T12** | **8d** Controller bake-off (optional) | T07 | Deterministic vs small-transformer vs recurrent metrics; **may Deferred** | Deferred |
 | **T13** | **§11** Patch tournaments / rewards (experiment flag) | T08 | Flag-gated; no default enable | Todo |
 
 ### Parallelism policy
 
-- **Serial by default:** T00→T01→T02→T03.
-- After T03: T04 ∥ T05 allowed (different owners); T06 waits on T05; T07 waits on T06.
-- **Active dual-lane (2026-07-20):** Graph agent owns T05→T06→T07 on `epic/lane-graph-t05-t07`. Identity agent owns T10 only on `epic/lane-identity-t10` (PR; no auto-deploy). **One deploy-verify owner** merges + pins CT103/CT104 — see [lanes.md](lanes.md).
-- T09 after T03; do not parallelize two Risk-2 enablement tracks with T10.
-- T11 after T05; T12/T13 never block epic done if user marks Deferred.
+- **Serial by default:** T00→T01→T02→T03; T08→T13.
+- **Active dual-lane (wave 2):** T08 on `epic/lane-t08-qwen-loop`; T11 on `epic/lane-t11-mcp`. **One deploy-verify owner** — see [lanes.md](lanes.md).
+- **Then serial:** T09 alone (Risk-2). **Last:** T13 after T08 Done.
+- **T12 Deferred** (controller bake-off).
 
 ### Backlog (not in done count)
 
