@@ -54,6 +54,7 @@ class SessionArtifactRef(BaseModel):
         "context_packet",
         "verification_claim",
         "recursive_context_result",
+        "qwen_loop_result",
     ]
     relative_path: str
     digest: str

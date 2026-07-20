@@ -95,6 +95,7 @@ class AgentSession(BaseModel):
     memory_preflight: SessionArtifactRef | None = None
     context_packet: SessionArtifactRef | None = None
     recursive_context: SessionArtifactRef | None = None
+    qwen_loop: SessionArtifactRef | None = None
     verification: SessionArtifactRef | None = None
 
     @model_validator(mode="after")

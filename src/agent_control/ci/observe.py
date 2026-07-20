@@ -636,6 +636,26 @@ def apply_observation(
             defer_fail_for_repair=repair_requested,
         )
 
+    # T08: bounded recursive Qwen loop decision (evidence-selected; no 6F.2 enable)
+    if result.verdict in ("failing", "verified"):
+        try:
+            from agent_control.qwen_loop.observe_hook import record_ci_grounded_qwen_loop
+
+            record_ci_grounded_qwen_loop(
+                state_root,
+                repository=pending.repository,
+                fix_run_id=pending.fix_run_id,
+                ci_verdict=result.verdict,
+                evidence=evidence_manifest,
+                settings=settings,
+            )
+        except Exception:
+            logger.exception(
+                "qwen_loop_record_failed fix_run_id=%s verdict=%s",
+                pending.fix_run_id,
+                result.verdict,
+            )
+
     return result
 
 

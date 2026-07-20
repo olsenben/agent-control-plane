@@ -84,7 +84,7 @@ No model output is true until: deterministic checks → tests → CT102 CI → h
 
 ## Recursive inference (Qwen 14B + 2070)
 
-The 2070 lane improves Qwen 14B **effective** performance via structured recursive calls (same weights, better scaffolding). It does not replace Qwen as patch author. Bounded loops use memory preflight, graph context, diff gate, and CI/tests as required external feedback — not self-confidence alone. Config: `recursive_qwen_loop` in `.agent/project.yaml` (see V4 plan §0.4).
+The 2070 lane improves Qwen 14B **effective** performance via structured recursive calls (same weights, better scaffolding). It does not replace Qwen as patch author. Bounded loops use memory preflight, graph context, diff gate, and CI/tests as required external feedback — not self-confidence alone. Config: `config/recursive_qwen_loop.yaml` (control-plane; see V4 plan §0.4 / project overlay `recursive_context_loop`).
 
 ## Specialist roles (bounded)
 
