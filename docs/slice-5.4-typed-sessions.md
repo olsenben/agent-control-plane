@@ -1,6 +1,6 @@
 # Slice 5.4a — CT103-authoritative typed sessions
 
-**Status:** Implemented — 5.4a accepted (homelab fake review 2026-07-20)  
+**Status:** Accepted — 5.4a homelab sign-off (2026-07-20)  
 **Date:** 2026-07-19 (code); acceptance 2026-07-20 UTC  
 **Umbrella:** [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md)
 
@@ -12,7 +12,7 @@ Every `/agent review|plan|fix|repair` creates a durable `agent_session.v1` on CT
 
 | Check | Evidence |
 |-------|----------|
-| Tip deploy CT103+CT104 | `dab1e89` |
+| Tip deploy CT103+CT104 | `6f3833a` (CI fix after `dab1e89`) |
 | Fake `/agent review` demo-app#2 | `sess-206dce2b82bd42feaa3aa3518e387b5e` / `run-76d29fc7a5b95f1394b8a92a8e546e68` |
 | `session_id ≠ run_id` + run index | POSITIVE_OK |
 | Ledger spine | `session_started` → `subject_context_resolved` → worker map → exactly one `session_finished` |
@@ -63,6 +63,7 @@ Worker-supplied `session_id` that disagrees with the CT103 run index → fail cl
 
 `tests/test_typed_sessions.py`, extended `tests/test_fake_review_run.py`.
 
-## Out of scope (5.4b+)
+## Follow-on
 
-Failure taxonomy expansion, preflight, verification gate, selective writeback, Gitea ack comments, 2070.
+- **5.4b** — [slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md) (failure / blocked reason codes)
+- **5.5+** — preflight, verification gate, selective writeback, Gitea ack comments, 2070

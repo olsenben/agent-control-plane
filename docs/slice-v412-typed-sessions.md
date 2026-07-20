@@ -16,11 +16,11 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 
 | Location | Was | Now |
 |----------|-----|-----|
-| § Implementation status (~L112) | Immediate next: V4.1.1 brokerage | Immediate next: **5.4 typed sessions** → 5.5–5.7 / V4.1.2 |
+| § Implementation status (~L112) | Immediate next: V4.1.1 brokerage | **5.4a done** 2026-07-20; next **5.4b / 5.5** |
 | § Revised milestone (~L834) | V4.1.1 `[next]` | V4.1.1 **`[done]`** (2026-07-19); After V4.1.1 → 5.4 **[next]** |
 | Impl order (~L4625) | V4.1.1 `[next]` + open tool_policy / brokerage bullets | V4.1.1 done; tool_policy.v2 + brokerage + CT102 split landed |
 | V4.1 bridge (~L832) | `[in progress]` undifferentiated | Split: sandbox/attestation **done**; sessions/preflight/writeback **open** |
-| AGENT_CARD Last verified | V4.1.1 closeout in progress | Closeout **done** 2026-07-19; next row for 5.4 / V4.1.2 |
+| AGENT_CARD Last verified | V4.1.1 closeout in progress | Closeout **done** 2026-07-19; **5.4a done** 2026-07-20; next **5.4b / 5.5** |
 
 **Naming trap:** Homelab **Slice 6E** = CT102 CI truth. Plan § “Slice 6E — deterministic preflight…” is the **V4.1 memory lane** — use **5.5 / 5.7** names in new docs (plan already has a naming note).
 
@@ -105,6 +105,8 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 **Acceptance:** One fake `/agent review` on demo-app leaves a durable `agent_session.v1` + ordered ledger spine ending in exactly one `session_finished`; mismatch result rejected.
 
 ### PR-S2 — Slice 5.4b: Failure / blocked taxonomy
+
+**Status:** **Planned** — see [slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md).
 
 - Terminal reasons: `session_failed`, `session_blocked`, `sandbox_unavailable`, `verification_missing`, `context_overflow`, `policy_denied`, `human_approval_required`.
 - Ensure Risk-2 sandbox deny and policy deny set blocked/failed consistently with existing SRT / tool_policy paths.
