@@ -52,7 +52,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T08** | **§9** Recursive Qwen loop (evidence + CI retries) | T07, T01 | Bounded retry on CI fail with evidence-selected context; no unbounded loop | In Progress |
 | **T09** | Non-demo **6F.2** staged expand (ACP allowlist only) | T03 | Observe → repair-no-publish → one-class publish on ACP; ADR if scope widens | Todo |
 | **T10** | Invocation ack + acting vs invoker identity | T03 | Start + terminal comments; invoker audit fields on session | Done |
-| **T11** | **§10** Read-only MCP graph/memory | T05 | MCP read tools only; no write surface | In Progress |
+| **T11** | **§10** Read-only MCP graph/memory | T05 | MCP read tools only; no write surface | Deploy gate |
 | **T12** | **8d** Controller bake-off (optional) | T07 | Deterministic vs small-transformer vs recurrent metrics; **may Deferred** | Deferred |
 | **T13** | **§11** Patch tournaments / rewards (experiment flag) | T08 | Flag-gated; no default enable | Todo |
 
