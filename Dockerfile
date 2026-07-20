@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY config ./config
 COPY src ./src
+# AgentFacts-lite (V5 T01): human + machine cards + signed manifest for agentctl agentfacts check
+COPY agent-card.json agent-facts.json ./
+COPY docs/AGENT_CARD.md ./docs/AGENT_CARD.md
 
 RUN pip install --no-cache-dir -e ".[dev]"
 

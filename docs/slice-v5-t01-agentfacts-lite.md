@@ -47,6 +47,19 @@ Re-sign after editing either card file. Optional: set `AGENTFACTS_SIGNING_SECRET
 2. `docker compose exec -T control-plane agentctl agentfacts check --repo-root /app </dev/null` → ok
 3. Negative (documented): strip integrity or mutate card → check fails
 
-## Deploy verification
+## Deploy verification (2026-07-20)
 
-_(fill after CT103/CT104 pin)_
+| Field | Value |
+|-------|-------|
+| Tip SHA | `04fad85` (code); follow-up tip after Dockerfile COPY |
+| Status | In Progress — image must COPY card files into `/app` |
+
+### A. CI / Actions
+
+_(fill after Dockerfile tip deploys)_
+
+### Notes
+
+First deploy of `04fad85` pinned CT103+CT104 with Actions×3 success, but in-container
+`agentctl agentfacts check --repo-root /app` failed: Dockerfile did not COPY
+`agent-card.json` / `agent-facts.json` / `docs/AGENT_CARD.md`. Fix shipped in follow-up commit.
