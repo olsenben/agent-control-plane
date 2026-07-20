@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent_facts.v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "name",
+    "capabilities",
+    "limitations",
+    "integrity"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "agent_facts.v1" },
+    "name": { "type": "string", "minLength": 1 },
+    "signed_by": { "type": "string" },
+    "signed_at_utc": { "type": "string" },
+    "capabilities": {
+      "type": "object",
+      "required": ["commands", "blocked_commands", "hosts"],
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "risk_class", "human_approval_required"],
+            "additionalProperties": true,
+            "properties": {
+              "name": { "type": "string" },
+              "risk_class": { "type": "integer", "minimum": 0, "maximum": 3 },
+              "human_approval_required": { "type": "boolean" },
+              "repo_access": { "type": "string" },
+              "memory_writeback": {}
+            }
+          }
+        },
+        "blocked_commands": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "hosts": {
+          "type": "object",
+          "required": ["governance", "execution", "ci_truth"],
+          "additionalProperties": false,
+          "properties": {
+            "governance": { "type": "string" },
+            "execution": { "type": "string" },
+            "ci_truth": { "type": "string" }
+          }
+        },
+        "write_boundaries": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["alg", "digest", "source_hashes"],
+      "additionalProperties": false,
+      "properties": {
+        "alg": { "const": "sha256" },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_hashes": {
+          "type": "object",
+          "required": ["agent_card_md", "agent_card_json"],
+          "additionalProperties": false,
+          "properties": {
+            "agent_card_md": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "agent_card_json": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        },
+        "hmac": {
+          "type": "object",
+          "required": ["alg", "key_id", "sig"],
+          "additionalProperties": false,
+          "properties": {
+            "alg": { "const": "hmac-sha256" },
+            "key_id": { "type": "string" },
+            "sig": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        }
+      }
+    },
+    "documentation": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

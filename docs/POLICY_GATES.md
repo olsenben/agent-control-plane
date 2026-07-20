@@ -135,24 +135,25 @@ memory_retrieved: bool
 run_id: string
 ```
 
-## Agent identity (AgentFacts-lite, target)
+## Agent identity (AgentFacts-lite)
 
-Before A2A/MCP as protocol glue, enforce capability discipline:
+Before A2A/MCP as protocol glue, enforce capability discipline via signed manifests:
+
+- Machine card: [`agent-card.json`](../agent-card.json)
+- Human card: [`AGENT_CARD.md`](AGENT_CARD.md)
+- Signed manifest: [`agent-facts.json`](../agent-facts.json)
+- Check: `agentctl agentfacts check` (fails on human/machine divergence, unsigned, or stale source hashes)
 
 ```yaml
 agent_identity:
-  name: worker-review
-  host: CT104
-  commands_allowed: [review, explain]
-  repo_access: read_only
-  can_write_memory: true
-  can_write_repo: false
-  can_comment_gitea: true
-  model_endpoint: 3080-qwen
+  name: ai-sdlc-lab-control-plane
   signed_by: CT103
+  integrity: sha256(+ optional hmac-sha256)
+  commands_allowed: [inspect, explain, review, plan, fix]
+  blocked: [deploy, migrate, secrets]
 ```
 
-Future: CT103-signed capability manifest per worker role. See §0.5 in V4 plan.
+Per-worker role manifests remain a follow-up; V5 T01 ships control-plane AgentFacts-lite. See [slice-v5-t01-agentfacts-lite.md](slice-v5-t01-agentfacts-lite.md).
 
 ### Deferred — Gitea acting principal vs invoker
 

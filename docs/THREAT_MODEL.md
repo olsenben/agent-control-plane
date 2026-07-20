@@ -17,7 +17,7 @@ See [POLICY_GATES.md](POLICY_GATES.md) for enforcement.
 | `hallucinated_file_reference` | AI system safety | Model cites non-existent paths | Schema validation; graph cross-check |
 | `repeated_failed_fix` | Human-computer interaction | Same issue/file failed N times | Memory-as-governance; require human |
 | `out_of_scope_issue` | Human-computer interaction | Command outside repo/issue scope | Allowlist + intent parser |
-| `capability_spoofing` | Privacy/security | Worker claims permissions it lacks | AgentFacts-lite (target) |
+| `capability_spoofing` | Privacy/security | Worker claims permissions it lacks | AgentFacts-lite (`agentctl agentfacts check`) |
 | `false_verification_confidence` | AI system safety | Model claims success without CI | Verification invariant |
 | `graph_bypass` | AI system safety | Review/plan skipped graph consultation | Require blast-radius in output |
 | `architecture_drift` | AI system safety | ADR declares X; graph shows Y | Architecture drift detector (later) |
@@ -48,7 +48,7 @@ Tests: `tests/test_prompt_injection.py`.
 Before MCP/A2A protocol glue:
 
 - Each CT104 worker role has explicit `commands_allowed`, `repo_access`, `can_write_*` flags
-- CT103 signs or records capability manifest at dispatch time (AgentFacts-lite, future)
+- CT103 records AgentFacts-lite at repo tip (`agent-facts.json`); `agentctl agentfacts check` fails on unsigned/stale/diverged cards
 - Cross-protocol interoperability only after identity discipline exists
 
 ## MCP / A2A attack surface

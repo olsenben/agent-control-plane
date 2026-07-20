@@ -23,6 +23,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0017 | Split acting_identity from human invoked_by | proposed | 2026-07-20 | Bot acting_identity vs human invoked_by; started+terminal ack by run_id |
 | ADR-0018 | Bounded recursive Qwen loop with CI-grounded evidence selection | proposed | 2026-07-20 | Finite CI-fail retries with evidence-selected context; no unbounded loop; no 6F.2 enable |
 | ADR-0019 | Flag-gated patch tournaments and reward logging default off | proposed | 2026-07-20 | experiments.yaml flags off; judge CI-passers only; rewards JSONL |
+| ADR-0020 | AgentFacts-lite content-hash integrity with optional HMAC | proposed | 2026-07-20 | agent-facts.json digest + source hashes; optional HMAC; sync MD↔JSON |
 
 ## Review log
 
@@ -52,3 +53,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0017 proposed: T10 acting_identity vs invoked_by + invocation ack
 - 2026-07-20 — ADR-0018 proposed: T08 bounded recursive Qwen loop; CI-grounded retries; no 6F.2 enable
 - 2026-07-20 — ADR-0019 proposed: T13 flag-gated patch tournaments + reward logging; defaults off
+- 2026-07-20 — ADR-0020 proposed: V5 T01 AgentFacts-lite content-hash integrity + optional HMAC

@@ -158,6 +158,14 @@ class Settings(BaseSettings):
         alias="GRAPH_SNAPSHOT_REPOS",
         description="Optional comma-separated owner/repo override for graph snapshot (tests)",
     )
+    agentfacts_signing_secret: str = Field(
+        default="",
+        alias="AGENTFACTS_SIGNING_SECRET",
+        description=(
+            "Optional HMAC secret for AgentFacts-lite manifests. "
+            "Empty = content-hash integrity only (digest + source hashes)."
+        ),
+    )
 
     @property
     def memory_db_path(self) -> Path:

@@ -1,0 +1,83 @@
+{
+  "schema_version": "agent_facts.v1",
+  "name": "ai-sdlc-lab-control-plane",
+  "signed_by": "CT103",
+  "signed_at_utc": "2026-07-20T22:27:13Z",
+  "capabilities": {
+    "commands": [
+      {
+        "name": "inspect",
+        "risk_class": 0,
+        "human_approval_required": false,
+        "repo_access": "read_only",
+        "memory_writeback": false
+      },
+      {
+        "name": "explain",
+        "risk_class": 0,
+        "human_approval_required": false,
+        "repo_access": "read_only",
+        "memory_writeback": false
+      },
+      {
+        "name": "review",
+        "risk_class": 1,
+        "human_approval_required": false,
+        "repo_access": "read_only",
+        "memory_writeback": "selective"
+      },
+      {
+        "name": "plan",
+        "risk_class": 1,
+        "human_approval_required": false,
+        "repo_access": "read_only",
+        "memory_writeback": "selective"
+      },
+      {
+        "name": "fix",
+        "risk_class": 2,
+        "human_approval_required": true,
+        "repo_access": "branch_write_only",
+        "memory_writeback": true
+      }
+    ],
+    "blocked_commands": [
+      "deploy",
+      "migrate",
+      "secrets"
+    ],
+    "hosts": {
+      "governance": "CT103",
+      "execution": "CT104",
+      "ci_truth": "CT102"
+    },
+    "write_boundaries": {
+      "publish_broker_only": true,
+      "ct104_gitea_write": false,
+      "main_push_allowed": false
+    }
+  },
+  "limitations": [
+    "Single-tenant homelab; no multi-org isolation",
+    "Graph indexer MVP covers subset of node/edge types (see [graph-indexer.md](graph-indexer.md))",
+    "Model findings are **hypotheses** until CT102 CI + human verification",
+    "No autonomous merge to protected branches",
+    "MCP write tools not exposed; read-only MCP state server is future-only",
+    "AgentFacts-lite uses content-hash integrity (+ optional HMAC); re-sign after card edits"
+  ],
+  "documentation": {
+    "agent_card_md": "docs/AGENT_CARD.md",
+    "policy_gates": "docs/POLICY_GATES.md",
+    "memory_schema": "docs/MEMORY_SCHEMA.md",
+    "threat_model": "docs/THREAT_MODEL.md",
+    "evals": "docs/EVALS.md"
+  },
+  "integrity": {
+    "alg": "sha256",
+    "digest": "865441555b38f6e79d5a4e8f4c9dd7dcde8d529fabdd251cc3eed878b55439ba",
+    "source_hashes": {
+      "agent_card_md": "2405b5a7944063e9e71f1ba6bdd6dd4e026c2b391e640954b69a53db7d78c76b",
+      "agent_card_json": "05c8d747c54bc2301d0d17403fe138fde8d30147062b00ef07fdf0aeca8a34cb"
+    }
+  }
+}

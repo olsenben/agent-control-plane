@@ -108,7 +108,7 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 - Model findings are **hypotheses** until CT102 CI + human verification
 - No autonomous merge to protected branches
 - MCP write tools not exposed; read-only MCP state server is future-only
-- AgentFacts signing not yet implemented (planned: AgentFacts-lite)
+- AgentFacts-lite uses content-hash integrity (+ optional HMAC); re-sign after card edits
 
 ## Safety tests
 

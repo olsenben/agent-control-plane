@@ -1152,6 +1152,115 @@ def gitea_open_pr(project: str, head: str, base: str, title: str, body: str) -> 
 
 
 @main.group()
+def agentfacts() -> None:
+    """AgentFacts-lite signed capability / limitation manifests (V5 T01)."""
+
+
+@agentfacts.command("check")
+@click.option(
+    "--repo-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=".",
+    show_default=True,
+)
+@click.option(
+    "--manifest",
+    "manifest_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Path to agent-facts.json (default: <repo-root>/agent-facts.json)",
+)
+@click.option(
+    "--require-hmac",
+    is_flag=True,
+    help="Fail when integrity.hmac is missing or invalid",
+)
+def agentfacts_check(repo_root: Path, manifest_path: Path | None, require_hmac: bool) -> None:
+    """Fail when human/machine cards diverge or manifest is unsigned/stale."""
+    from agent_control.agentfacts import verify_agentfacts
+
+    settings = get_settings()
+    secret = settings.agentfacts_signing_secret or None
+    result = verify_agentfacts(
+        repo_root,
+        manifest_path=manifest_path,
+        signing_secret=secret,
+        require_hmac=require_hmac,
+    )
+    click.echo(json.dumps(result.as_dict(), indent=2))
+    if not result.ok:
+        raise click.ClickException("agentfacts check failed")
+
+
+@agentfacts.command("sign")
+@click.option(
+    "--repo-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=".",
+    show_default=True,
+)
+@click.option(
+    "--out",
+    "out_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output path (default: <repo-root>/agent-facts.json)",
+)
+@click.option("--signed-by", default="CT103", show_default=True)
+def agentfacts_sign(repo_root: Path, out_path: Path | None, signed_by: str) -> None:
+    """Rebuild agent-facts.json from AGENT_CARD.md + agent-card.json."""
+    from agent_control.agentfacts import build_manifest, write_manifest
+    from agent_control.agentfacts.manifest import DEFAULT_MANIFEST_NAME, repo_paths
+
+    settings = get_settings()
+    secret = settings.agentfacts_signing_secret or None
+    md_path, json_path, default_out = repo_paths(repo_root)
+    target = out_path or default_out
+    manifest = build_manifest(
+        agent_card_md=md_path,
+        agent_card_json=json_path,
+        signing_secret=secret,
+        signed_by=signed_by,
+    )
+    write_manifest(target, manifest)
+    click.echo(
+        json.dumps(
+            {
+                "ok": True,
+                "path": str(target),
+                "digest": manifest["integrity"]["digest"],
+                "hmac": bool(manifest["integrity"].get("hmac")),
+                "name": DEFAULT_MANIFEST_NAME,
+            },
+            indent=2,
+        )
+    )
+
+
+@agentfacts.command("show")
+@click.option(
+    "--repo-root",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=".",
+    show_default=True,
+)
+@click.option(
+    "--manifest",
+    "manifest_path",
+    type=click.Path(path_type=Path),
+    default=None,
+)
+def agentfacts_show(repo_root: Path, manifest_path: Path | None) -> None:
+    """Print the committed AgentFacts-lite manifest."""
+    from agent_control.agentfacts import load_manifest
+    from agent_control.agentfacts.manifest import repo_paths
+
+    _, _, default_manifest = repo_paths(repo_root)
+    path = manifest_path or default_manifest
+    click.echo(json.dumps(load_manifest(path), indent=2))
+
+
+@main.group()
 def mcp() -> None:
     """Read-only MCP state/graph/memory server (T11 / Phase 24)."""
 

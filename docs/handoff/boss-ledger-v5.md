@@ -10,12 +10,12 @@ Epic supervisor state. Boss reads **this file first** for post-V4 work. Prior ep
 | **Status doc** | This ledger + per-slice `docs/slice-*.md` |
 | **Umbrella** | TBD — first slice doc when T01 starts |
 | **Integration branch** | `main` |
-| **Epic status** | ready |
+| **Epic status** | in_progress |
 | **Tickets done (count)** | 0 / 6 |
 | **Next ticket** | T01 AgentFacts-lite |
 | **Latest handoff** | — |
 | **Coordinator waves completed** | 0 |
-| **Last boss action** | 2026-07-20 — ledger spawned after V4 closeout |
+| **Last boss action** | 2026-07-20 — continuous V5 run (no pause between phases after DEPLOY_VERIFY PASS) |
 | **Lanes** | [lanes.md](lanes.md) — retired; main only until dual-lane needed |
 | **Environment constraints** | Same as V4: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth; SRT fail-closed Risk 2 |
 
