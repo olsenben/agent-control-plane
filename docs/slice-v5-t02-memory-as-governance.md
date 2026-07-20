@@ -1,6 +1,6 @@
 # Slice V5 T02 — Memory-as-governance
 
-**Status:** In Progress  
+**Status:** Done — deploy verify PASS tip `f2b8ce9` (2026-07-20)  
 **Date:** 2026-07-20  
 **Epic ticket:** T02  
 **Deps:** T01 Done (`bdbdc99`)  
@@ -14,11 +14,11 @@ Block `/agent fix` when trajectory memory shows a **repeated failure class** on 
 
 | Check | Expected | Result |
 |-------|----------|--------|
-| Deny | ≥N failed fix attempts of same `failure_class` + overlapping files, no newer evidence → fix blocked | pending |
-| Allow (no history) | Empty / insufficient failure history → approve path unchanged | pending |
-| Allow (new evidence) | After repeated failures, `new_evidence=true` or newer review/plan findings → allow | pending |
-| Audit | Deny emits `agent.memory_governance_denied` with `repeated_failed_fix` | pending |
-| AgentFacts | `agentctl agentfacts check` still passes after card re-sign | pending |
+| Deny | ≥N failed fix attempts of same `failure_class` + overlapping files, no newer evidence → fix blocked | pass (unit + CT103 smoke) |
+| Allow (no history) | Empty / insufficient failure history → approve path unchanged | pass (unit) |
+| Allow (new evidence) | After repeated failures, `new_evidence=true` or newer review/plan findings → allow | pass (unit) |
+| Audit | Deny emits `agent.memory_governance_denied` with `repeated_failed_fix` | pass (unit + CT103 smoke) |
+| AgentFacts | `agentctl agentfacts check` still passes after card re-sign | pass (CT103) |
 
 ## Design
 
@@ -34,6 +34,60 @@ Block `/agent fix` when trajectory memory shows a **repeated failure class** on 
 agentctl memory governance-check --repo owner/name --issue N --files path/a,path/b
 ```
 
-## Deploy smoke (minimum)
+## Deploy verification (2026-07-20)
 
-Fix path deny when memory says repeated failure class without new evidence; audit event emitted.
+| Field | Value |
+|-------|-------|
+| Ticket ID | T02 |
+| Slice doc | `docs/slice-v5-t02-memory-as-governance.md` |
+| Tip SHA (expected) | `f2b8ce9` |
+| Date (UTC) | 2026-07-20 |
+| Operator | V5 slice coordinator |
+
+### A. CI / Actions (CT102)
+
+| Check | Result | Evidence |
+|-------|--------|----------|
+| test | pass | run #711 |
+| deploy (CT103) | pass | run #712 |
+| deploy-ct104 | pass | run #713 |
+
+(Run IDs unordered by name; all three `success` for tip `f2b8ce9`.)
+
+### B. Host tip pin
+
+| Host | Tip SHA | Match? |
+|------|---------|--------|
+| CT103 (`192.168.4.62`) | `f2b8ce9` | yes |
+| CT104 (`192.168.4.63`) | `f2b8ce9` | yes |
+
+### C. Control-plane health
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| CT103 `/readyz` (redis + state) | ok | status `degraded` (model paths); redis/state ok |
+| Required compose services up | ok | control-plane running tip |
+| Unexpected write-token on CT104 | absent | `CT104_NO_WRITE_TOKEN_OK` |
+
+### D. Slice smoke
+
+| Step | Result | Evidence |
+|------|--------|----------|
+| Seed 2× `lint_failure` memory + governance deny | pass | `T02_DENY_OK` |
+| Audit event `agent.memory_governance_denied` | pass | `T02_AUDIT_OK` |
+| `agentctl agentfacts check` | pass | ok; T02 limitation listed |
+
+### E. Regression floor
+
+| Check | Result |
+|-------|--------|
+| No protected `main` mutation by agent path | pass |
+| Publish via CT103 `publish-broker` only | pass / N/A (unchanged) |
+| Risk 2 still gated | pass (approval + memory governance) |
+
+```text
+DEPLOY_VERIFY: PASS
+tip: f2b8ce9
+next_slice_unblocked: yes
+blocker: none
+```

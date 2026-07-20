@@ -11,11 +11,11 @@ Epic supervisor state. Boss reads **this file first** for post-V4 work. Prior ep
 | **Umbrella** | [slice-v5-t01-agentfacts-lite.md](../slice-v5-t01-agentfacts-lite.md) |
 | **Integration branch** | `main` |
 | **Epic status** | in_progress |
-| **Tickets done (count)** | 1 / 6 |
-| **Next ticket** | T02 Memory-as-governance |
-| **Latest handoff** | [coordinator-handoff-003.md](coordinator-handoff-003.md) |
-| **Coordinator waves completed** | 1 |
-| **Last boss action** | 2026-07-20 — T01 DEPLOY_VERIFY PASS `bdbdc99`; advance to T02 |
+| **Tickets done (count)** | 2 / 6 |
+| **Next ticket** | T03 Review replay console |
+| **Latest handoff** | [coordinator-handoff-004.md](coordinator-handoff-004.md) |
+| **Coordinator waves completed** | 2 |
+| **Last boss action** | 2026-07-20 — T02 DEPLOY_VERIFY PASS `f2b8ce9`; advance to T03 |
 | **Lanes** | [lanes.md](lanes.md) — retired; main only until dual-lane needed |
 | **Environment constraints** | Same as V4: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth; SRT fail-closed Risk 2 |
 
@@ -29,6 +29,8 @@ V4 full build tip `16738d0` — see prior [boss-ledger.md](boss-ledger.md) and [
 
 V5 T01 tip `bdbdc99` — AgentFacts-lite; see [slice-v5-t01-agentfacts-lite.md](../slice-v5-t01-agentfacts-lite.md), ADR-0020.
 
+V5 T02 tip `f2b8ce9` — Memory-as-governance; see [slice-v5-t02-memory-as-governance.md](../slice-v5-t02-memory-as-governance.md), ADR-0021.
+
 ## Remaining tickets (dependency order)
 
 Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
@@ -36,7 +38,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | ID | Slice | Deps | Deploy smoke (minimum) | Status |
 |----|-------|------|------------------------|--------|
 | **T01** | **AgentFacts-lite** — signed capability / limitation manifests | — | Machine + human card stay in sync; unsigned or stale manifest fails a documented check | Done |
-| **T02** | **Memory-as-governance** — block fix on repeated_failed_fix history | T01 | Fix path deny when memory says repeated failure class without new evidence; audit event emitted | Todo |
+| **T02** | **Memory-as-governance** — block fix on repeated_failed_fix history | T01 | Fix path deny when memory says repeated failure class without new evidence; audit event emitted | Done |
 | **T03** | **Review replay console** — issue → context → model → policy → memory | T01 | Operator can replay one finished review session end-to-end from durable artifacts | Todo |
 | **T04** | **Architecture drift detector** — ADR vs graph edges | T01 | Drift report lists missing/extra edges vs ADR facts; fail-soft on CT103 | Todo |
 | **T05** | **SARIF ingest** — findings → graph/security nodes | T03 or T04 | Sample SARIF attaches as evidence nodes; Risk 0/1 only | Todo |
@@ -60,6 +62,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 |------|------------|--------------|-------------|-------|
 | 0 | 2026-07-20 | — | T01 | Ledger created; V4 closed |
 | 1 | 2026-07-20 | [coordinator-handoff-003.md](coordinator-handoff-003.md) | T02 | T01 Done tip `bdbdc99`; Actions 705–707 |
+| 2 | 2026-07-20 | [coordinator-handoff-004.md](coordinator-handoff-004.md) | T03 | T02 Done tip `f2b8ce9`; Actions 711–713 |
 
 ## Boss prompt skeleton
 
