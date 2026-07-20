@@ -275,6 +275,59 @@ def append_memory_preflight_failed(
     )
 
 
+def append_recursive_context_completed(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    digest: str,
+    invoked: bool,
+    skipped: bool,
+    stop_reason: str,
+    relative_path: str,
+) -> tuple[Path, bool]:
+    at = _now()
+    payload = {
+        **correlation_payload(session, run_id=run_id, event_at=at),
+        "artifact_digest": digest,
+        "invoked": invoked,
+        "skipped": skipped,
+        "stop_reason": stop_reason,
+        "relative_path": relative_path,
+        "schema": "recursive_context_result.v1",
+    }
+    return append_session_event(
+        state_root,
+        event_type="agent.recursive_context_completed",
+        session=session,
+        run_id=run_id,
+        payload=payload,
+    )
+
+
+def append_recursive_context_failed(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    reason: str,
+    reason_code: str = "recursive_context_failed",
+) -> tuple[Path, bool]:
+    at = _now()
+    payload = {
+        **correlation_payload(session, run_id=run_id, event_at=at),
+        "reason_code": reason_code,
+        "reason": reason,
+    }
+    return append_session_event(
+        state_root,
+        event_type="agent.recursive_context_failed",
+        session=session,
+        run_id=run_id,
+        payload=payload,
+    )
+
+
 def append_memory_admitted(
     state_root: Path,
     session: AgentSession,

@@ -19,6 +19,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0013 | Selective memory writeback from session trace | proposed | 2026-07-20 | Typed review/plan admit after session_finished; evidence refs; 6E.2 stays fix-only |
 | ADR-0014 | Adequacy profiles scope verification claims | proposed | 2026-07-20 | fixed_verified only when profile passes; agent tests scoped_only by default |
 | ADR-0015 | Orbit dual-graph edges carry provenance | proposed | 2026-07-20 | Provenanced code+SDLC edges; coverage CLI; blast-radius stays fail-soft |
+| ADR-0016 | Conditional recursive context worker on 2070 | proposed | 2026-07-20 | Invoke only when preflight requires; read-only tools; skip path no 2070 |
 
 ## Review log
 
@@ -44,3 +45,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0013 proposed: Slice 5.7 session-trace selective writeback (distinct from 6E.2)
 - 2026-07-20 — ADR-0014 proposed: T04 adequacy profiles; scoped verification / fixed_verified
 - 2026-07-20 — ADR-0015 proposed: T05/8a Orbit dual-graph provenance + coverage; blast-radius fail-soft
+- 2026-07-20 — ADR-0016 proposed: T07/8c conditional recursive context worker; skip path preserves no-2070

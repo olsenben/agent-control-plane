@@ -422,15 +422,20 @@ def test_dispatch_emits_preflight_before_enqueue(
 def test_no_2070_client_constructed(
     state_env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Assert no recursive-controller / 2070 client is imported during prepare."""
+    """Assert no recursive-controller / 2070 client is imported during prepare.
+
+    Slice 8c may load recursive_context modules in other tests; clear them first,
+    then assert the false/skip prepare path does not re-import them.
+    """
     import sys
 
-    banned = [
-        name
-        for name in list(sys.modules)
-        if "recursive_context" in name or "rlm_controller" in name or "gpu_2070" in name
-    ]
-    assert banned == []
+    for name in list(sys.modules):
+        if (
+            "recursive_context" in name
+            or "rlm_controller" in name
+            or "gpu_2070" in name
+        ):
+            del sys.modules[name]
 
     from agent_control.workflows.dispatch import build_rlm_job
 

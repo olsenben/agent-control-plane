@@ -61,6 +61,8 @@ class PreparedTypedDispatch:
     packet: ContextPacket
     preflight_created: bool
     packet_created: bool
+    recursive_context_result: object | None = None
+    recursive_context_created: bool = False
 
 
 def _now() -> str:
@@ -297,10 +299,68 @@ def prepare_typed_rlm_dispatch(
         )
         raise PreflightFatalError(str(exc)) from exc
 
+    # Slice 8c — conditional recursive context (lazy import only when required).
+    rc_result = None
+    rc_created = False
+    if preflight.recursive_context_required:
+        from agent_control.recursive_context.artifacts import (
+            load_recursive_context_artifact,
+            persist_recursive_context_artifact,
+        )
+        from agent_control.recursive_context.worker import run_conditional_recursive_context
+        from agent_control.session.events import append_recursive_context_completed
+
+        existing_rc = load_recursive_context_artifact(
+            state_root, session.project, session.session_id
+        )
+        if existing_rc is not None and session.recursive_context is not None:
+            rc_result = existing_rc
+            rc_ref = session.recursive_context
+            rc_created = False
+        else:
+            try:
+                rc_result = run_conditional_recursive_context(
+                    preflight=preflight,
+                    settings=settings,
+                    state_root=state_root,
+                )
+                rc_result, rc_ref, rc_created = persist_recursive_context_artifact(
+                    state_root, rc_result
+                )
+                if rc_created:
+                    append_recursive_context_completed(
+                        state_root,
+                        session,
+                        run_id=job.run_id,
+                        digest=rc_ref.digest,
+                        invoked=rc_result.invoked,
+                        skipped=rc_result.skipped,
+                        stop_reason=rc_result.stop_reason,
+                        relative_path=rc_ref.relative_path,
+                    )
+                session = session.model_copy(
+                    update={"recursive_context": rc_ref, "updated_at": _now()}
+                )
+                persist_session_with_run_index(state_root, session)
+            except Exception as exc:  # noqa: BLE001 — fail-soft; do not block enqueue
+                from agent_control.session.events import append_recursive_context_failed
+
+                append_recursive_context_failed(
+                    state_root,
+                    session,
+                    run_id=job.run_id,
+                    reason=str(exc),
+                )
+                rc_result = None
+                rc_created = False
+
     job = job.model_copy(
         update={
             "memory_preflight_digest": preflight.artifact_digest,
             "context_packet_digest": packet.artifact_digest,
+            "recursive_context_digest": (
+                session.recursive_context.digest if session.recursive_context else None
+            ),
         }
     )
 
@@ -329,6 +389,8 @@ def prepare_typed_rlm_dispatch(
         packet=packet,
         preflight_created=pf_created,
         packet_created=pkt_created,
+        recursive_context_result=rc_result,
+        recursive_context_created=rc_created,
     )
 
 
