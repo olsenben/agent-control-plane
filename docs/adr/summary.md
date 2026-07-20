@@ -14,6 +14,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0008 | CT102 scheduling and credential-domain split | proposed | 2026-07-19 | Split `runner-ci`/`runner-deploy`; PR deploy label still schedulable; shared Docker residual |
 | ADR-0009 | Central repair allowlist and bounded ACP lint class | proposed | 2026-07-19 | Empty allowlist denies; lint_failure default; publish flag staged |
 | ADR-0010 | CT103-authoritative typed agent sessions | proposed | 2026-07-19 | Durable sess-≠run-; CT103 correlation; ingest vs publish terminal owners |
+| ADR-0011 | Deterministic CT103 context preflight before RLM enqueue | proposed | 2026-07-20 | Mandatory frozen-SHA preflight+packet; degrade optional evidence; no 2070 in 5.5a |
 
 ## Review log
 
@@ -34,3 +35,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-19 — ADR-0008 proposed: CT102 scheduling/credential-domain split (ops unit)
 - 2026-07-19 — ADR-0009 proposed: repair allowlist + bounded ACP lint class (V4.1.1 PR4)
 - 2026-07-19 `dab1e89` — ADR-0010 proposed: CT103 typed sessions (5.4a); `sess-` ≠ `run-`; CT103 correlation authority
+- 2026-07-20 `315becd` — ADR-0011 proposed: Slice 5.5a deterministic CT103 context preflight before RLM enqueue
