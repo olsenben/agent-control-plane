@@ -65,5 +65,5 @@ Worker-supplied `session_id` that disagrees with the CT103 run index → fail cl
 
 ## Follow-on
 
-- **5.4b** — [slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md) (**implemented**; homelab sign-off pending)
+- **5.4b** — [slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md) (**accepted** 2026-07-20)
 - **5.5+** — preflight, verification gate, selective writeback, Gitea ack comments, 2070

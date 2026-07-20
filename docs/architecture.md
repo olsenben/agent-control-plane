@@ -123,10 +123,10 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **5.8 + 6F.2 complete** | **Done (homelab demo)** | See [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md); ADR-0003 for CT104 bwrap caps |
 | **6D.2 / V4.1.1 — CT103 publish brokerage** | **Done (homelab)** | CT104 patch bundles only; `publish-broker` sole Gitea write; barrier cutover 2026-07-18/19. See [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md), ADR-0004 |
 | **V4.1.1 closeout** | **Done (homelab)** | Trust-boundary PRs + staged ACP repair + demo brokerage E2E + CT102 user split. See [slice-v411-closeout.md](slice-v411-closeout.md) |
-| **Next** | **V4.1.2 / 5.5** | 5.4a+5.4b **done in code** ([slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md)); homelab 5.4b sign-off pending → 5.5 → 5.6 → 5.7. See [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) |
+| **Next** | **V4.1.2 / 5.5** | 5.4a+5.4b **done** ([slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md)); homelab 5.4b sign-off 2026-07-20 → **5.5** → 5.6 → 5.7. See [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) |
 | Later | — | Invocation ack + bot identity. Command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph. |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — **2026-07-20: 5.4a typed sessions** + **5.4b taxonomy (code)**. Homelab 5.4b deny-path acceptance pending. **Next: 5.5.**
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — **2026-07-20: 5.4a typed sessions** + **5.4b failure taxonomy** (early/late deny). **Next: 5.5.**
 
 ### Review MVP acceptance (full)
 

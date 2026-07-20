@@ -1,6 +1,6 @@
 # Slice 5.4b — Session failure / blocked taxonomy
 
-**Status:** Implemented (pending homelab sign-off)  
+**Status:** Implemented — homelab sign-off 2026-07-20  
 **Date:** 2026-07-20  
 **Umbrella:** [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md)  
 **Builds on:** [slice-5.4-typed-sessions.md](slice-5.4-typed-sessions.md)
@@ -72,6 +72,13 @@ Emitter validates every `(status, reason_code)` pair against `ALLOWED_REASONS_BY
 `EnqueueResult`: `enqueued` | `deduplicated` | `failed`. Dedupe reuses existing session; only `failed` terminalizes with `enqueue_failed`.
 
 ## Homelab acceptance
+
+**Tip:** `dfb3d22` (CT103+CT104, 2026-07-20 UTC)
+
+| Path | Session | Run | Terminal |
+|------|---------|-----|----------|
+| **A. Early deny** — `/agent fix` without approve on `demo-app#2` (`PLAN-run-1b243189`) | `sess-78ce569432d04dbf979f8a029bf40aa5` | `run-78a9139c9e87976a6757886394b5` | `blocked` / `human_approval_required` |
+| **B. Late deny** — broker attestation gate on READY bundle (no attestations) | `sess-ca35c33bd04f44e3a0d46f48ad95e72e` | `run-54b-late-66b1677f9cb7` | `blocked` / `sandbox_unavailable` (`domain_reasons`: `sandbox_attestation_missing`, `execution_attestation_missing`) |
 
 ### A. Early deny — no approval
 
