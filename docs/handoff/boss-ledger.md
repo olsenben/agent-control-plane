@@ -11,11 +11,11 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Umbrella (active)** | [slice-v412-typed-sessions.md](../slice-v412-typed-sessions.md) |
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
 | **Epic status** | in_progress |
-| **Tickets done (count)** | 8 / 13 remaining track (T01–T07, T10 done) |
-| **Next ticket** | T08 ∥ T11 (T12 Deferred; then T09; then T13) |
-| **Latest handoff** | T10 PASS `4a9acdc` (graph tip `ee2367b`) |
-| **Coordinator waves completed** | 10 |
-| **Last boss action** | 2026-07-20 — wave2 lanes: T08∥T11; T12 Deferred; tip pins serialized |
+| **Tickets done (count)** | 9 / 13 remaining track (T01–T08, T10 done; T11 pending) |
+| **Next ticket** | T11 merge next; then T09; then T13 |
+| **Latest handoff** | T08 PASS `3243cbf` |
+| **Coordinator waves completed** | 12 |
+| **Last boss action** | 2026-07-20 — T08 deploy PASS `3243cbf`; unlocking T11 merge |
 | **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-t08` / `…-lane-t11` |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
@@ -49,7 +49,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T05** | **8a** Orbit-style code + SDLC/evidence graph edges | T03 | `agentctl graph` shows new edge types + provenance; blast-radius still fail-soft | Done |
 | **T06** | **8b** Preflight consumes graph coverage / missing_edges | T05, T01 | Preflight JSON includes coverage; heuristic uses missing_edges | Done |
 | **T07** | **8c** Conditional 2070 recursive context worker | T06 | `recursive_context_required=true` path returns `recursive_context_result.v1`; false path skips 2070 | Done |
-| **T08** | **§9** Recursive Qwen loop (evidence + CI retries) | T07, T01 | Bounded retry on CI fail with evidence-selected context; no unbounded loop | In Progress |
+| **T08** | **§9** Recursive Qwen loop (evidence + CI retries) | T07, T01 | Bounded retry on CI fail with evidence-selected context; no unbounded loop | Done |
 | **T09** | Non-demo **6F.2** staged expand (ACP allowlist only) | T03 | Observe → repair-no-publish → one-class publish on ACP; ADR if scope widens | Todo |
 | **T10** | Invocation ack + acting vs invoker identity | T03 | Start + terminal comments; invoker audit fields on session | Done |
 | **T11** | **§10** Read-only MCP graph/memory | T05 | MCP read tools only; no write surface | Deploy gate |

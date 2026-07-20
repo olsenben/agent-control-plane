@@ -1,6 +1,6 @@
 # Slice T08 — Recursive Qwen loop (evidence + CI retries)
 
-**Status:** Implemented — PR pending merge / deploy-verify owner  
+**Status:** Done — deploy verified — PR pending merge / deploy-verify owner  
 **Date:** 2026-07-20  
 **Epic ticket:** T08  
 **Plan:** V4 impl order item 9 / recursive inference goal (§0.4)  
@@ -49,9 +49,14 @@ After CT102 CI fails, select evidence-focused context (CI failure evidence + opt
 .venv/bin/ruff check .
 ```
 
-## Deploy verification
+## Deploy verification (2026-07-20)
 
-Lane agent stops at `ticket_ready_for_merge`. Deploy-verify owner merges + tip-pins CT103/CT104.
+| Field | Value |
+|-------|-------|
+| Ticket ID | T08 |
+| Tip SHA | `3243cbf` |
+| PR | [#29](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/29) |
+| Verdict | **DEPLOY_VERIFY: PASS** |
 
 ## Follow-on
 
