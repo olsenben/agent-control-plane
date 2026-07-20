@@ -28,7 +28,6 @@ from agent_control.publish.state import (
     cas_transition,
     load_publish_record,
     save_publish_intent,
-    save_publish_record,
 )
 from agent_control.publish.validate import ValidationError, validate_and_commit
 from agent_shared.bundles.inbox import BundleError, copy_bundle_to_snapshot, load_ready_bundle
@@ -491,6 +490,19 @@ def broker_publish_repair(
     if record and record.publish_state == "succeeded":
         return {"ok": True, "idempotent": True}
 
+    # Same publish_state machine as fix: queued → validating → remote_pending → succeeded.
+    cas_transition(
+        state_root,
+        run_id=run_id,
+        kind="repair",
+        attempt_id=attempt_id,
+        bundle_id=bundle_id,
+        from_state="queued",
+        to_state="validating",
+        project=project,
+        agent_branch=agent_branch,
+    )
+
     try:
         manifest, bundle_root = load_ready_bundle(
             state_root,
@@ -507,6 +519,16 @@ def broker_publish_repair(
             require_attestations=True,
         )
         if not eligibility.eligible:
+            cas_transition(
+                state_root,
+                run_id=run_id,
+                kind="repair",
+                attempt_id=attempt_id,
+                bundle_id=bundle_id,
+                from_state="validating",
+                to_state="rejected",
+                messages=eligibility.reason_codes + eligibility.messages,
+            )
             return {
                 "ok": False,
                 "reason": "attestation_gate",
@@ -520,9 +542,29 @@ def broker_publish_repair(
             bundle_id=bundle_id,
         )
     except BundleError as exc:
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="repair",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=[str(exc)],
+        )
         return {"ok": False, "reason": "bundle_invalid", "detail": str(exc)}
 
     if manifest.producer_base_sha != expected_head_commit_sha:
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="repair",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=["producer_base_sha != trusted expected head"],
+        )
         return {
             "ok": False,
             "reason": "base_sha_mismatch",
@@ -542,6 +584,16 @@ def broker_publish_repair(
         for_publish=True,
     )
     if not publish_decision.allowed:
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="repair",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=[publish_decision.reason_code],
+        )
         return {
             "ok": False,
             "reason": "repair_repo_policy",
@@ -572,6 +624,16 @@ def broker_publish_repair(
             commit_message=f"agent(repair): {run_id} ({bundle_id})",
         )
     except ValidationError as exc:
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="repair",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=[f"{exc.reason}: {exc}"],
+        )
         return {"ok": False, "reason": exc.reason, "detail": str(exc)}
 
     # Supersede intent before push
@@ -593,6 +655,22 @@ def broker_publish_repair(
         agent_branch=agent_branch,
     )
 
+    cas_transition(
+        state_root,
+        run_id=run_id,
+        kind="repair",
+        attempt_id=attempt_id,
+        bundle_id=bundle_id,
+        from_state="validating",
+        to_state="remote_pending",
+        expected_commit_sha=validated.commit_sha,
+        trusted_base_sha=expected_head_commit_sha,
+        patch_sha256=validated.patch_sha256,
+        result_tree_sha=validated.result_tree_sha,
+        agent_branch=agent_branch,
+        commit_sha=validated.commit_sha,
+    )
+
     push = push_repair_fast_forward(
         workspace=validated.workspace,
         commit_sha=validated.commit_sha,
@@ -603,6 +681,16 @@ def broker_publish_repair(
         settings=settings,
     )
     if not push.get("ok"):
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="repair",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="remote_pending",
+            to_state="failed_terminal" if push.get("stale") else "failed_retryable",
+            messages=[str(push.get("reason") or "push_failed")],
+        )
         return {
             "ok": False,
             "stale": bool(push.get("stale")),
@@ -651,33 +739,17 @@ def broker_publish_repair(
         publish_state="succeeded",
     )
     _write_auth_result(state_root, auth)
-    if record:
-        cas_transition(
-            state_root,
-            run_id=run_id,
-            kind="repair",
-            attempt_id=attempt_id,
-            bundle_id=bundle_id,
-            from_state=record.publish_state,  # type: ignore[arg-type]
-            to_state="succeeded",
-            commit_sha=validated.commit_sha,
-        )
-    else:
-        from agent_shared.models.publish import PublishRecord
-
-        save_publish_record(
-            state_root,
-            PublishRecord(
-                run_id=run_id,
-                kind="repair",
-                attempt_id=attempt_id,
-                bundle_id=bundle_id,
-                publish_state="succeeded",
-                commit_sha=validated.commit_sha,
-                project=project,
-                updated_at=_now(),
-            ),
-        )
+    cas_transition(
+        state_root,
+        run_id=run_id,
+        kind="repair",
+        attempt_id=attempt_id,
+        bundle_id=bundle_id,
+        from_state="remote_pending",
+        to_state="succeeded",
+        commit_sha=validated.commit_sha,
+        agent_branch=agent_branch,
+    )
 
     return {
         "ok": True,

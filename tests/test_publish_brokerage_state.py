@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from agent_control.publish.state import (
+    cas_transition,
     load_publish_record,
     try_enqueue_cas,
 )
@@ -79,6 +80,74 @@ def test_ingest_enqueues_patch_bundle_ready(tmp_path: Path) -> None:
     rec = load_publish_record(tmp_path, "run-enq", "bundlexyz")
     assert rec is not None
     assert rec.publish_state == "queued"
+
+
+def test_repair_publish_state_machine_path(tmp_path: Path) -> None:
+    """Repair must follow queued → validating → remote_pending → succeeded (not queued→succeeded)."""
+    assert (
+        try_enqueue_cas(
+            tmp_path,
+            run_id="run-repair",
+            kind="repair",
+            attempt_id="1",
+            bundle_id="br1",
+            project="ai-sdlc-lab/agent-control-plane",
+        )
+        is not None
+    )
+    assert (
+        cas_transition(
+            tmp_path,
+            run_id="run-repair",
+            kind="repair",
+            attempt_id="1",
+            bundle_id="br1",
+            from_state="queued",
+            to_state="succeeded",
+        )
+        is None
+    ), "illegal jump queued→succeeded must fail"
+    assert (
+        cas_transition(
+            tmp_path,
+            run_id="run-repair",
+            kind="repair",
+            attempt_id="1",
+            bundle_id="br1",
+            from_state="queued",
+            to_state="validating",
+        )
+        is not None
+    )
+    assert (
+        cas_transition(
+            tmp_path,
+            run_id="run-repair",
+            kind="repair",
+            attempt_id="1",
+            bundle_id="br1",
+            from_state="validating",
+            to_state="remote_pending",
+            commit_sha="abc",
+        )
+        is not None
+    )
+    done = cas_transition(
+        tmp_path,
+        run_id="run-repair",
+        kind="repair",
+        attempt_id="1",
+        bundle_id="br1",
+        from_state="remote_pending",
+        to_state="succeeded",
+        commit_sha="abc",
+    )
+    assert done is not None
+    assert done.publish_state == "succeeded"
+    loaded = load_publish_record(tmp_path, "run-repair", "br1")
+    assert loaded is not None
+    assert loaded.publish_state == "succeeded"
+    assert loaded.commit_sha == "abc"
 
 
 def test_ingest_ignores_legacy_pr_opened(tmp_path: Path) -> None:

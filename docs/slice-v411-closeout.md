@@ -1,6 +1,6 @@
 # V4.1.1 Closeout Bundle (umbrella)
 
-**Status:** In progress — PR 0 first  
+**Status:** Ops stage 1–3 signed — PR units done; optional CT102 user-split + full demo E2E remain  
 **Date:** 2026-07-19  
 **Plan:** V4.1.1 Executor Trust-Boundary Hardening §0.7  
 **Landing rule:** Independently reviewable PRs/ops units — **not** one mega-PR.  
@@ -26,7 +26,7 @@ Finish remaining executor trust-boundary work after 6D.2 publish brokerage: poli
 | **PR 3** | `sandbox_attestation.v1` + `execution_attestation.v1`; durable bundle before teardown — **done** |
 | **Ops + ADR** | CT102 scheduling/credential-domain split; negative PR/deploy tests — **done (docs/ADR)** |
 | **PR 4** | Centralized allowlist + bounded lint/format class (default disabled) — **done** |
-| **Ops enable** | Observe-only → repair-no-publish → one-class CT103 publish on ACP — **stage 1–2 done; stage 3 open** |
+| **Ops enable** | Observe-only → repair-no-publish → one-class CT103 publish on ACP — **stage 1–3 done** |
 
 ## Dependency order
 
@@ -101,7 +101,7 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 
 ## Ops enablement (staged)
 
-**Host knobs (CT103):** `FIX_CI_REPAIR_ALLOWED_REPOS=ai-sdlc-lab/agent-control-plane`, `FIX_CI_REPAIR_ALLOWED_CLASSES=lint_failure` (default), `FIX_CI_REPAIR_PUBLISH_ENABLED=false`; observe/evidence/repair enabled; worker-state recreated.
+**Host knobs (CT103):** `FIX_CI_REPAIR_ALLOWED_REPOS=ai-sdlc-lab/agent-control-plane`, `FIX_CI_REPAIR_ALLOWED_CLASSES=lint_failure` (default), observe/evidence/repair enabled; stage 3 sets `FIX_CI_REPAIR_PUBLISH_ENABLED=true` (was false for stage 1–2).
 
 | Stage | Result |
 |-------|--------|
@@ -113,10 +113,17 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 | Bundle + dual attest; publish still denied | Pass — `STAGE2_BUNDLE_ATTEST_OK` / `STAGE2_BROKER_POLICY_DENY_OK` |
 | CT102 deploy not on PR | Pass — `deploy*.yaml` no `pull_request`; `ci.yaml` is `docker-ci` only (ops separation; ADR-0008) |
 | ACP `tools.yaml` @ tip | Pass — added `.agent/policies/tools.yaml` v2 (`ruff_check` only) @ `3c11499`; `ACP_TOOLS_OK` |
+| Stage 3 publish flag | Pass — `FIX_CI_REPAIR_PUBLISH_ENABLED=true` live on control-plane + publish-broker |
+| Stage 3 ACP lint → dual-attest repair → CT103 push | Pass — PR **#23** `agent/ops-v411-stage3-2054d2ac` broken `7197bc76…` → repaired `3cdfd858…`; RQ `publish-run-ops-s3-f9e90753401d-…` Job OK; `remote_publish_result.json` `succeeded` |
+| Publish-broker image rebuild | Pass — stale image lacked PR4 fields; rebuild → `PUBLISH_BROKER_PR4_OK` (compose deploy must rebuild `publish-broker`, not only control-plane) |
+| Demo pending-ci smoke | Pass — `DEMO_PENDING_SMOKE_OK` (3 pending rows; repair history visible) |
+| CT102 ops-separation reaffirm | Pass — workflow `pull_request` absent on deploy; ADR-0008 residual (shared host/user) noted as follow-up |
 
-**Not yet (stage 3):** `FIX_CI_REPAIR_PUBLISH_ENABLED=true` + real ACP lint failure → CT103 brokerage publish.
+**Lesson:** repair brokerage previously jumped `queued→succeeded` (illegal CAS); push still wrote auth result. Fixed to `queued→validating→remote_pending→succeeded` (same machine as fix).
 
-**Signed ops stage 1–2:** 2026-07-19 — policy gates + bundle/attest + publish deny + CT102 workflow PR check; ACP tools pin green.
+**Throwaway PRs:** #22 / #23 — ops-only lint fixtures; close without merging to `main`.
+
+**Signed ops stage 1–3:** 2026-07-19 — staged rollout through CT103 publish brokerage complete for ACP `lint_failure` class.
 
 ## Related
 
