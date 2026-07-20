@@ -1,6 +1,7 @@
 # V4.1.1 Closeout Bundle (umbrella)
 
-**Status:** Ops stage 1–3 signed — PR units done; optional CT102 user-split + full demo E2E remain  
+**Status:** Closeout complete — PR units + ops stage 1–3 + demo E2E + CT102 user split signed  
+
 **Date:** 2026-07-19  
 **Plan:** V4.1.1 Executor Trust-Boundary Hardening §0.7  
 **Landing rule:** Independently reviewable PRs/ops units — **not** one mega-PR.  
@@ -42,7 +43,7 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 - [x] No write token in Compose / containers / env / bak / systemd / profiles / remnants
 - [x] CT104-originated Gitea write attempt fails (no token in workers; revoked PATs 401)
 - [x] CT103 `agent-bot` (`9d2b2977e2e5`) retained; publish-broker still authenticates
-- [ ] Full demo 6D + 6F.2 regression through brokerage (smoke: broker API OK; full E2E optional follow-up)
+- [x] Full demo 6D + 6F.2 regression through brokerage — `DEMO_E2E_BROKER_OK` (demo-app PR #8 closed; fix `ade1d11a…` → repair `ad5b2b9b…`)
 - [x] Working tree clean for PR 0 commit (local ops scripts remain untracked)
 
 **PR 0 signed off (ops):** 2026-07-19 — CT104 scrub + Gitea DB delete of named `GITEA_AGENT_TOKEN` / `GITEA_BOT_TOKEN` rows; quarantine shredded.
@@ -86,7 +87,9 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 
 - [x] ADR-0008 proposed: named boundary, residual shared-host/Docker risk, acceptance tests, physical-separation trigger
 - [x] Update `runners.md`, `deploy.md`, `cicd-setup.md` (no strong-isolation claim)
-- [ ] Ops follow-up: separate CI/deploy Linux users + negative PR→deploy scheduling test on live CT102
+- [x] Ops follow-up: separate CI/deploy Linux users + negative PR→deploy scheduling test on live CT102
+  - Users `runner-ci` / `runner-deploy`; runners `ct102-ci` / `ct102-deploy`; `CROSS_READ_DENY_OK`
+  - Neg PR **#24** (closed): `runs-on: deploy` **did schedule** on `ct102-deploy` (run 567) with `NO_DEPLOY_SECRETS_IN_ENV` — principal isolation **not** claimed
 
 ## PR 4 acceptance
 
@@ -118,12 +121,15 @@ PR0 → PR1 → PR2 → PR3 → PR4 → observe → repair-no-publish → narrow
 | Publish-broker image rebuild | Pass — stale image lacked PR4 fields; rebuild → `PUBLISH_BROKER_PR4_OK` (compose deploy must rebuild `publish-broker`, not only control-plane) |
 | Demo pending-ci smoke | Pass — `DEMO_PENDING_SMOKE_OK` (3 pending rows; repair history visible) |
 | CT102 ops-separation reaffirm | Pass — workflow `pull_request` absent on deploy; ADR-0008 residual (shared host/user) noted as follow-up |
+| Demo 6D+6F.2 brokerage E2E | Pass — `DEMO_E2E_BROKER_OK`; PR #8 closed; allowlist restored to ACP-only |
+| CT102 user split | Pass — `ct102-ci` / `ct102-deploy`; cross-user `.runner` deny |
+| Neg PR→deploy schedule | Documented fail — PR #24 scheduled on deploy lane; secrets not in env; still not principal isolation |
 
 **Lesson:** repair brokerage previously jumped `queued→succeeded` (illegal CAS); push still wrote auth result. Fixed to `queued→validating→remote_pending→succeeded` (same machine as fix).
 
-**Throwaway PRs:** #22 / #23 — ops-only lint fixtures; close without merging to `main`.
+**Throwaway PRs closed (not merged):** ACP #22 / #23; demo-app #8; ACP #24 (neg deploy probe).
 
-**Signed ops stage 1–3:** 2026-07-19 — staged rollout through CT103 publish brokerage complete for ACP `lint_failure` class.
+**Signed ops stage 1–3 + closeout leftovers:** 2026-07-19/20 — V4.1.1 umbrella ready to hand off to V4.1.2 / session work.
 
 ## Related
 

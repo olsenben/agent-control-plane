@@ -77,12 +77,13 @@ CT102 → CT103/CT104 **deploy SSH** (runner to host) is separate from Gitea git
 
 ## CT102 runner labels
 
-Re-register with `docker-ci,deploy` — see [runners.md](runners.md).
+Split registrations (2026-07-20): `ct102-ci` → `docker-ci`; `ct102-deploy` → `deploy`
+under Linux users `runner-ci` / `runner-deploy`. See [runners.md](runners.md).
 
 **ADR-0008:** This is a *scheduling and credential-domain split* on one host, not a
-strong principal boundary. Deploy workflows are limited to protected `main` /
-`workflow_dispatch`. Do not treat runner labels alone as authorization against a
-malicious PR that requests `deploy`.
+strong principal boundary (shared Docker residual; PR #24 proved `runs-on: deploy`
+on a PR is still schedulable). Deploy workflows are limited to protected `main` /
+`workflow_dispatch`.
 
 ## Verification
 

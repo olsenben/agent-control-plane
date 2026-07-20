@@ -131,14 +131,14 @@ GPU primaries still gate `/readyz` degraded vs ready. External/fallback keys mus
 
 ## CT102 runner (docker-ci + deploy)
 
-Docker container `act_runner` on CT102 with labels `docker-ci,deploy`:
+CT102 (`192.168.4.70`) runs **two** act_runner containers under separate users:
 
-- `docker-ci` — CI for target repos and `agent-control-plane` tests
-- `deploy` — SSH deploy to CT103 (`agent-control-plane` only)
+- `act_runner_ci` (`runner-ci`) — `docker-ci` (+ `ubuntu-latest`)
+- `act_runner_deploy` (`runner-deploy`) — `deploy` only (SSH to CT103/CT104)
 
 See [runners.md](runners.md), [cicd-setup.md](cicd-setup.md), and
 [adr/0008-ct102-scheduling-credential-domain.md](adr/0008-ct102-scheduling-credential-domain.md)
-(scheduling/credential-domain split; shared-host residual risk explicit).
+(scheduling/credential-domain split; shared-Docker residual risk explicit).
 
 ## CT103 deploy target (no runner)
 

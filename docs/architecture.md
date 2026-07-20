@@ -122,10 +122,11 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **6F.2 — CI repair loop** | **Done (homelab demo)** | Gate @ `4ebaab0…`; sandboxed push @ `16886456…` (`repair_pushed`, CI green, pending re-point). See [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
 | **5.8 + 6F.2 complete** | **Done (homelab demo)** | See [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md); ADR-0003 for CT104 bwrap caps |
 | **6D.2 / V4.1.1 — CT103 publish brokerage** | **Done (homelab)** | CT104 patch bundles only; `publish-broker` sole Gitea write; barrier cutover 2026-07-18/19. See [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md), ADR-0004 |
-| **Next** | **V4.1.1 closeout wrap** | Ops stage 1–3 signed; remaining: optional CT102 user split + demo full E2E; merge/close throwaway PRs #22/#23. See [slice-v411-closeout.md](slice-v411-closeout.md) |
-| Later | — | Invocation ack + bot identity. Command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph. V4.1 session/2070 items 5.4–5.7 |
+| **V4.1.1 closeout** | **Done (homelab)** | Trust-boundary PRs + staged ACP repair + demo brokerage E2E + CT102 user split. See [slice-v411-closeout.md](slice-v411-closeout.md) |
+| **Next** | **V4.1.2 / sessions** | Typed sessions (5.4), deterministic context preflight + recursive context worker (5.5), verification evidence (5.6), selective writeback (5.7) |
+| Later | — | Invocation ack + bot identity. Command reconciliation, AgentFacts-lite, replay console, drift detector, MCP graph. |
 
-Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — … **2026-07-19: V4.1.1 ops stage 1–3** ACP `lint_failure` repair publish via CT103 brokerage (PR #23). **Next:** closeout wrap (CT102 user-split follow-up optional).
+Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — … **2026-07-20: V4.1.1 closeout complete** (demo E2E + CT102 `runner-ci`/`runner-deploy`). **Next: V4.1.2 / typed sessions.**
 
 ### Review MVP acceptance (full)
 

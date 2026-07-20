@@ -37,19 +37,26 @@ strong principal boundary.
   blocked by labels alone if Gitea schedules that label for the PR event.
   Server-side workflow trust / protected-path controls are required for a
   principal boundary claim.
-- Separate Linux users, registration tokens, and Docker daemons for CI vs deploy
-  are **deferred** (ops follow-up).
+- Separate Linux users + per-lane act_runner registrations are **done** (2026-07-20):
+  `runner-ci` → `ct102-ci` (`docker-ci`); `runner-deploy` → `ct102-deploy` (`deploy`).
+- Shared Docker daemon / host trust surface remains (not a principal boundary).
+- Separate Docker daemons / CTs remain deferred until physical-separation trigger.
 
 ### Acceptance tests (document / ops)
 
-1. Normal PR CI runs only on `docker-ci`.
+1. Normal PR CI runs only on `docker-ci` — **pass** (`ct102-ci`).
 2. Test PR that explicitly requests `deploy` is rejected, withheld, or
-   unschedulable — **if this fails, Phase 3 remains operational separation only**.
-3. Deploy runs only from protected deployment workflows + protected ref.
-4. CI runner identity cannot read deploy runner config, workdir, SSH key, or env
-   (requires separate users — pending).
-5. CI job env contains no deploy key/token material.
-6. Deploy job still works after configs are fully separated.
+   unschedulable — **fail (expected)**: PR #24 / run 567 job `should-not-be-trusted`
+   scheduled on `ct102-deploy`. Phase remains **operational separation only**.
+3. Deploy runs only from protected deployment workflows + protected ref — **pass**
+   for `deploy.yaml` / `deploy-ct104.yaml` triggers (not `pull_request`).
+4. CI runner identity cannot read deploy runner `.runner` / data dir —
+   **pass** (`CROSS_READ_DENY_OK` between `runner-ci` and `runner-deploy`).
+5. Neg-deploy probe job env contained no `DEPLOY_*` vars (`NO_DEPLOY_SECRETS_IN_ENV`);
+   note: a PR workflow that *references* `secrets.DEPLOY_*` may still receive them
+   on same-repo PRs — Gitea secret ACL / workflow trust required for stronger claims.
+6. Deploy lane still registered and healthy after split (`ct102-deploy` declared
+   labels `[deploy]`; prior `main` deploys green at tip `96937be`).
 
 ### Trigger for physical separation
 

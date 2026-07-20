@@ -11,46 +11,56 @@ CT103 has **no runner**. Target-repo workflows use **`docker-ci` only**.
 
 Never run privileged agent logic or autonomous agent loops on `docker-ci` or `deploy` beyond scoped deploy jobs.
 
-## CT102 runner setup
+## CT102 runner setup (split users — 2026-07-20)
 
-Container `act_runner` on CT102 with labels `docker-ci,deploy`:
+CT102 LXC `gitea-runner` (`192.168.4.70`). Two Linux users + two containers:
+
+| User | Container | Labels | Data |
+|------|-----------|--------|------|
+| `runner-ci` | `act_runner_ci` | `ubuntu-latest`, `docker-ci` | `/opt/act-runner-ci/data` |
+| `runner-deploy` | `act_runner_deploy` | `deploy` | `/opt/act-runner-deploy/data` |
+
+Both still use the shared host Docker socket (residual risk). Combined
+`act_runner` / `/opt/act-runner/data` retired to `data.bak-combined`.
 
 ```bash
-docker run --rm -it \
-  --entrypoint act_runner \
-  -v /opt/act-runner/config.yaml:/config.yaml \
-  -v /opt/act-runner/data:/data \
-  gitea/act_runner:latest \
-  register --no-interactive --config /config.yaml \
-  --instance https://git.ham-sup-lo.com \
-  --token <TOKEN> --name runner-docker-ci-ct102 \
-  --labels "docker-ci,deploy"
-
-docker start act_runner
+# Example recreate (registration token from Gitea instance admin)
+docker run -d --name act_runner_ci --restart unless-stopped \
+  --user "$(id -u runner-ci):$(id -g runner-ci)" \
+  --group-add "$(getent group docker | cut -d: -f3)" \
+  -e GITEA_INSTANCE_URL=https://git.ham-sup-lo.com \
+  -e GITEA_RUNNER_REGISTRATION_TOKEN=<TOKEN> \
+  -e GITEA_RUNNER_NAME=ct102-ci \
+  -e GITEA_RUNNER_LABELS='ubuntu-latest:docker://node:20-bookworm,docker-ci:docker://catthehacker/ubuntu:act-latest' \
+  -e CONFIG_FILE=/data/config.yaml \
+  -v /opt/act-runner-ci/data:/data \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  gitea/act_runner:0.6.1
+# Mirror for act_runner_deploy with labels deploy-only and /opt/act-runner-deploy/data
 ```
 
 # Trust boundaries (V4.1.1 ADR-0008)
 
 | Label | Secrets exposure | Isolation claim |
 |-------|------------------|-----------------|
-| `docker-ci` | No deploy or runtime secrets | Scheduling lane only |
-| `deploy` | `DEPLOY_*` only (repo-scoped) | Scheduling lane only |
+| `docker-ci` | No deploy or runtime secrets | Scheduling lane + separate Linux user |
+| `deploy` | `DEPLOY_*` only when workflow references them | Scheduling lane + separate Linux user |
 
 **Named boundary:** *CT102 scheduling and credential-domain split* — **not** a strong
-principal boundary while one `act_runner` advertises both labels on a shared Docker
-host. Shared-host / shared-Docker residual risk is acknowledged; see
+principal boundary while both runners share a Docker host/daemon. See
 [adr/0008-ct102-scheduling-credential-domain.md](adr/0008-ct102-scheduling-credential-domain.md).
 
 Runtime secrets stay on CT103 `.env` and never enter CI. See [secrets-boundaries.md](secrets-boundaries.md).
 
 ### Negative authorization checks (ops)
 
-1. PR CI uses `docker-ci` only (`ci.yaml`).
-2. A PR that adds `runs-on: deploy` must be rejected/unschedulable — if not, remain
-   operational-separation-only (do not claim principal isolation).
+1. PR CI uses `docker-ci` only (`ci.yaml`) — pass.
+2. PR with `runs-on: deploy` **did schedule** on `ct102-deploy` (PR #24 / run 567) —
+   remain operational-separation-only; do not claim principal isolation.
 3. Deploy workflows run only from protected `main` / `workflow_dispatch`.
-4–6. Separate CI vs deploy Linux users + credential perms (follow-up); confirm CI job
-   env has no `DEPLOY_*`; confirm deploy still works after separation.
+4. Cross-user deny: `runner-ci` cannot read `/opt/act-runner-deploy/data/.runner`.
+5. Neg probe env had `NO_DEPLOY_SECRETS_IN_ENV` (secrets not referenced).
+6. Deploy runner healthy after split (`ct102-deploy` labels `[deploy]`).
 
 ## Not Gitea runners
 
