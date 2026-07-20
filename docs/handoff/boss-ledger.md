@@ -11,11 +11,11 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Umbrella (active)** | [slice-v412-typed-sessions.md](../slice-v412-typed-sessions.md) |
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
 | **Epic status** | in_progress |
-| **Tickets done (count)** | 3 / 13 remaining track (T01–T03 done) |
-| **Next ticket** | T04 |
-| **Latest handoff** | T03 PASS — review→plan memory loop on demo-app#2 |
-| **Coordinator waves completed** | 4 |
-| **Last boss action** | 2026-07-20 — T03 V4.1.2 exit verified; next T04 |
+| **Tickets done (count)** | 4 / 13 remaining track (T01–T04 done) |
+| **Next ticket** | T05 |
+| **Latest handoff** | T04 PASS `e5469f7` |
+| **Coordinator waves completed** | 5 |
+| **Last boss action** | 2026-07-20 — T04 adequacy deploy verified `e5469f7`; next T05 |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
 ## Done condition
@@ -44,7 +44,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T01** | **5.6** Verification evidence gate | T00 | Session cannot finish “verified” without evidence events; fake fix shows `verification_*` / `verification_missing` per policy | Done |
 | **T02** | **5.7** Selective writeback from session trace | T01 | `session_finished` → admitted `memory_record.v1`; second `/agent plan` retrieves it | Done |
 | **T03** | **V4.1.2 exit** — bundle DoD 1–12 on demo-app | T02 | One review + one plan + one fake fix with queryable sessions; memory loop proven | Done |
-| **T04** | **§7** Scoped verification claims + adequacy profile | T03 | Agent-authored test claims scoped; adequacy profile documented + enforced on finish path | Todo |
+| **T04** | **§7** Scoped verification claims + adequacy profile | T03 | Agent-authored test claims scoped; adequacy profile documented + enforced on finish path | Done |
 | **T05** | **8a** Orbit-style code + SDLC/evidence graph edges | T03 | `agentctl graph` shows new edge types + provenance; blast-radius still fail-soft | Todo |
 | **T06** | **8b** Preflight consumes graph coverage / missing_edges | T05, T01 | Preflight JSON includes coverage; heuristic uses missing_edges | Todo |
 | **T07** | **8c** Conditional 2070 recursive context worker | T06 | `recursive_context_required=true` path returns `recursive_context_result.v1`; false path skips 2070 | Todo |
@@ -75,6 +75,7 @@ AgentFacts-lite, memory-as-governance, review replay console, architecture drift
 | 2 | 2026-07-20 | coordinator-handoff-002.md | T02 | T02 5.7 implemented; deploy_gate_pending |
 | 3 | 2026-07-20 | coordinator-handoff-002.md | T03 | T02 5.7 deploy verify PASS `a7dd4c5` |
 | 4 | 2026-07-20 | — | T04 | T03 V4.1.2 exit PASS (review→plan memory loop) |
+| 5 | 2026-07-20 | — | T05 | T04 adequacy deploy verify PASS `e5469f7` |
 
 ## Boss prompt skeleton (fill from this ledger)
 

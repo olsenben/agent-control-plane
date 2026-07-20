@@ -1,6 +1,6 @@
 # Slice T04 — Scoped Verification Claims + Adequacy Profile
 
-**Status:** Implemented — deploy verify pending  
+**Status:** Implemented + deploy verified 2026-07-20 (`e5469f7`)  
 **Date:** 2026-07-20  
 **Epic ticket:** T04  
 **Plan:** V4 §0.5 verification invariant + impl order item 7  
@@ -10,6 +10,22 @@
 ## Goal
 
 Make verification claims explicitly scoped. `fixed_verified` means the configured adequacy profile passed on the exact commit — never universal correctness. Agent-authored tests are `scoped_only` for Risk 2 unless independently attested.
+
+## Deploy verification (2026-07-20)
+
+| Check | Result |
+|-------|--------|
+| Tip | `e5469f7` |
+| Actions | 3 runs success |
+| CT103 / CT104 tip | both `e5469f7` |
+| In-container | `import_ok ci_regression_passed` + `test_adequacy_t04.py` **6 passed** |
+
+```text
+DEPLOY_VERIFY: PASS
+tip: e5469f7
+next_slice_unblocked: yes
+blocker: none
+```
 
 ## Locked policy
 
@@ -40,7 +56,7 @@ Default CT102 aggregate path (unknown agent-test execution) → outcome `ci_regr
 
 ## Deploy verification
 
-_(fill after tip lands)_
+See [Deploy verification (2026-07-20)](#deploy-verification-2026-07-20) above.
 
 ## Follow-on
 
