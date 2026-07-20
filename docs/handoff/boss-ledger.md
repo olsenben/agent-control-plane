@@ -11,11 +11,11 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Umbrella (active)** | [slice-v412-typed-sessions.md](../slice-v412-typed-sessions.md) |
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
 | **Epic status** | in_progress |
-| **Tickets done (count)** | 6 / 13 remaining track (T01–T06 done) |
-| **Next ticket** | T07 (graph lane) ∥ T10 (identity PR #26 held) |
-| **Latest handoff** | T06 PASS `6706a2f` |
-| **Coordinator waves completed** | 8 |
-| **Last boss action** | 2026-07-20 — T06 deploy verify PASS `6706a2f`; unlocked T07 |
+| **Tickets done (count)** | 7 / 13 remaining track (T01–T07 done) |
+| **Next ticket** | T08 (serial) ; T10 merge next |
+| **Latest handoff** | T07 PASS `ee2367b` |
+| **Coordinator waves completed** | 9 |
+| **Last boss action** | 2026-07-20 — T07 deploy verify PASS `ee2367b`; graph lane T05–T07 complete |
 | **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-graph` / `…-lane-identity` |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
@@ -48,7 +48,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T04** | **§7** Scoped verification claims + adequacy profile | T03 | Agent-authored test claims scoped; adequacy profile documented + enforced on finish path | Done |
 | **T05** | **8a** Orbit-style code + SDLC/evidence graph edges | T03 | `agentctl graph` shows new edge types + provenance; blast-radius still fail-soft | Done |
 | **T06** | **8b** Preflight consumes graph coverage / missing_edges | T05, T01 | Preflight JSON includes coverage; heuristic uses missing_edges | Done |
-| **T07** | **8c** Conditional 2070 recursive context worker | T06 | `recursive_context_required=true` path returns `recursive_context_result.v1`; false path skips 2070 | Todo |
+| **T07** | **8c** Conditional 2070 recursive context worker | T06 | `recursive_context_required=true` path returns `recursive_context_result.v1`; false path skips 2070 | Done |
 | **T08** | **§9** Recursive Qwen loop (evidence + CI retries) | T07, T01 | Bounded retry on CI fail with evidence-selected context; no unbounded loop | Todo |
 | **T09** | Non-demo **6F.2** staged expand (ACP allowlist only) | T03 | Observe → repair-no-publish → one-class publish on ACP; ADR if scope widens | Todo |
 | **T10** | Invocation ack + acting vs invoker identity | T03 | Start + terminal comments; invoker audit fields on session | Deploy gate |

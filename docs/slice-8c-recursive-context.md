@@ -1,6 +1,6 @@
 # Slice T07 / 8c — Conditional 2070 recursive context worker
 
-**Status:** Implemented — awaiting deploy-verify merge gate  
+**Status:** Done — deploy verified  
 **Date:** 2026-07-20  
 **Epic ticket:** T07  
 **Plan:** V4 Phase 20 / impl order item 8c  
@@ -46,9 +46,21 @@ After deterministic preflight, invoke a bounded read-only recursive context work
 .venv/bin/pytest tests/test_recursive_context_8c.py tests/test_memory_preflight.py -q
 ```
 
-## Deploy verification
+## Deploy verification (2026-07-20)
 
-Pending merge of `epic/lane-graph-t05-t07` by deploy-verify owner.
+| Field | Value |
+|-------|-------|
+| Ticket ID | T07 |
+| Tip SHA | `ee2367b` (merge `91b8d00` + budget/pydantic fixes) |
+| PR | [#27](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/27) |
+| Verdict | **DEPLOY_VERIFY: PASS** |
+
+| Check | Result |
+|-------|--------|
+| CT102 Actions | pass on tip `ee2367b` |
+| CT103 / CT104 tip | `ee2367b` |
+| Live | `SCHEMA=recursive_context_result.v1`; `agentctl rlm` present |
+| Unit | `tests/test_recursive_context_8c.py` 7 passed |
 
 ## Follow-on
 
