@@ -60,7 +60,10 @@ def run_conditional_recursive_context(
     settings = settings or get_settings()
     state_root = state_root or settings.agent_state_root
     cfg = load_recursive_context_config()
-    budget = budget if budget is not None else budget_from_config(cfg)
+    # Re-validate so budget identity matches RecursiveContextResult's model class
+    # (avoids pydantic model_type errors under editable/CI import edges).
+    raw_budget = budget if budget is not None else budget_from_config(cfg)
+    budget = RecursiveContextBudget.model_validate(raw_budget.model_dump())
     created = _now()
     q = question or _default_question(preflight)
     reasons = list(preflight.invocation_reasons)
