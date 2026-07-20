@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Any
 from urllib.parse import quote
@@ -45,6 +46,13 @@ class GiteaClient:
             logger.info("gitea_api_post run_id=%s path=%s", run_id, path)
         with httpx.Client(timeout=60.0) as client:
             resp = client.post(url, json=body, headers=self._headers())
+            resp.raise_for_status()
+            return resp.json()
+
+    def _put(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        url = f"{self.base_url}/api/v1{path}"
+        with httpx.Client(timeout=60.0) as client:
+            resp = client.put(url, json=body, headers=self._headers())
             resp.raise_for_status()
             return resp.json()
 
@@ -114,6 +122,72 @@ class GiteaClient:
             {"title": title, "body": body, "head": head, "base": base},
             run_id=run_id,
         )
+
+    def create_branch(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        new_branch: str,
+        old_branch: str,
+    ) -> dict[str, Any]:
+        """Create ``new_branch`` from ``old_branch`` (idempotent if already exists)."""
+        try:
+            return self._post(
+                f"/repos/{owner}/{repo}/branches",
+                {"new_branch_name": new_branch, "old_branch_name": old_branch},
+            )
+        except httpx.HTTPStatusError as exc:
+            # 409 already exists — treat as success for propose retries
+            if exc.response is not None and exc.response.status_code in (409, 422):
+                return {"name": new_branch, "already_exists": True}
+            raise
+
+    def get_contents(
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        *,
+        ref: str | None = None,
+    ) -> dict[str, Any] | None:
+        """GET file metadata (sha) at ref; None if missing."""
+        encoded = quote(path, safe="/")
+        url_path = f"/repos/{owner}/{repo}/contents/{encoded}"
+        if ref:
+            url_path += f"?ref={quote(ref, safe='')}"
+        url = f"{self.base_url}/api/v1{url_path}"
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.get(url, headers=self._headers())
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            data = resp.json()
+            return data if isinstance(data, dict) else None
+
+    def create_or_update_file(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        path: str,
+        content: str,
+        message: str,
+        branch: str,
+    ) -> dict[str, Any]:
+        """Create or update a file on ``branch`` via Contents API (base64 body)."""
+        encoded = quote(path, safe="/")
+        body: dict[str, Any] = {
+            "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+            "message": message,
+            "branch": branch,
+        }
+        existing = self.get_contents(owner, repo, path, ref=branch)
+        api_path = f"/repos/{owner}/{repo}/contents/{encoded}"
+        if existing and existing.get("sha"):
+            body["sha"] = existing["sha"]
+            return self._put(api_path, body)
+        return self._post(api_path, body)
 
     async def post_issue_comment_async(
         self,

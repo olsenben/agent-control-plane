@@ -113,6 +113,7 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 - `/agent fix` is denied when memory shows repeated CI failure class on overlapping files without new evidence (V5 T02)
 - Review replay is read-only reconstruction; incomplete durable artifacts yield `complete=false` (V5 T03)
 - SARIF ingest attaches security evidence nodes only (Risk 0/1); does not expand Risk 2 or auto-fix (V5 T05)
+- Prompt/workflow/`.agent` self-improvement is PR-only; in-prod deploy-root self-edit is denied (V5 T06)
 
 ## Safety tests
 

@@ -2,7 +2,7 @@
   "schema_version": "agent_facts.v1",
   "name": "ai-sdlc-lab-control-plane",
   "signed_by": "CT103",
-  "signed_at_utc": "2026-07-20T23:07:32Z",
+  "signed_at_utc": "2026-07-20T23:13:21Z",
   "capabilities": {
     "commands": [
       {
@@ -66,7 +66,8 @@
     "AgentFacts-lite uses content-hash integrity (+ optional HMAC); re-sign after card edits",
     "`/agent fix` is denied when memory shows repeated CI failure class on overlapping files without new evidence (V5 T02)",
     "Review replay is read-only reconstruction; incomplete durable artifacts yield `complete=false` (V5 T03)",
-    "SARIF ingest attaches security evidence nodes only (Risk 0/1); does not expand Risk 2 or auto-fix (V5 T05)"
+    "SARIF ingest attaches security evidence nodes only (Risk 0/1); does not expand Risk 2 or auto-fix (V5 T05)",
+    "Prompt/workflow/`.agent` self-improvement is PR-only; in-prod deploy-root self-edit is denied (V5 T06)"
   ],
   "documentation": {
     "agent_card_md": "docs/AGENT_CARD.md",
@@ -77,9 +78,9 @@
   },
   "integrity": {
     "alg": "sha256",
-    "digest": "b09f6a548354d2ea38b711459fce52a9d256ddc954721c22cb2aadee5d905c1f",
+    "digest": "7ee0fee135404c2a0217b458de2ed439dadfce07f552828035aa74af059c8d6f",
     "source_hashes": {
-      "agent_card_md": "53e820a463b304776c54192136d7d3864d09bda0bd2487df6423162e89b2516b",
+      "agent_card_md": "36fdfd9a3f0e20bf8139537bb2eb03549472a4d652ab1c8b263865ae72789d88",
       "agent_card_json": "05c8d747c54bc2301d0d17403fe138fde8d30147062b00ef07fdf0aeca8a34cb"
     }
   }

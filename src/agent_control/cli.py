@@ -1522,6 +1522,109 @@ def mcp_call(tool_name: str, args_json: str) -> None:
     click.echo(json.dumps(result, indent=2, default=str))
 
 
+@main.group(name="self-improve")
+def self_improve() -> None:
+    """V5 T06: gated self-improvement (prompt/workflow proposals as PRs only)."""
+
+
+@self_improve.command("classify")
+@click.option("--paths", required=True, help="Comma-separated repo-relative paths")
+def self_improve_classify(paths: str) -> None:
+    """Classify paths as gated (PR-only) vs other."""
+    from agent_control.self_improve.paths import GATED_SELF_IMPROVE_GLOBS, classify_paths
+
+    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+    classified = classify_paths(path_list)
+    click.echo(
+        json.dumps(
+            {
+                **classified,
+                "gated_globs": list(GATED_SELF_IMPROVE_GLOBS),
+                "mutation_channel": "gitea_pr_only",
+            },
+            indent=2,
+        )
+    )
+
+
+@self_improve.command("check-in-prod")
+@click.option(
+    "--target",
+    "target_root",
+    required=True,
+    type=click.Path(path_type=Path),
+    help="Filesystem root that would be written (e.g. /opt/.../agent-control-plane)",
+)
+@click.option("--paths", required=True, help="Comma-separated paths to write")
+def self_improve_check_in_prod(target_root: Path, paths: str) -> None:
+    """Deny gated-path writes into a live deploy root (no in-prod self-edit)."""
+    from agent_control.self_improve.gate import (
+        decision_as_dict,
+        evaluate_in_prod_self_edit,
+    )
+
+    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+    decision = evaluate_in_prod_self_edit(target_root, path_list)
+    click.echo(json.dumps(decision_as_dict(decision), indent=2))
+    if decision.policy_decision == "deny":
+        raise SystemExit(2)
+
+
+@self_improve.command("propose")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option(
+    "--path",
+    "file_path",
+    default=None,
+    help="Gated path to propose (default: .agent/self_improve/PROPOSALS.md probe)",
+)
+@click.option(
+    "--content-file",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="File whose contents become the proposed blob",
+)
+@click.option("--note", default="v5-t06", help="Note embedded in probe content")
+@click.option("--dry-run", is_flag=True, default=False)
+@click.option("--base", default="main")
+def self_improve_propose(
+    project: str,
+    file_path: str | None,
+    content_file: Path | None,
+    note: str,
+    dry_run: bool,
+    base: str,
+) -> None:
+    """Open a PR for a gated prompt/workflow/policy change (CT103 Gitea API)."""
+    from agent_control.self_improve.propose import (
+        FileProposal,
+        propose_probe_pr,
+        propose_self_improve,
+        result_as_dict,
+    )
+
+    if file_path is None and content_file is None:
+        result = propose_probe_pr(project=project, note=note, dry_run=dry_run)
+    else:
+        if not file_path:
+            raise click.ClickException("--path required when --content-file is set")
+        if content_file is not None:
+            content = content_file.read_text(encoding="utf-8")
+        else:
+            from agent_control.self_improve.propose import build_probe_content
+
+            content = build_probe_content(note=note)
+        result = propose_self_improve(
+            project=project,
+            files=[FileProposal(path=file_path, content=content)],
+            dry_run=dry_run,
+            base=base,
+        )
+    click.echo(json.dumps(result_as_dict(result), indent=2))
+    if not result.ok:
+        raise SystemExit(2)
+
+
 # Export verify_hmac for tests
 __all__ = ["main", "verify_hmac"]
 

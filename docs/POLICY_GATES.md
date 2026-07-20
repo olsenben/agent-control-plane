@@ -95,9 +95,14 @@ blocked:
   - workflow_file_edit_without_hitl
   - adr_modification_without_hitl
   - fix_memory_before_ci_verified
+  - in_prod_self_edit_of_prompts_workflows  # V5 T06: propose via PR only
 ```
 
 Success means: branch, diff, logs, test output, **CT102 CI aggregate status** (all required workflows green for the exact head SHA) — not model self-assessment.
+
+## Gated self-improvement (V5 T06)
+
+Prompt, workflow, and `.agent/**` policy changes are **not** applied on a live deploy root. The agent opens a PR via CT103 (`agentctl self-improve propose` → `agent/self-improve-*` branch + Contents API). `/agent fix` continues to treat workflows as closed-world `always_denied`. See [slice-v5-t06-gated-self-improvement.md](slice-v5-t06-gated-self-improvement.md).
 
 ## Risk 3 — deploy / migrate / secrets
 
