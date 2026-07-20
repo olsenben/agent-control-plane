@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -164,20 +163,18 @@ def test_budget_exhaustion(state_env: Path) -> None:
         policy_source_sha="pol-b",
     )
     pf = _preflight(session, required=True)
-    # Tiny budget via monkeypatch of budget_from_config
     from agent_shared.models.recursive_context import RecursiveContextBudget
 
-    with patch(
-        "agent_control.recursive_context.worker.budget_from_config",
-        return_value=RecursiveContextBudget(max_subcalls=1, max_graph_queries=1, max_depth=1),
-    ):
-        result = run_conditional_recursive_context(
-            preflight=pf,
-            state_root=state_env,
-        )
+    # Pass budget explicitly — more reliable than patching budget_from_config.
+    result = run_conditional_recursive_context(
+        preflight=pf,
+        state_root=state_env,
+        budget=RecursiveContextBudget(max_subcalls=1, max_graph_queries=1, max_depth=1),
+    )
     assert result.invoked is True
     assert result.budget_used.subcalls <= 1
-    assert result.stop_reason in ("budget_exhausted", "fallback_deterministic", "sufficient_evidence")
+    assert result.budget_used.tool_calls <= 1
+    assert result.stop_reason == "budget_exhausted"
 
 
 def test_prepare_skips_import_when_not_required(

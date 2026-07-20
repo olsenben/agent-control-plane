@@ -16,6 +16,7 @@ from agent_control.session.storage import sessions_dir
 from agent_shared.models.memory_preflight import MemoryPreflight
 from agent_shared.models.recursive_context import (
     SCHEMA_VERSION,
+    RecursiveContextBudget,
     RecursiveContextBudgetUsed,
     RecursiveContextResult,
     RecursiveContextSubcall,
@@ -48,6 +49,7 @@ def run_conditional_recursive_context(
     state_root: Path | None = None,
     primary_model: PrimaryModelFn | None = None,
     force_invoke: bool = False,
+    budget: RecursiveContextBudget | None = None,
 ) -> RecursiveContextResult:
     """Invoke 2070-style recursive exploration only when preflight requires it.
 
@@ -58,7 +60,7 @@ def run_conditional_recursive_context(
     settings = settings or get_settings()
     state_root = state_root or settings.agent_state_root
     cfg = load_recursive_context_config()
-    budget = budget_from_config(cfg)
+    budget = budget if budget is not None else budget_from_config(cfg)
     created = _now()
     q = question or _default_question(preflight)
     reasons = list(preflight.invocation_reasons)
@@ -153,7 +155,7 @@ def run_conditional_recursive_context(
         if time.monotonic() - started > budget.max_wall_seconds:
             stop_reason = "budget_exhausted"
             break
-        if tool_budget.subcalls >= budget.max_subcalls:
+        if not tool_budget.can_subcall() or len(subcalls) >= tool_budget.max_subcalls:
             stop_reason = "budget_exhausted"
             break
         if depth >= budget.max_depth and step.get("depth", 0) > 0:
@@ -181,6 +183,24 @@ def run_conditional_recursive_context(
                 args.setdefault("question", q)
 
         result = tools.invoke(tool_name, args, tool_budget)
+        if result.summary == "budget_exhausted":
+            stop_reason = "budget_exhausted"
+            break
+        if result.error == "tool not allowed" or result.summary == "policy_denied":
+            stop_reason = "policy_denied"
+            _append_trajectory(
+                traj,
+                {
+                    "event": "tool",
+                    "tool": tool_name,
+                    "ok": result.ok,
+                    "summary": result.summary,
+                    "evidence_refs": result.evidence_refs,
+                    "error": result.error,
+                },
+            )
+            break
+
         depth = max(depth, int(step.get("depth") or 0))
         sub = RecursiveContextSubcall(
             tool=tool_name,
@@ -201,13 +221,6 @@ def run_conditional_recursive_context(
                 "error": result.error,
             },
         )
-
-        if result.error == "tool not allowed" or result.summary == "policy_denied":
-            stop_reason = "policy_denied"
-            break
-        if result.summary == "budget_exhausted":
-            stop_reason = "budget_exhausted"
-            break
 
         for ref in result.evidence_refs:
             if ref not in evidence_refs:
