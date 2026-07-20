@@ -1,8 +1,8 @@
-"""Deterministic context preflight + thin context packet (Slice 5.5a)."""
+"""Deterministic context preflight + thin context packet (Slice 5.5a / 8b)."""
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 ComponentStatus = Literal["complete", "unavailable", "truncated"]
 PreflightStatus = Literal["complete", "degraded"]
 
-COMPILER_VERSION = "memory_preflight.v1/5.5a"
+COMPILER_VERSION = "memory_preflight.v1/8b"
 
 # Hard collection bounds (stable truncation).
 MAX_RELEVANT_PRIOR_RUNS = 10
@@ -85,7 +85,8 @@ class MemoryPreflight(BaseModel):
     known_failure_modes: list[str] = Field(default_factory=list)
     rejected_hypotheses_from_prior_runs: list[str] = Field(default_factory=list)
     graph_queries: list[dict] = Field(default_factory=list)
-    graph_coverage: dict[str, int] = Field(default_factory=dict)
+    # Blast counts plus Orbit coverage (edge_kinds, provenance_counts, …).
+    graph_coverage: dict[str, Any] = Field(default_factory=dict)
     missing_graph_edges: list[str] = Field(default_factory=list)
     evidence_event_ids: list[str] = Field(default_factory=list)
     ci_evidence_pointers: list[dict] = Field(default_factory=list)
