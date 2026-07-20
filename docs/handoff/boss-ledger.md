@@ -11,11 +11,11 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Umbrella (active)** | [slice-v412-typed-sessions.md](../slice-v412-typed-sessions.md) |
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
 | **Epic status** | in_progress |
-| **Tickets done (count)** | 4 / 13 remaining track (T01–T04 done) |
-| **Next ticket** | T05 (graph lane) ∥ T10 (identity lane, PR-only) |
-| **Latest handoff** | T04 PASS `e5469f7` |
-| **Coordinator waves completed** | 5 |
-| **Last boss action** | 2026-07-20 — dual lanes: graph T05–T07 + identity T10; deploy-verify owner serializes tip pins |
+| **Tickets done (count)** | 5 / 13 remaining track (T01–T05 done) |
+| **Next ticket** | T06 (graph lane) ∥ T10 (identity lane, PR-only) |
+| **Latest handoff** | T05 PASS `8a5e5a7` |
+| **Coordinator waves completed** | 7 |
+| **Last boss action** | 2026-07-20 — T05 deploy verify PASS `8a5e5a7`; unlocked T06 |
 | **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-graph` / `…-lane-identity` |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
@@ -46,7 +46,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T02** | **5.7** Selective writeback from session trace | T01 | `session_finished` → admitted `memory_record.v1`; second `/agent plan` retrieves it | Done |
 | **T03** | **V4.1.2 exit** — bundle DoD 1–12 on demo-app | T02 | One review + one plan + one fake fix with queryable sessions; memory loop proven | Done |
 | **T04** | **§7** Scoped verification claims + adequacy profile | T03 | Agent-authored test claims scoped; adequacy profile documented + enforced on finish path | Done |
-| **T05** | **8a** Orbit-style code + SDLC/evidence graph edges | T03 | `agentctl graph` shows new edge types + provenance; blast-radius still fail-soft | Todo |
+| **T05** | **8a** Orbit-style code + SDLC/evidence graph edges | T03 | `agentctl graph` shows new edge types + provenance; blast-radius still fail-soft | Done |
 | **T06** | **8b** Preflight consumes graph coverage / missing_edges | T05, T01 | Preflight JSON includes coverage; heuristic uses missing_edges | Todo |
 | **T07** | **8c** Conditional 2070 recursive context worker | T06 | `recursive_context_required=true` path returns `recursive_context_result.v1`; false path skips 2070 | Todo |
 | **T08** | **§9** Recursive Qwen loop (evidence + CI retries) | T07, T01 | Bounded retry on CI fail with evidence-selected context; no unbounded loop | Todo |

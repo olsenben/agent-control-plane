@@ -1,6 +1,6 @@
 # Slice T05 / 8a — Orbit-style code + SDLC/evidence graph edges
 
-**Status:** Implemented — awaiting deploy-verify merge gate  
+**Status:** Done — deploy verified  
 **Date:** 2026-07-20  
 **Epic ticket:** T05  
 **Plan:** V4 Orbit-style graph relationships + impl order item 8a  
@@ -58,9 +58,25 @@ Every edge stores: `provenance`, `confidence`, `source_sha`, `extractor_version`
 .venv/bin/pytest tests/test_graph_orbit_8a.py tests/test_graph_blast_radius.py tests/test_graph_catalog.py tests/test_graph_cli.py -q
 ```
 
-## Deploy verification
+## Deploy verification (2026-07-20)
 
-Pending merge of `epic/lane-graph-t05-t07` by deploy-verify owner (no CT103/CT104 tip pin from this lane).
+| Field | Value |
+|-------|-------|
+| Ticket ID | T05 |
+| Tip SHA | `8a5e5a776936fc95eb78ca2b9a68f39ed032bd4b` (`8a5e5a7`) |
+| PR | [#25](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/25) merged to main |
+| Verdict | **DEPLOY_VERIFY: PASS** |
+
+| Check | Result |
+|-------|--------|
+| CT102 Actions for tip | pass (hosts pinned after success) |
+| CT103 tip | `8a5e5a7` |
+| CT104 tip | `8a5e5a7` |
+| `/readyz` | degraded (model_2070 LAN timeout; redis/state ok) — non-blocking for T05 |
+| `agentctl graph edges` / `coverage` | pass — provenance fields present; coverage reports `missing_graph_edges` honestly |
+| Blast-radius fail-soft | unchanged contract |
+
+Note: live snapshot still shows pre-reindex catalog gaps for some Orbit kinds; T06 preflight should consume those gaps.
 
 ## Follow-on
 
