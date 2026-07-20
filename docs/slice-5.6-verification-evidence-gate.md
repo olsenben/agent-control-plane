@@ -1,6 +1,6 @@
 # Slice 5.6 — Verification Evidence Gate
 
-**Status:** Implemented — deploy verification pending  
+**Status:** Implemented + deploy verified 2026-07-20 (`8df60fc`)  
 **Date:** 2026-07-20  
 **Umbrella:** [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) PR-S4  
 **Builds on:** [slice-5.4-typed-sessions.md](slice-5.4-typed-sessions.md), [slice-5.5-deterministic-preflight.md](slice-5.5-deterministic-preflight.md), [slice-6e-ct102-ci-truth-loop.md](slice-6e-ct102-ci-truth-loop.md)  
@@ -9,6 +9,23 @@
 ## Goal
 
 Sessions cannot claim verified from model prose. CT103 emits machine-recorded `agent.verification_*` events. Fix/repair defer `session_finished` until a 6E CI terminal verdict (or expire → `verification_missing`).
+
+## Deploy verification (2026-07-20)
+
+| Check | Result |
+|-------|--------|
+| Tip | `8df60fc` (`feat(session): Slice 5.6 verification evidence gate`) |
+| Actions | runs 596–598 / tasks 464–468 — test + deploy + deploy-ct104 `success` |
+| CT103 / CT104 host tip | both `8df60fc` |
+| CT103 `/readyz` | redis/state ok (overall may show degraded if optional model path soft-fails) |
+| In-container smoke | `import_ok` + `test_verification_gate_56.py` **6 passed** |
+
+```text
+DEPLOY_VERIFY: PASS
+tip: 8df60fc
+next_slice_unblocked: yes
+blocker: none
+```
 
 ## Locked policy
 

@@ -1,6 +1,6 @@
 # V4.1.2 Bundle — Typed Sessions → Recursive Context (umbrella)
 
-**Status:** Active — 5.6 **implemented** 2026-07-20 (homelab sign-off pending); next **5.7**  
+**Status:** Active — 5.6 **deploy verified** 2026-07-20 (`8df60fc`); next **5.7**  
 **Date:** 2026-07-19  
 **Plan source:** `gitea_agentic_sdlc_cursor_step_plan_v4.md` (§0.2a, §5a, §0.6, DoD §Recursive context, impl order 5.4–5.7 / 8a–8d)  
 **Prerequisite:** V4.1.1 closeout signed ([slice-v411-closeout.md](slice-v411-closeout.md)) — **2026-07-19**  
@@ -126,7 +126,7 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 
 ### PR-S4 — Slice 5.6: Verification evidence gate (session-scoped)
 
-**Status:** **Implemented** 2026-07-20 — see [slice-5.6-verification-evidence-gate.md](slice-5.6-verification-evidence-gate.md). Homelab sign-off pending.
+**Status:** **Deploy verified** 2026-07-20 — tip `8df60fc`; see [slice-5.6-verification-evidence-gate.md](slice-5.6-verification-evidence-gate.md).
 
 - Session cannot claim verified from model prose alone.
 - Emit `agent.verification_requested|passed|failed|missing`.
