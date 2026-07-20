@@ -651,15 +651,123 @@ def rewards_summarize() -> None:
 
 @main.group()
 def rlm() -> None:
-    """RLM context commands."""
+    """RLM / recursive context commands."""
 
 
 @rlm.command("inspect")
-@click.option("--digest", required=True)
-def rlm_inspect(digest: str) -> None:
-    from agent_control.agents import rlm_context
+@click.option("--digest", default=None, help="Legacy digest path stub")
+@click.option("--run-id", default=None, help="Run id for recursive context inspect")
+@click.option("--repo", "project", default=None, help="owner/repo")
+@click.option("--session-id", default=None, help="sess-… to load stored result")
+@click.option("--query", default="", help="Focused question for recursive context")
+@click.option("--force", is_flag=True, help="Force invoke even if preflight would skip")
+def rlm_inspect(
+    digest: str | None,
+    run_id: str | None,
+    project: str | None,
+    session_id: str | None,
+    query: str,
+    force: bool,
+) -> None:
+    """Inspect recursive context (8c) or legacy digest stub."""
+    if digest and not (run_id or session_id):
+        from agent_control.agents import rlm_context
 
-    click.echo(json.dumps(rlm_context.inspect_context(digest)))
+        click.echo(json.dumps(rlm_context.inspect_context(digest), indent=2))
+        return
+
+    settings = get_settings()
+    if session_id and project:
+        from agent_control.recursive_context.artifacts import load_recursive_context_artifact
+
+        existing = load_recursive_context_artifact(
+            settings.agent_state_root, project, session_id
+        )
+        if existing is not None:
+            click.echo(existing.model_dump_json(indent=2))
+            return
+
+    if not project or not run_id:
+        raise click.UsageError("--repo and --run-id required (or --session-id + --repo)")
+
+    from agent_control.memory.preflight import compile_memory_preflight
+    from agent_control.recursive_context.worker import run_conditional_recursive_context
+    from agent_control.session import begin_typed_session
+    from agent_shared.models.jobs import TriggerContext
+
+    trigger = TriggerContext(event_type="cli", issue_number=0, author="cli")
+    session = begin_typed_session(
+        settings.agent_state_root,
+        project=project,
+        command_kind="review",
+        run_id=run_id,
+        head_sha="cli",
+        trigger_context=trigger,
+        policy_source_sha="",
+        subject_kind="issue",
+        subject_number=0,
+        invoked_by="cli",
+    )
+    preflight = compile_memory_preflight(
+        session=session,
+        run_id=run_id,
+        source_sha="cli",
+        policy_source_sha="",
+        trigger_context=trigger,
+        settings=settings,
+    )
+    if force:
+        preflight = preflight.model_copy(
+            update={
+                "recursive_context_required": True,
+                "invocation_reasons": preflight.invocation_reasons
+                or ["explicit_typed_deeper_context_request"],
+                "skip_reason": None,
+            }
+        )
+    result = run_conditional_recursive_context(
+        preflight=preflight,
+        question=query,
+        settings=settings,
+        state_root=settings.agent_state_root,
+        force_invoke=force,
+    )
+    click.echo(result.model_dump_json(indent=2))
+
+
+@rlm.command("run")
+@click.option("--repo", "project", required=True)
+@click.option("--run-id", required=True)
+@click.option("--session-id", required=True)
+@click.option("--query", default="")
+def rlm_run(project: str, run_id: str, session_id: str, query: str) -> None:
+    """Run conditional recursive context using a stored memory_preflight.json."""
+    settings = get_settings()
+    from agent_control.memory.preflight_artifacts import load_preflight_artifact
+    from agent_control.recursive_context.artifacts import persist_recursive_context_artifact
+    from agent_control.recursive_context.worker import run_conditional_recursive_context
+
+    preflight = load_preflight_artifact(settings.agent_state_root, project, session_id)
+    if preflight is None:
+        raise click.ClickException(f"no memory_preflight for {session_id}")
+    result = run_conditional_recursive_context(
+        preflight=preflight,
+        question=query,
+        settings=settings,
+        state_root=settings.agent_state_root,
+    )
+    stamped, ref, created = persist_recursive_context_artifact(settings.agent_state_root, result)
+    click.echo(
+        json.dumps(
+            {
+                "created": created,
+                "digest": ref.digest,
+                "relative_path": ref.relative_path,
+                "result": stamped.model_dump(mode="json"),
+            },
+            indent=2,
+        )
+    )
 
 
 @main.group()

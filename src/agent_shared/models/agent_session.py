@@ -90,6 +90,7 @@ class AgentSession(BaseModel):
     terminal_reason: str | None = None
     memory_preflight: SessionArtifactRef | None = None
     context_packet: SessionArtifactRef | None = None
+    recursive_context: SessionArtifactRef | None = None
     verification: SessionArtifactRef | None = None
 
     @model_validator(mode="after")

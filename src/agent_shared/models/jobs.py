@@ -105,6 +105,7 @@ class RLMJob(BaseModel):
     # Slice 5.5a — audit handoff (worker still uses context_pack for prompts)
     memory_preflight_digest: str | None = None
     context_packet_digest: str | None = None
+    recursive_context_digest: str | None = None
     fix_authorization: FixAuthorizationBinding | None = None
     # V4.1.1 PR3 — CT103-issued anti-replay nonce bound into dual attestations
     attestation_nonce: str = ""

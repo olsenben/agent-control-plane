@@ -1,0 +1,43 @@
+# Conditional RLM recursive context worker (Phase 20 / slice 8c)
+# Controller may inspect evidence and ask focused questions.
+# Controller may NOT choose policy, credentials, publication, verification, or budgets.
+
+recursive_context:
+  enabled: true
+  invocation: conditional
+  controller_role: gpu-2070
+  primary_model_role: summarizer
+  max_depth: 2
+  max_subcalls: 6
+  max_graph_queries: 20
+  max_memory_records: 24
+  max_wall_seconds: 180
+  max_prompt_tokens_per_subcall: 8192
+  max_total_input_tokens: 60000
+  max_total_output_tokens: 12000
+  context_mode: immutable_artifact_refs
+  allow_repo_read_snapshot: true
+  allow_repo_write: false
+  allow_network: false
+  allow_secret_paths: false
+  require_evidence_citations: true
+  log_trajectories: true
+  output_max_chars: 16000
+  stop_on:
+    - sufficient_evidence
+    - contradictory_evidence
+    - policy_denied
+    - budget_exhausted
+    - human_required
+  allowed_tools:
+    - search_events
+    - get_run
+    - get_failure_evidence
+    - find_callers
+    - find_references
+    - find_dependency_path
+    - find_affected_tests
+    - get_adr_facts
+    - get_memory_by_cause
+    - compare_hypotheses
+    - call_primary_model

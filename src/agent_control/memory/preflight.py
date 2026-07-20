@@ -458,7 +458,7 @@ def compile_memory_preflight(
         invocation_reasons=reasons,
         skip_reason=skip or None,
         decision_summary=(
-            "recursive context advisory only; 2070 invoke deferred to 8c"
+            "recursive context required; 8c worker may invoke when enabled"
             if required
             else "deterministic preflight sufficient for dispatch"
         ),
