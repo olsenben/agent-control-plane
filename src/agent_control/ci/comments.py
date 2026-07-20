@@ -81,6 +81,31 @@ def format_ci_status_comment(result: CiVerificationResult) -> str:
         f"  artifact: ci_verification:{result.fix_run_id}:rev{result.verdict_revision}"
     )
     lines.append(f"  limitations: {limitations}")
+    # T04: attach adequacy evaluation for comment surface
+    try:
+        from agent_control.session.adequacy import evaluate_adequacy, profile_for_command
+        from agent_shared.models.verification_claim import VerificationStatus
+
+        profile = profile_for_command("fix")
+        vstatus: VerificationStatus
+        if result.verdict == "verified":
+            vstatus = "passed"
+        elif result.verdict == "failing":
+            vstatus = "failed"
+        elif result.verdict == "expired":
+            vstatus = "missing"
+        else:
+            vstatus = "requested"
+        evaluation = evaluate_adequacy(profile, verification_status=vstatus)
+        lines.append(f"  adequacy_profile: {evaluation.profile_id}")
+        lines.append(f"  adequacy_status: {evaluation.status}")
+        lines.append(f"  adequacy_outcome: {evaluation.outcome_label}")
+        lines.append(f"  fixed_verified: {str(evaluation.fixed_verified).lower()}")
+        for item in evaluation.limitations:
+            if item and item not in limitations:
+                lines.append(f"  adequacy_limitation: {item}")
+    except Exception:
+        logger.exception("ci_comment_adequacy_failed fix_run_id=%s", result.fix_run_id)
     lines.append("")
     lines.append(comment_marker(result.fix_run_id, result.verdict_revision))
     return "\n".join(lines)

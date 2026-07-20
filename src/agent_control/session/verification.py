@@ -131,17 +131,73 @@ def load_verification_claim(
 
 def format_verification_markdown(claim: VerificationClaim) -> str:
     """V4 section 0.5 Verification block for Gitea comments."""
+    scope_bits = [f"commit `{claim.scope_commit_sha}`"]
+    if claim.scope_behavior:
+        scope_bits.append(claim.scope_behavior)
+    if claim.scope_files:
+        scope_bits.append("files: " + ", ".join(f"`{f}`" for f in claim.scope_files[:12]))
     lines = [
         "Verification:",
         f"- claim: {claim.claim}",
-        f"  scope: commit `{claim.scope_commit_sha}`",
+        f"  scope: {'; '.join(scope_bits)}",
         f"  command: {claim.command_id or '(none)'}",
         f"  source: {claim.source}",
         f"  status: {claim.status}",
         f"  artifact: {claim.artifact or '(none)'}",
         f"  limitations: {claim.limitations or '(none)'}",
     ]
+    if claim.adequacy_profile_id:
+        lines.append(f"  adequacy_profile: {claim.adequacy_profile_id}")
+        lines.append(f"  adequacy_status: {claim.adequacy_status or '(none)'}")
+        lines.append(f"  adequacy_outcome: {claim.adequacy_outcome or '(none)'}")
+        lines.append(f"  fixed_verified: {str(claim.fixed_verified).lower()}")
     return "\n".join(lines)
+
+
+def _apply_adequacy_to_claim(
+    claim: VerificationClaim,
+    *,
+    command_kind: str,
+    workflows_observed: list[str] | None = None,
+    agent_test_paths: list[str] | None = None,
+    agent_tests_exercised: bool | None = None,
+) -> VerificationClaim:
+    from agent_control.session.adequacy import evaluate_adequacy, profile_for_command
+
+    profile = profile_for_command(command_kind)
+    evaluation = evaluate_adequacy(
+        profile,
+        verification_status=claim.status,
+        workflows_observed=workflows_observed,
+        agent_test_paths=agent_test_paths,
+        agent_tests_exercised=agent_tests_exercised,
+    )
+    lim_parts = [claim.limitations.strip()] if claim.limitations.strip() else []
+    for item in evaluation.limitations:
+        if item and item not in lim_parts:
+            lim_parts.append(item)
+    claim_text = claim.claim
+    if evaluation.outcome_label == "fixed_verified":
+        claim_text = (
+            "Configured adequacy profile passed on exact commit "
+            f"({evaluation.profile_id}); not universal correctness"
+        )
+    elif evaluation.outcome_label == "ci_regression_passed" and claim.status == "passed":
+        claim_text = (
+            "CT102 required workflows passed (ci_regression_passed); "
+            f"adequacy incomplete for fixed_verified ({evaluation.profile_id})"
+        )
+    return claim.model_copy(
+        update={
+            "claim": claim_text,
+            "limitations": " ".join(lim_parts).strip(),
+            "adequacy_profile_id": evaluation.profile_id,
+            "adequacy_status": evaluation.status,
+            "adequacy_outcome": evaluation.outcome_label,
+            "adequacy_checks": evaluation.checks,
+            "fixed_verified": evaluation.fixed_verified,
+        }
+    )
 
 
 def _attach_ref(session: AgentSession, ref: SessionArtifactRef) -> AgentSession:
@@ -192,6 +248,7 @@ def request_session_verification(
         repo=session.project,
         claim="CT102 required workflows for published agent commit",
         scope_commit_sha=commit_sha,
+        scope_behavior="published agent branch commit only",
         source=source,
         status="requested",
         command_id=command_id,
@@ -202,6 +259,7 @@ def request_session_verification(
         updated_at=now,
         risk_tags=list(session.risk_tags),
     )
+    claim = _apply_adequacy_to_claim(claim, command_kind=session.command_kind)
     stamped, ref, _ = persist_verification_claim(state_root, claim)
     session = _attach_ref(session, ref)
     save_session(state_root, session)
@@ -228,6 +286,7 @@ def emit_ingest_verification_missing(
         repo=session.project,
         claim=f"no CT102/ACI verification applied for /agent {session.command_kind}",
         scope_commit_sha=session.head_sha,
+        scope_behavior=f"{session.command_kind} hypothesis output only",
         source="none",
         status="missing",
         command_id=None,
@@ -240,6 +299,7 @@ def emit_ingest_verification_missing(
         updated_at=now,
         risk_tags=list(session.risk_tags),
     )
+    claim = _apply_adequacy_to_claim(claim, command_kind=session.command_kind)
     stamped, ref, _ = persist_verification_claim(state_root, claim)
     session = _attach_ref(session, ref)
     save_session(state_root, session)
@@ -326,6 +386,7 @@ def apply_ci_verdict_to_session(
         repo=session.project,
         claim=claim_text,
         scope_commit_sha=expected_head_commit_sha,
+        scope_behavior="CT102 required workflows on published agent commit",
         source=source,
         status=status,
         command_id=".gitea/workflows/ci.yaml",
@@ -335,6 +396,11 @@ def apply_ci_verdict_to_session(
         created_at=existing.created_at if existing else now,
         updated_at=now,
         risk_tags=list(session.risk_tags),
+    )
+    claim = _apply_adequacy_to_claim(
+        claim,
+        command_kind=session.command_kind,
+        agent_tests_exercised=None,
     )
     stamped, ref, _ = persist_verification_claim(state_root, claim)
     session = _attach_ref(session, ref)

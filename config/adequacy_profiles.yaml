@@ -1,0 +1,55 @@
+# Adequacy profiles — what "verified" means for each risk/command class.
+# fixed_verified requires all required_checks observed; otherwise claim stays
+# scoped (e.g. ci_regression_passed) with explicit limitations.
+
+schema_version: adequacy_profiles.v1
+
+profiles:
+  risk0_read_only:
+    description: Inspect/explain — no CI claim; verification_missing is expected.
+    applies_to_commands: [inspect, explain]
+    required_checks: []
+    optional_checks: []
+    agent_authored_tests: not_applicable
+    fixed_verified_allowed: false
+
+  risk1_hypothesis:
+    description: Review/plan findings are hypotheses until external evidence exists.
+    applies_to_commands: [review, plan]
+    required_checks: []
+    optional_checks: [graph_blast_radius, structured_output]
+    agent_authored_tests: not_applicable
+    fixed_verified_allowed: false
+    default_limitations: >
+      Findings/plans are hypotheses. No CT102 claim applies.
+      Agent-authored tests (if proposed) are not executed in this session.
+
+  risk2_fix_ci:
+    description: >
+      Fix/repair — CT102 required workflows on exact published SHA.
+      Agent-authored tests are not treated as universal proof; they are in-scope
+      only when named in required CI workflows or explicitly listed as exercised.
+    applies_to_commands: [fix, repair]
+    required_checks:
+      - id: ct102_required_workflows
+        kind: ci_workflow
+        description: Aggregate CT102 required workflows passed on exact commit
+    optional_checks:
+      - id: agent_authored_unit_tests
+        kind: agent_authored_tests
+        description: >
+          Tests added/changed by the agent; scoped to files in the patch.
+          Not assumed covered unless CI workflows include them.
+    agent_authored_tests: scoped_only
+    fixed_verified_allowed: true
+    # fixed_verified only when required_checks pass AND agent_authored_tests
+    # dimension is either not_applicable or explicitly marked observed/incomplete→limitations
+    require_agent_test_limitation_when_unknown: true
+
+default_by_command:
+  inspect: risk0_read_only
+  explain: risk0_read_only
+  review: risk1_hypothesis
+  plan: risk1_hypothesis
+  fix: risk2_fix_ci
+  repair: risk2_fix_ci

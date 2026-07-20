@@ -782,12 +782,18 @@ def session_show(session_id: str, project: str, as_json: bool) -> None:
             "status": claim.status,
             "source": claim.source,
             "scope_commit_sha": claim.scope_commit_sha,
+            "scope_behavior": claim.scope_behavior,
+            "scope_files": claim.scope_files,
             "claim": claim.claim,
             "command_id": claim.command_id,
             "artifact": claim.artifact,
             "limitations": claim.limitations,
             "verdict_revision": claim.verdict_revision,
             "artifact_digest": claim.artifact_digest,
+            "adequacy_profile_id": claim.adequacy_profile_id,
+            "adequacy_status": claim.adequacy_status,
+            "adequacy_outcome": claim.adequacy_outcome,
+            "fixed_verified": claim.fixed_verified,
         }
     click.echo(json.dumps(payload, indent=2))
 
