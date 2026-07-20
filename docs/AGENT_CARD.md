@@ -163,7 +163,8 @@ Model self-review is **not** an acceptance gate.
 | **Slice 6F.2 — repair gate demo** | **2026-07-17** | `demo-app` issue #4 / PR #5 @ `4ebaab0…`; runs 481/482; evidence collected; `agent.fix_ci_repair_requested` + `agent.fix_ci_repair_blocked`; see [slice-6f-ci-failure-repair.md](slice-6f-ci-failure-repair.md) |
 | **Slice 5.8 + 6F.2 — sandboxed repair** | **2026-07-18** | Same PR #5: reservation → CT104 `ci-repair` → SRT verify → non-force push `16886456…`; CT103 pending re-point; Gitea CI green; `main` untouched; ACP `d3d3ea2` + ADR-0003; see [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md) |
 | **Slice 6D.2 / V4.1.1 — publish brokerage** | **2026-07-19** | Barrier cutover: CT104 write tokens stripped; `publish-broker` sole push/PR; seeded fix `71527138…` + repair FF `c88f1e86…` on `demo-app`; plan/review comments via CT103 ingest; see [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md), ADR-0004 |
-| **V4.1.1 closeout (umbrella)** | **in progress** | PR 0+; policy provenance, dual attestation, CT102 sched/cred split, staged ACP one-class repair — [slice-v411-closeout.md](slice-v411-closeout.md) |
+| **V4.1.1 closeout (umbrella)** | **2026-07-19** | Trust-boundary PRs + staged ACP repair + demo brokerage E2E + CT102 user split — [slice-v411-closeout.md](slice-v411-closeout.md) |
+| **Next — V4.1.2 / Slice 5.4** | **in progress** | Typed sessions (5.4a) → preflight → verification gate → selective writeback — [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 
