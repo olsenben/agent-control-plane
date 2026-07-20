@@ -127,7 +127,7 @@ Gitea -> webhook -> policy gate -> memory + graph retrieval
 | **5.8 + 6F.2 complete** | **Done (homelab demo)** | See [slice-5.8-6f2-sandboxed-repair.md](slice-5.8-6f2-sandboxed-repair.md); ADR-0003 for CT104 bwrap caps |
 | **6D.2 / V4.1.1 — CT103 publish brokerage** | **Done (homelab)** | CT104 patch bundles only; `publish-broker` sole Gitea write; barrier cutover 2026-07-18/19. See [slice-6d2-ct103-publish-brokerage.md](slice-6d2-ct103-publish-brokerage.md), ADR-0004 |
 | **V4.1.1 closeout** | **Done (homelab)** | Trust-boundary PRs + staged ACP repair + demo brokerage E2E + CT102 user split. See [slice-v411-closeout.md](slice-v411-closeout.md) |
-| **Next** | **V4.1.2 / 5.7** | 5.6 **deploy verified** ([slice-5.6-verification-evidence-gate.md](slice-5.6-verification-evidence-gate.md)); next selective writeback. Track via [handoff/boss-ledger.md](handoff/boss-ledger.md). |
+| **Next** | **V4.1.2 / T03** | 5.7 **deploy verified** ([slice-5.7-selective-writeback.md](slice-5.7-selective-writeback.md)); next V4.1.2 exit. Track via [handoff/boss-ledger.md](handoff/boss-ledger.md). |
 | Later | — | Adequacy, 8a–8d, ack identity, MCP, tournaments. |
 
 Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — **2026-07-20: 5.4a+5.4b+5.5a+5.6**. **Next: 5.7.**

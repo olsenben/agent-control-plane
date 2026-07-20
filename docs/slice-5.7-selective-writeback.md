@@ -1,6 +1,6 @@
 # Slice 5.7 — Selective Writeback from Session Trace
 
-**Status:** Implemented — deploy verify pending  
+**Status:** Implemented + deploy verified 2026-07-20 (`a7dd4c5`)  
 **Date:** 2026-07-20  
 **Umbrella:** [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) PR-S5  
 **Epic ticket:** T02  
@@ -10,6 +10,23 @@
 ## Goal
 
 On successful `session_finished` for review/plan, CT103 admits `memory_record.v1` from the session trace (structured result + preflight/verification evidence refs). Distinct from 6E.2 CI-verified fix memory.
+
+## Deploy verification (2026-07-20)
+
+| Check | Result |
+|-------|--------|
+| Tip | `a7dd4c5` (`feat(memory): Slice 5.7 selective writeback from session trace`) |
+| Actions | 3 runs for tip — all `success` |
+| CT103 / CT104 host tip | both `a7dd4c5` |
+| CT103 `/readyz` | redis/state ok (overall may show degraded if optional model path soft-fails) |
+| In-container smoke | `import_ok` + `test_session_writeback_57.py` **3 passed** |
+
+```text
+DEPLOY_VERIFY: PASS
+tip: a7dd4c5
+next_slice_unblocked: yes
+blocker: none
+```
 
 ## Locked policy
 
@@ -58,7 +75,7 @@ Fields stamped on admit:
 
 ## Deploy verification
 
-_(fill after tip lands on CT103+CT104)_
+See [Deploy verification (2026-07-20)](#deploy-verification-2026-07-20) above.
 
 ## Follow-on
 

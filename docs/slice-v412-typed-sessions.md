@@ -1,6 +1,6 @@
 # V4.1.2 Bundle — Typed Sessions → Recursive Context (umbrella)
 
-**Status:** Active — 5.6 **deploy verified** 2026-07-20 (`8df60fc`); next **5.7**  
+**Status:** Active — 5.7 **deploy verified** 2026-07-20 (`a7dd4c5`); next **T03** V4.1.2 exit  
 **Date:** 2026-07-19  
 **Plan source:** `gitea_agentic_sdlc_cursor_step_plan_v4.md` (§0.2a, §5a, §0.6, DoD §Recursive context, impl order 5.4–5.7 / 8a–8d)  
 **Prerequisite:** V4.1.1 closeout signed ([slice-v411-closeout.md](slice-v411-closeout.md)) — **2026-07-19**  
@@ -135,7 +135,7 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 
 ### PR-S5 — Slice 5.7: Selective writeback from session trace
 
-**Status:** **Implemented** 2026-07-20 — see [slice-5.7-selective-writeback.md](slice-5.7-selective-writeback.md). Deploy verify pending (epic T02).
+**Status:** **Deploy verified** 2026-07-20 (`a7dd4c5`) — see [slice-5.7-selective-writeback.md](slice-5.7-selective-writeback.md). Epic ticket **T02**.
 
 - On `session_finished`, propose `memory_record.v1` from session+preflight+verification (2070 summarize optional later; start CT103-deterministic extractor).
 - CT103 admission rules: evidence refs, epistemic status, validity, staleness (extend existing memory models).
