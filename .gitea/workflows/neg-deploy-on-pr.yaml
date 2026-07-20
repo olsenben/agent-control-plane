@@ -1,0 +1,12 @@
+# Throwaway negative authorization probe — do not merge.
+name: neg-deploy-on-pr
+on:
+  pull_request:
+jobs:
+  should-not-be-trusted:
+    runs-on: deploy
+    steps:
+      - name: probe
+        run: |
+          echo "NEG_DEPLOY_JOB_RAN"
+          env | grep -E '^DEPLOY_' || echo "NO_DEPLOY_SECRETS_IN_ENV"
