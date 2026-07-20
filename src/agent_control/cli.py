@@ -1027,6 +1027,97 @@ def session_show(session_id: str, project: str, as_json: bool) -> None:
 
 
 @main.group()
+def replay() -> None:
+    """Operator replay console from durable CT103 artifacts (V5 T03)."""
+
+
+@replay.command("review")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--session-id", default=None, help="sess-… id")
+@click.option("--run-id", default=None, help="run-… id (resolves session via index)")
+@click.option(
+    "--allow-unfinished",
+    is_flag=True,
+    default=False,
+    help="Allow non-finished sessions (diagnostics)",
+)
+@click.option(
+    "--text",
+    "as_text",
+    is_flag=True,
+    default=False,
+    help="Emit compact stage text instead of JSON",
+)
+def replay_review(
+    project: str,
+    session_id: str | None,
+    run_id: str | None,
+    allow_unfinished: bool,
+    as_text: bool,
+) -> None:
+    """Replay one review session: issue → context → model → policy → memory."""
+    from agent_control.replay.review import (
+        ReviewReplayError,
+        STAGE_ORDER,
+        build_review_replay,
+        normalize_project,
+    )
+
+    settings = get_settings()
+    try:
+        project = normalize_project(project)
+        doc = build_review_replay(
+            settings.agent_state_root,
+            project=project,
+            session_id=session_id,
+            run_id=run_id,
+            memory_db_path=settings.memory_db_path,
+            require_finished=not allow_unfinished,
+        )
+    except ReviewReplayError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if not as_text:
+        click.echo(json.dumps(doc, indent=2))
+        return
+
+    click.echo(
+        f"review_replay session={doc['session_id']} run={doc.get('run_id')} "
+        f"status={doc['status']} complete={doc['complete']}"
+    )
+    for name in STAGE_ORDER:
+        stage = doc["stages"][name]
+        present = "yes" if stage.get("present") else "no"
+        click.echo(f"  [{name}] present={present}")
+        if name == "issue":
+            click.echo(
+                f"    {stage.get('subject_kind')}#{stage.get('subject_number')} "
+                f"by {stage.get('invoked_by')} head={stage.get('head_sha')}"
+            )
+        elif name == "context":
+            pf = stage.get("memory_preflight") or {}
+            click.echo(
+                f"    preflight={pf.get('status')} digest={pf.get('artifact_digest')}"
+            )
+        elif name == "model":
+            click.echo(
+                f"    policy={stage.get('model_policy')} engine={stage.get('engine')}"
+            )
+        elif name == "policy":
+            click.echo(
+                f"    policy_source_sha={stage.get('policy_source_sha')} "
+                f"risk={stage.get('risk_level')} decision={stage.get('policy_decision')}"
+            )
+        elif name == "memory":
+            rec = stage.get("record") or {}
+            click.echo(
+                f"    record_id={rec.get('record_id')} "
+                f"epistemic={rec.get('epistemic_status')} "
+                f"findings={rec.get('findings_count')}"
+            )
+
+
+@main.group()
 def memory() -> None:
     """Trajectory memory (CT103 SQLite)."""
 

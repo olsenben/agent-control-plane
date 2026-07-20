@@ -26,6 +26,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0020 | AgentFacts-lite content-hash integrity with optional HMAC | proposed | 2026-07-20 | agent-facts.json digest + source hashes; optional HMAC; sync MD↔JSON |
 | ADR-0021 | Memory-as-governance blocks repeated failed fix classes | proposed | 2026-07-20 | Deny fix on ≥N same failure_class without new evidence; audit event |
 | ADR-0022 | Architecture drift detector compares ADR facts to graph edges fail-soft | proposed | 2026-07-20 | ADR vs graph edge report; fail-soft CLI; optional --strict |
+| ADR-0023 | Review replay console from durable session artifacts | proposed | 2026-07-20 | Read-only issue→context→model→policy→memory replay from CT103 artifacts |
 
 ## Review log
 
@@ -58,3 +59,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0020 proposed: V5 T01 AgentFacts-lite content-hash integrity + optional HMAC
 - 2026-07-20 — ADR-0021 proposed: V5 T02 memory-as-governance repeated failed fix deny
 - 2026-07-20 — ADR-0022 proposed: V5 T04 ADR vs graph architecture drift detector (fail-soft)
+- 2026-07-20 — ADR-0023 proposed: V5 T03 review replay console from durable session artifacts

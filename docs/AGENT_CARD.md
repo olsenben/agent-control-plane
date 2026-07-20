@@ -56,6 +56,7 @@ Detail: [POLICY_GATES.md](POLICY_GATES.md).
 - **`worker-state` / results-ingest**: Gitea issue comments for plan/review/inspect/explain (+ failed fix summaries) via `GITEA_BOT_TOKEN`
 - **`publish-broker`**: sole repo mutation (push / PR) + publish lifecycle comments after independent validation
 - Policy gate evaluation, risk tag attachment
+- **`agentctl replay review`**: read-only review replay console (issue → context → model → policy → memory) from durable artifacts
 - No direct `main` / protected-branch mutation
 
 ## Write permissions
@@ -110,6 +111,7 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 - MCP write tools not exposed; read-only MCP state server is future-only
 - AgentFacts-lite uses content-hash integrity (+ optional HMAC); re-sign after card edits
 - `/agent fix` is denied when memory shows repeated CI failure class on overlapping files without new evidence (V5 T02)
+- Review replay is read-only reconstruction; incomplete durable artifacts yield `complete=false` (V5 T03)
 
 ## Safety tests
 

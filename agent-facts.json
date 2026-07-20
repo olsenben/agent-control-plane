@@ -2,7 +2,7 @@
   "schema_version": "agent_facts.v1",
   "name": "ai-sdlc-lab-control-plane",
   "signed_by": "CT103",
-  "signed_at_utc": "2026-07-20T22:45:40Z",
+  "signed_at_utc": "2026-07-20T22:52:06Z",
   "capabilities": {
     "commands": [
       {
@@ -64,7 +64,8 @@
     "No autonomous merge to protected branches",
     "MCP write tools not exposed; read-only MCP state server is future-only",
     "AgentFacts-lite uses content-hash integrity (+ optional HMAC); re-sign after card edits",
-    "`/agent fix` is denied when memory shows repeated CI failure class on overlapping files without new evidence (V5 T02)"
+    "`/agent fix` is denied when memory shows repeated CI failure class on overlapping files without new evidence (V5 T02)",
+    "Review replay is read-only reconstruction; incomplete durable artifacts yield `complete=false` (V5 T03)"
   ],
   "documentation": {
     "agent_card_md": "docs/AGENT_CARD.md",
@@ -75,9 +76,9 @@
   },
   "integrity": {
     "alg": "sha256",
-    "digest": "059ee81a063962fe68fbce3827820e11dd015d5ebc7203b747cb4b8e619de6a7",
+    "digest": "a1ac0671a2055e6c054d66ae0349fdf0cfe97f89b0037dcc11f30e5eca657c5f",
     "source_hashes": {
-      "agent_card_md": "15fa570ed2a608981f02ec0a7b3c68ed885249ac0fdce1f8ac38633051e1217c",
+      "agent_card_md": "c8d004a28a04cf6a857a83df27b899789377ac7e4397f33f787d2188dc65c683",
       "agent_card_json": "05c8d747c54bc2301d0d17403fe138fde8d30147062b00ef07fdf0aeca8a34cb"
     }
   }
