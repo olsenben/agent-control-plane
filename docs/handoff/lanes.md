@@ -19,3 +19,5 @@ Optional T12 (controller bake-off): still Deferred unless explicitly reopened
 ```
 
 Do not recreate worktrees unless a future epic opens disjoint lanes again. Only one **deploy-verify owner** may pin CT103/CT104.
+
+Note: empty leftover folders under `ai-sdlc-lab/agent-control-plane-lane-*` may remain if Windows/Cursor still holds a handle; git worktrees and remote epic branches are already gone. Delete those folders when idle.
