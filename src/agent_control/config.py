@@ -13,6 +13,14 @@ class Settings(BaseSettings):
 
     gitea_base_url: str = Field(default="http://gitea.local:3000", alias="GITEA_BASE_URL")
     gitea_bot_token: str = Field(default="", alias="GITEA_BOT_TOKEN")
+    gitea_acting_identity: str = Field(
+        default="agent-bot",
+        alias="GITEA_ACTING_IDENTITY",
+        description=(
+            "Gitea login for the bot principal that owns GITEA_BOT_TOKEN "
+            "(acting_identity on sessions/comments; never the human invoker)"
+        ),
+    )
     gitea_webhook_secret: str = Field(default="", alias="GITEA_WEBHOOK_SECRET")
     gitea_allowed_repos: str = Field(
         default="ai-sdlc-lab/*",

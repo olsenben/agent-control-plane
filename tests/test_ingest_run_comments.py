@@ -39,7 +39,10 @@ def test_ingest_posts_plan_summary_comment(tmp_path: Path) -> None:
     mock_post.assert_called_once()
     assert mock_post.call_args[0][0] == "ai-sdlc-lab/demo-app"
     assert mock_post.call_args[0][1] == 7
-    assert "Agent Plan" in mock_post.call_args[0][2]
+    body = mock_post.call_args[0][2]
+    assert "Agent Plan" in body
+    assert "acting_identity:" in body
+    assert "run_id: `run-plan-comment`" in body
 
 
 def test_ingest_posts_failed_fix_summary(tmp_path: Path) -> None:

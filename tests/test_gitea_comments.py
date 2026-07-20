@@ -1,9 +1,10 @@
-"""Gitea comment formatter tests (Slice 6D.1)."""
+"""Gitea comment formatter tests (Slice 6D.1 + T10)."""
 
 import ast
 from pathlib import Path
 
 from agent_control.gitea_comments import format_fix_started
+from agent_control.invocation_ack import DEFAULT_ACTING_IDENTITY
 
 
 def test_format_fix_started_broker_when_remote_publish_enabled() -> None:
@@ -17,6 +18,8 @@ def test_format_fix_started_broker_when_remote_publish_enabled() -> None:
     assert "publish-broker" in body
     assert "agent/run-abc" in body
     assert "open PR" in body
+    assert f"acting_identity: `{DEFAULT_ACTING_IDENTITY}`" in body
+    assert "run_id: `run-abc`" in body
 
 
 def test_format_fix_started_local_when_remote_publish_disabled() -> None:
@@ -28,6 +31,7 @@ def test_format_fix_started_local_when_remote_publish_disabled() -> None:
     )
     assert "workspace-local" in body.lower()
     assert "no remote publish" in body.lower()
+    assert f"acting_identity: `{DEFAULT_ACTING_IDENTITY}`" in body
 
 
 def test_gitea_comments_does_not_import_dispatch_fix() -> None:

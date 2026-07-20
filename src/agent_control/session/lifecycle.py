@@ -112,6 +112,21 @@ def _invoked_by_from_trigger(trigger_context: Any, *, fallback: str | None = Non
     return str(author or fallback or "unknown")
 
 
+def _invoker_audit_from_trigger(
+    trigger_context: Any,
+    *,
+    fallback: str | None = None,
+    delivery_id: str | None = None,
+) -> dict[str, Any]:
+    from agent_control.invocation_ack import invoker_fields_from_trigger
+
+    return invoker_fields_from_trigger(
+        trigger_context,
+        delivery_id=delivery_id,
+        fallback_login=fallback,
+    )
+
+
 def create_session_record(
     *,
     project: str,
@@ -125,6 +140,8 @@ def create_session_record(
     subject_kind: SubjectKind | None = None,
     subject_number: int | None = None,
     invoked_by: str | None = None,
+    source_delivery_id: str | None = None,
+    acting_identity: str | None = None,
 ) -> AgentSession:
     """Build a new agent_session.v1 (not yet persisted)."""
     if command_kind not in TYPED_SESSION_COMMANDS:
@@ -154,6 +171,14 @@ def create_session_record(
     )
     now = _now()
     tags = list(risk_tags) if risk_tags is not None else default_risk_tags(command_kind)
+    invoker = _invoker_audit_from_trigger(
+        trigger_context,
+        fallback=invoked_by,
+        delivery_id=source_delivery_id,
+    )
+    from agent_control.invocation_ack import resolve_acting_identity
+
+    acting = acting_identity or resolve_acting_identity()
     return AgentSession(
         session_id=sid,
         project=repo_full,
@@ -169,8 +194,11 @@ def create_session_record(
         policy_source_sha=policy_source_sha or "",
         risk_level=risk_level_for_command(command_kind),
         risk_tags=tags,
-        invoked_by=_invoked_by_from_trigger(trigger_context, fallback=invoked_by),
-        acting_identity=None,
+        invoked_by=invoker["invoked_by"],
+        invoked_by_id=invoker["invoked_by_id"],
+        acting_identity=acting,
+        source_comment_id=invoker["source_comment_id"],
+        source_delivery_id=invoker["source_delivery_id"],
         created_at=now,
         updated_at=now,
     )
@@ -189,6 +217,8 @@ def begin_typed_session(
     subject_kind: SubjectKind | None = None,
     subject_number: int | None = None,
     invoked_by: str | None = None,
+    source_delivery_id: str | None = None,
+    acting_identity: str | None = None,
 ) -> AgentSession:
     """Persist session + index + session_started + subject_context_resolved.
 
@@ -210,6 +240,8 @@ def begin_typed_session(
         subject_kind=subject_kind,
         subject_number=subject_number,
         invoked_by=invoked_by,
+        source_delivery_id=source_delivery_id,
+        acting_identity=acting_identity,
     )
     session = apply_status_transition(
         session,
@@ -390,6 +422,7 @@ def begin_and_block_typed_session(
     subject_kind: SubjectKind | None = None,
     subject_number: int | None = None,
     invoked_by: str | None = None,
+    source_delivery_id: str | None = None,
 ) -> AgentSession:
     """Idempotent compound helper: create blocked session or return existing."""
     existing_index = load_blocked_request_index(state_root, project, request_key)
@@ -446,6 +479,7 @@ def begin_and_block_typed_session(
         subject_kind=subject_kind,
         subject_number=subject_number,
         invoked_by=invoked_by,
+        source_delivery_id=source_delivery_id,
     )
     try:
         blocked = finalize_session_blocked(

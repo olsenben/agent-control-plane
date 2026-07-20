@@ -153,6 +153,7 @@ def prepare_typed_rlm_dispatch(
         subject_kind=subject_kind,  # type: ignore[arg-type]
         subject_number=subject_number,
         invoked_by=invoked_by,
+        source_delivery_id=job.trigger_delivery_id,
     )
     # Ensure policy_source_sha is recorded even on idempotent session reuse.
     if (session.policy_source_sha or "") != policy_sha and not session.policy_source_sha:

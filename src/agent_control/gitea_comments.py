@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from agent_control.config import Settings, get_settings
 from agent_control.gitea_client import GiteaClient
+from agent_control.invocation_ack import (
+    IdentityAudit,
+    append_identity_footer,
+    identity_audit_from_parts,
+)
 from agent_shared.models.approval import FixAuthorizedEvent, WorkItemApproval
 
 
@@ -31,20 +36,31 @@ def format_fix_blocked(
     *,
     target: str,
     reason: str | None,
+    run_id: str | None = None,
+    audit: IdentityAudit | None = None,
 ) -> str:
     lines = [
         "## Fix blocked (Risk 2)",
         "",
         f"Target: `{target}`",
         f"Reason: {reason or 'approval required'}",
-        "",
-        "Required steps:",
-        f"1. `/agent approve {target}` (owner only)",
-        f"2. `/agent fix {target}` after approval",
-        "",
-        "Slice 6B: enqueue CT104 fix worker after approval.",
     ]
-    return "\n".join(lines)
+    if run_id:
+        lines.append(f"Run: `{run_id}`")
+    lines.extend(
+        [
+            "",
+            "Required steps:",
+            f"1. `/agent approve {target}` (owner only)",
+            f"2. `/agent fix {target}` after approval",
+            "",
+            "Slice 6B: enqueue CT104 fix worker after approval.",
+        ]
+    )
+    body = "\n".join(lines)
+    if audit is not None:
+        return append_identity_footer(body, audit)
+    return body
 
 
 def format_fix_started(
@@ -53,6 +69,12 @@ def format_fix_started(
     approval_target_id: str,
     allowed_files: list[str],
     remote_publish_enabled: bool = False,
+    invoked_by: str | None = None,
+    session_id: str | None = None,
+    queue: str | None = "rlm-root",
+    host: str | None = "ct104",
+    audit: IdentityAudit | None = None,
+    settings: Settings | None = None,
 ) -> str:
     files_line = ", ".join(f"`{f}`" for f in allowed_files[:8])
     if len(allowed_files) > 8:
@@ -63,30 +85,56 @@ def format_fix_started(
         if remote_publish_enabled
         else "CT104 is generating a workspace-local patch bundle (no remote publish)."
     )
-    return "\n".join(
-        [
-            "## Fix started (Risk 2)",
-            "",
-            f"Run: `{run_id}`",
-            f"Target: `{approval_target_id}`",
-            f"Allowed files: {files_line or '(none)'}",
-            "",
-            tail,
-        ]
+    lines = [
+        "## Fix started (Risk 2)",
+        "",
+        f"Run: `{run_id}`",
+        "Command: `/agent fix`",
+        f"Target: `{approval_target_id}`",
+        f"Allowed files: {files_line or '(none)'}",
+    ]
+    if invoked_by:
+        lines.append(f"Invoker: `{invoked_by}`")
+    if queue:
+        lines.append(f"Queue: `{queue}`")
+    if host:
+        lines.append(f"Host: `{host}`")
+    lines.extend(["", tail])
+    body = "\n".join(lines)
+    footer = audit or identity_audit_from_parts(
+        invoked_by=invoked_by or "unknown",
+        run_id=run_id,
+        session_id=session_id,
+        settings=settings,
     )
+    return append_identity_footer(body, footer)
 
 
-def format_fix_enqueue_failed(*, target: str, reason: str) -> str:
-    return "\n".join(
+def format_fix_enqueue_failed(
+    *,
+    target: str,
+    reason: str,
+    run_id: str | None = None,
+    audit: IdentityAudit | None = None,
+) -> str:
+    lines = [
+        "## Fix enqueue failed",
+        "",
+        f"Target: `{target}`",
+        f"Reason: {reason}",
+    ]
+    if run_id:
+        lines.append(f"Run: `{run_id}`")
+    lines.extend(
         [
-            "## Fix enqueue failed",
-            "",
-            f"Target: `{target}`",
-            f"Reason: {reason}",
             "",
             "Approval was not consumed. Retry `/agent fix` after infra recovery.",
         ]
     )
+    body = "\n".join(lines)
+    if audit is not None:
+        return append_identity_footer(body, audit)
+    return body
 
 
 def format_non_owner_approval() -> str:
@@ -94,7 +142,11 @@ def format_non_owner_approval() -> str:
 
 
 def format_approval_granted(approval: WorkItemApproval) -> str:
-    files_line = ", ".join(approval.allowed_files) if approval.allowed_files else "(none — patch generation blocked until replan)"
+    files_line = (
+        ", ".join(approval.allowed_files)
+        if approval.allowed_files
+        else "(none — patch generation blocked until replan)"
+    )
     return "\n".join(
         [
             "## Approval granted (Risk 2)",

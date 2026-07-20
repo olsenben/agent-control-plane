@@ -160,6 +160,7 @@ Future: CT103-signed capability manifest per worker role. See §0.5 in V4 plan.
 - **Invoker:** webhook author (or approving human) recorded as `invoked_by` on session events, ledger, and comment footers for auditability.
 - **Ack protocol:** accepted command → started comment; terminal outcome → success/failure/blocked comment (same `run_id`). Policy denials still get a visible failure/blocked ack.
 - Approvals and owner checks bind to the **human** invoker/approver, not the bot account.
+- **Status:** Implemented in epic ticket **T10** — see [slice-t10-invocation-ack-identity.md](slice-t10-invocation-ack-identity.md).
 
 ## Related docs
 

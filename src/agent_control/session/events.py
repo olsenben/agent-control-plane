@@ -86,6 +86,10 @@ def append_session_started(
         **correlation_payload(session, run_id=run_id, event_at=at),
         status=SessionStatus.QUEUED,
         invoked_by=session.invoked_by,
+        invoked_by_id=session.invoked_by_id,
+        acting_identity=session.acting_identity,
+        source_comment_id=session.source_comment_id,
+        source_delivery_id=session.source_delivery_id,
     )
     return append_session_event(
         state_root,
