@@ -16,7 +16,7 @@ CI      — what is broken (CT102)
 2. **Selective writeback** — high-signal fields only; full prompt/output in run artifacts linked by `run_id`.
 3. **Uncertainty first-class** — rejected/uncertain hypotheses, confidence, staleness.
 4. **Risk tags** — every memory record links to governance taxonomy ([THREAT_MODEL.md](THREAT_MODEL.md)).
-5. **Memory-as-governance (later)** — block fix if file/failure mode has bad attempt history.
+5. **Memory-as-governance (V5 T02)** — block fix if file/failure mode has repeated failed attempt history without new evidence.
 
 ## Retrieval stack
 

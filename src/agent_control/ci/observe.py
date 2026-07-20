@@ -614,6 +614,25 @@ def apply_observation(
             settings=settings,
         )
 
+    # V5 T02: failed-fix memory for memory-as-governance (not ci_verified)
+    if (
+        result.verdict == "failing"
+        and previous_verdict != "failing"
+        and evidence_manifest is not None
+        and evidence_manifest.status == "collected"
+        and evidence_manifest.failure_class
+        and evidence_manifest.failure_class != "unknown"
+    ):
+        from agent_control.ci.memory import writeback_fix_ci_failed
+
+        writeback_fix_ci_failed(
+            state_root,
+            pending=pending,
+            failure_class=evidence_manifest.failure_class,
+            evidence_observation_id=evidence_manifest.evidence_observation_id,
+            settings=settings,
+        )
+
     # Slice 5.6: session verification gate (defer finish until CI terminal)
     if result.verdict != previous_verdict or result.verdict in (
         "verified",

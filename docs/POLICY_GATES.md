@@ -23,7 +23,7 @@ Risk class is declared in `.agent/flows.yml` per flow and enforced in CT103 `dis
 3. Public surface restriction (if enabled)
 4. Policy gate: command allowed for repo/project?
 5. Human approval check (Risk 2+)
-6. Memory-as-governance check (later): bad history on file/failure mode?
+6. Memory-as-governance check: repeated failure class on overlapping files without new evidence? (V5 T02)
 7. Graph gate (Fix MVP): plan names affected components + required CI checks?
 8. Dispatch enqueue to CT104
 9. CT104 closed-world diff gate (Slice 6C) — after local patch apply

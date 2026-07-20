@@ -100,7 +100,7 @@ get_rejected_hypotheses(repo, issue_id)
 get_files_with_prior_findings(repo, paths)
 get_blast_radius_history(repo, service_name)
 search_memory_fts(query, repo?)
-memory_as_governance_check(repo, file_paths)   # later: bad attempt history
+memory_as_governance_check(repo, file_paths)   # V5 T02: repeated_failed_fix without new evidence
 ```
 
 ## Write path

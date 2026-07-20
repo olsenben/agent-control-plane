@@ -166,6 +166,19 @@ class Settings(BaseSettings):
             "Empty = content-hash integrity only (digest + source hashes)."
         ),
     )
+    memory_governance_repeated_threshold: int = Field(
+        default=2,
+        alias="MEMORY_GOVERNANCE_REPEATED_THRESHOLD",
+        description=(
+            "Deny /agent fix when memory has this many failed attempts "
+            "of the same failure_class (overlapping files) without new evidence"
+        ),
+    )
+    memory_governance_trajectory_limit: int = Field(
+        default=50,
+        alias="MEMORY_GOVERNANCE_TRAJECTORY_LIMIT",
+        description="Max memory records scanned for memory-as-governance",
+    )
 
     @property
     def memory_db_path(self) -> Path:

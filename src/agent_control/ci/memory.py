@@ -139,3 +139,117 @@ def writeback_fix_ci_verified(
         if existing.memory_quality == "ci_verified":
             return existing
     return store.upsert_record(record)
+
+
+def memory_record_from_ci_failed(
+    event: AgentRunCompletedEvent,
+    *,
+    head_commit_sha: str,
+    failure_class: str,
+    evidence_observation_id: str | None = None,
+) -> MemoryRecord | None:
+    """Build fix memory for a CI-failing attempt (V5 T02 governance input)."""
+    repo_full_name = normalize_repo_full_name(event.repo_full_name or event.project)
+    if repo_full_name is None:
+        return None
+    owner, repo = split_repo_full_name(repo_full_name)
+    now = datetime.now(timezone.utc).isoformat()
+    fix: FixResult | None = event.fix_result
+    files_touched: list[str] = []
+    if fix is not None:
+        files_touched = [c.path for c in fix.changes if c.path]
+
+    fingerprint = evidence_observation_id or f"{head_commit_sha}:{failure_class}"
+    record_id = f"mem-fail-{event.run_id}-{head_commit_sha[:12]}-{failure_class}"
+    return MemoryRecord(
+        record_id=record_id,
+        run_id=f"{event.run_id}:fail:{failure_class}:{head_commit_sha[:12]}",
+        repo_owner=owner,
+        repo_name=repo,
+        repo_full_name=repo_full_name,
+        issue_id=event.issue_id,
+        pr_id=event.opened_pr_number or event.pr_id,
+        branch=event.agent_branch or event.branch or "main",
+        commit_sha=head_commit_sha,
+        source_command="fix",
+        source_run_id=event.run_id,
+        source_model=event.model_policy,
+        source_engine=event.engine,
+        source_commit_sha=head_commit_sha,
+        confidence="medium",
+        memory_quality="structured_result",
+        epistemic_status="observed",
+        evidence_refs=(
+            [f"ci_failure:{evidence_observation_id}"] if evidence_observation_id else []
+        ),
+        created_at=now,
+        updated_at=now,
+        files_touched=files_touched,
+        governance=MemoryGovernance(
+            risk_tags=sorted(
+                set(list(event.risk_tags or []) + ["repeated_failed_fix"])
+            ),
+            policy_decision="deny",
+            risk_class=2,
+        ),
+        audit=MemoryAudit(
+            prompt_hash=event.prompt_hash,
+            prompt_hash_source=event.prompt_hash_source,
+            summary_hash=event.summary_hash,
+            context_sources=list(event.context_sources or []) + ["ci_failure_evidence"],
+            model_tier=event.model_policy,
+            engine=event.engine or "",
+            ingested_at=now,
+        ),
+        recommended_next_step=RecommendedNextStep(
+            command="human",
+            rationale=(
+                f"Fix CI failing ({failure_class}) for {head_commit_sha[:12]}; "
+                "memory-as-governance may block retries without new evidence"
+            ),
+            machine_readable={
+                "outcome": "failed",
+                "failure_class": failure_class,
+                "head_commit_sha": head_commit_sha,
+                "evidence_fingerprint": fingerprint,
+                "files_touched": files_touched,
+                "fix_status": "ci_failing",
+            },
+        ),
+    )
+
+
+def writeback_fix_ci_failed(
+    state_root: Path,
+    *,
+    pending: PendingCiRecord,
+    failure_class: str,
+    evidence_observation_id: str | None = None,
+    settings: Settings | None = None,
+) -> MemoryRecord | None:
+    """Upsert failed-fix memory for governance (distinct from 6E.2 ci_verified)."""
+    if not failure_class or failure_class == "unknown":
+        return None
+    settings = settings or get_settings()
+    event = _find_run_completed(state_root, pending.repository, pending.fix_run_id)
+    if event is None:
+        logger.warning(
+            "ci_failed_memory_no_run_completed fix_run_id=%s",
+            pending.fix_run_id,
+        )
+        return None
+
+    record = memory_record_from_ci_failed(
+        event,
+        head_commit_sha=pending.expected_head_commit_sha,
+        failure_class=failure_class,
+        evidence_observation_id=evidence_observation_id,
+    )
+    if record is None:
+        return None
+
+    store = MemoryStore(settings.memory_db_path)
+    existing = store.get_by_run_id(record.run_id)
+    if existing is not None and existing.record_id == record.record_id:
+        return existing
+    return store.upsert_record(record)

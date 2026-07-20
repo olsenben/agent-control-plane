@@ -109,6 +109,7 @@ Fix approval is recorded as a CT103 event (`human.approval_granted`).
 - No autonomous merge to protected branches
 - MCP write tools not exposed; read-only MCP state server is future-only
 - AgentFacts-lite uses content-hash integrity (+ optional HMAC); re-sign after card edits
+- `/agent fix` is denied when memory shows repeated CI failure class on overlapping files without new evidence (V5 T02)
 
 ## Safety tests
 

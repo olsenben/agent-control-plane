@@ -1031,6 +1031,61 @@ def memory_trajectory(project: str, issue_id: int, limit: int) -> None:
     )
 
 
+@memory.command("governance-check")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--issue", "issue_id", type=int, required=True)
+@click.option(
+    "--files",
+    default="",
+    help="Comma-separated file paths in fix scope (optional)",
+)
+@click.option(
+    "--threshold",
+    default=None,
+    type=int,
+    help="Override repeated-failure threshold (default from settings)",
+)
+def memory_governance_check(
+    project: str,
+    issue_id: int,
+    files: str,
+    threshold: int | None,
+) -> None:
+    """V5 T02: deny fix when repeated_failed_fix history lacks new evidence."""
+    settings = get_settings()
+    repo_full_name = normalize_repo_full_name(project)
+    if repo_full_name is None:
+        raise click.ClickException(f"invalid repo: {project}")
+    from agent_control.memory.governance import memory_as_governance_check
+
+    file_paths = [p.strip() for p in files.split(",") if p.strip()]
+    decision = memory_as_governance_check(
+        repo_full_name,
+        issue_id,
+        file_paths=file_paths or None,
+        threshold=threshold,
+        settings=settings,
+    )
+    click.echo(
+        json.dumps(
+            {
+                "policy_decision": decision.policy_decision,
+                "reason": decision.reason,
+                "failure_class": decision.failure_class,
+                "attempt_count": decision.attempt_count,
+                "threshold": decision.threshold,
+                "overlapping_files": decision.overlapping_files,
+                "risk_tags": decision.risk_tags,
+                "new_evidence": decision.new_evidence,
+                "matched_run_ids": decision.matched_run_ids,
+            },
+            indent=2,
+        )
+    )
+    if decision.policy_decision == "deny":
+        raise SystemExit(2)
+
+
 @main.group()
 def runs() -> None:
     """Inspect CT104 run artifacts."""

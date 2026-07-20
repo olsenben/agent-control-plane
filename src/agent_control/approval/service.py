@@ -240,6 +240,37 @@ def evaluate_fix_request(
             approval=approval,
             plan_record=record,
         )
+
+    # V5 T02: memory-as-governance (after approval checks; before authorize)
+    from agent_control.memory.governance import (
+        append_memory_governance_denied,
+        memory_as_governance_check,
+    )
+    from agent_control.memory.store import MemoryStore
+    from agent_shared.repo_identity import normalize_repo_full_name
+
+    repo_full = normalize_repo_full_name(project) or canonical_project(project)
+    gov = memory_as_governance_check(
+        repo_full,
+        issue_id,
+        file_paths=list(approval.allowed_files or []),
+        store=MemoryStore(state_root / "memory" / "memory.sqlite"),
+    )
+    if gov.policy_decision == "deny":
+        append_memory_governance_denied(
+            state_root,
+            project=project,
+            issue_id=issue_id,
+            approval_target_id=record.approval_target_id,
+            decision=gov,
+        )
+        return FixEvaluation(
+            policy_decision="blocked",
+            reason=gov.reason or "memory_governance:denied",
+            approval=approval,
+            plan_record=record,
+        )
+
     return FixEvaluation(
         policy_decision="approved",
         approval=approval,
