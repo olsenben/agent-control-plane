@@ -95,7 +95,7 @@ def propose_self_improve(
     decision = evaluate_proposal_eligibility(paths)
     if decision.policy_decision != "allow":
         if emit_event:
-            _append_denied(settings.state_root, repo_full, decision, paths)
+            _append_denied(settings.agent_state_root, repo_full, decision, paths)
         return ProposeResult(
             ok=False,
             reason=decision.reason,
@@ -193,7 +193,7 @@ def propose_self_improve(
         risk_tags=["self_improve"],
     )
     if emit_event:
-        _append_proposed(settings.state_root, out)
+        _append_proposed(settings.agent_state_root, out)
     return out
 
 
