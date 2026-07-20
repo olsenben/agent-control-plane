@@ -1,6 +1,6 @@
 # Slice T11 — Read-only MCP graph/memory
 
-**Status:** Implemented — awaiting deploy-verify owner merge  
+**Status:** Done — deploy verified — awaiting deploy-verify owner merge  
 **Date:** 2026-07-20  
 **Epic ticket:** T11  
 **Plan:** V4 Phase 24 / impl order item 10  
@@ -65,6 +65,11 @@ write_repo, write_state, git_push, adr_mutate
 .venv/bin/ruff check .
 ```
 
-## Deploy verification
+## Deploy verification (2026-07-20)
 
-Held for deploy-verify owner (prefer after T08 tip green). Lane stops at `ticket_ready_for_merge`.
+| Field | Value |
+|-------|-------|
+| Ticket ID | T11 |
+| Tip SHA | `d28bfb8` |
+| PR | [#28](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/28) |
+| Verdict | **DEPLOY_VERIFY: PASS** |
