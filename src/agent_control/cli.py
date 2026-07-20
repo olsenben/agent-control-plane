@@ -40,8 +40,6 @@ from agent_shared.models.state import VerificationState
 from agent_control.workflows import dispatch as dispatch_wf
 from agent_control.workflows import fix as fix_wf
 from agent_control.workflows import review as review_wf
-from agent_control.workflows import reward as reward_wf
-from agent_control.workflows import tournament as tournament_wf
 from agent_control.graph.blast_radius import export_blast_radius_json
 from agent_control.graph.context_pack import compile_context_pack, write_context_pack_export
 from agent_control.graph.coverage import export_coverage_json, export_edges_json
@@ -590,8 +588,13 @@ def fix_ci_reconcile(project: str | None) -> None:
     click.echo(json.dumps(results, indent=2))
 
 
-@main.command()
+@main.group()
 def repair() -> None:
+    """6F.2 repair status and staged ACP expand (T09)."""
+
+
+@repair.command("status")
+def repair_status_cmd() -> None:
     """6F.2 repair status — reservation/lease + worker (see slice-5.8-6f2)."""
     settings = get_settings()
     click.echo(
@@ -615,38 +618,12 @@ def repair() -> None:
     )
 
 
-@main.group()
-def tournament() -> None:
-    """Patch tournament (experiment flag)."""
+@repair.command("stage-status")
+def repair_stage_status_cmd() -> None:
+    """Report Observe → repair-no-publish → one-class publish readiness."""
+    from agent_control.ci.repair_stages import repair_stage_status
 
-
-@tournament.command("spawn")
-@click.option("--finding-id", required=True)
-def tournament_spawn(finding_id: str) -> None:
-    click.echo(json.dumps(tournament_wf.spawn_tournament(finding_id)))
-
-
-@tournament.command("judge")
-def tournament_judge() -> None:
-    from agent_control.agents import judge
-
-    click.echo(json.dumps(judge.run_judge([])))
-
-
-@main.group()
-def rewards() -> None:
-    """Reward logging commands."""
-
-
-@rewards.command("log")
-@click.option("--run-id", required=True)
-def rewards_log(run_id: str) -> None:
-    click.echo(json.dumps(reward_wf.log_reward(run_id, {})))
-
-
-@rewards.command("summarize")
-def rewards_summarize() -> None:
-    click.echo(json.dumps({"status": "stub"}))
+    click.echo(json.dumps(repair_stage_status(), indent=2, sort_keys=True))
 
 
 @main.group()
