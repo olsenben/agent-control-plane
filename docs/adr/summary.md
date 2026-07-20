@@ -25,6 +25,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0019 | Flag-gated patch tournaments and reward logging default off | proposed | 2026-07-20 | experiments.yaml flags off; judge CI-passers only; rewards JSONL |
 | ADR-0020 | AgentFacts-lite content-hash integrity with optional HMAC | proposed | 2026-07-20 | agent-facts.json digest + source hashes; optional HMAC; sync MD↔JSON |
 | ADR-0021 | Memory-as-governance blocks repeated failed fix classes | proposed | 2026-07-20 | Deny fix on ≥N same failure_class without new evidence; audit event |
+| ADR-0022 | Architecture drift detector compares ADR facts to graph edges fail-soft | proposed | 2026-07-20 | ADR vs graph edge report; fail-soft CLI; optional --strict |
 
 ## Review log
 
@@ -55,3 +56,5 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0018 proposed: T08 bounded recursive Qwen loop; CI-grounded retries; no 6F.2 enable
 - 2026-07-20 — ADR-0019 proposed: T13 flag-gated patch tournaments + reward logging; defaults off
 - 2026-07-20 — ADR-0020 proposed: V5 T01 AgentFacts-lite content-hash integrity + optional HMAC
+- 2026-07-20 — ADR-0021 proposed: V5 T02 memory-as-governance repeated failed fix deny
+- 2026-07-20 — ADR-0022 proposed: V5 T04 ADR vs graph architecture drift detector (fail-soft)

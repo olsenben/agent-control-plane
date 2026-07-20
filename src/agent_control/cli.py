@@ -289,6 +289,50 @@ def graph_coverage(project: str | None) -> None:
     click.echo(json.dumps(payload, indent=2))
 
 
+@graph.command("drift")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option(
+    "--adr-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="docs/adr directory override",
+)
+@click.option(
+    "--local-path",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Repo checkout root (uses <path>/docs/adr)",
+)
+@click.option(
+    "--strict",
+    is_flag=True,
+    default=False,
+    help="Exit 1 when missing/extra edges exist (default: fail-soft exit 0)",
+)
+def graph_drift(
+    project: str,
+    adr_dir: Path | None,
+    local_path: Path | None,
+    strict: bool,
+) -> None:
+    """Report ADR-declared edges missing from / extra in the Orbit graph (fail-soft)."""
+    from agent_control.graph.adr_drift import detect_adr_drift
+
+    settings = get_settings()
+    payload = detect_adr_drift(
+        project,
+        adr_dir=adr_dir,
+        local_path=local_path,
+        settings=settings,
+    )
+    click.echo(json.dumps(payload, indent=2))
+    if strict and payload.get("drift"):
+        raise click.ClickException(
+            f"architecture drift: missing={payload.get('missing_count')} "
+            f"extra={payload.get('extra_count')}"
+        )
+
+
 @graph.command("context-pack")
 @click.option("--repo", "project", required=True, help="owner/repo")
 @click.option("--issue", "issue_number", type=int, required=True)

@@ -20,7 +20,7 @@ See [POLICY_GATES.md](POLICY_GATES.md) for enforcement.
 | `capability_spoofing` | Privacy/security | Worker claims permissions it lacks | AgentFacts-lite (`agentctl agentfacts check`) |
 | `false_verification_confidence` | AI system safety | Model claims success without CI | Verification invariant |
 | `graph_bypass` | AI system safety | Review/plan skipped graph consultation | Require blast-radius in output |
-| `architecture_drift` | AI system safety | ADR declares X; graph shows Y | Architecture drift detector (later) |
+| `architecture_drift` | AI system safety | ADR declares X; graph shows Y | `agentctl graph drift` (fail-soft; V5 T04) |
 
 ## Event shape (target)
 
