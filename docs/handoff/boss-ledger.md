@@ -11,11 +11,11 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Umbrella (active)** | [slice-v412-typed-sessions.md](../slice-v412-typed-sessions.md) |
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
 | **Epic status** | in_progress |
-| **Tickets done (count)** | 7 / 13 remaining track (T01–T07 done) |
-| **Next ticket** | T08 (serial) ; T10 merge next |
-| **Latest handoff** | T07 PASS `ee2367b` |
-| **Coordinator waves completed** | 9 |
-| **Last boss action** | 2026-07-20 — T07 deploy verify PASS `ee2367b`; graph lane T05–T07 complete |
+| **Tickets done (count)** | 8 / 13 remaining track (T01–T07, T10 done) |
+| **Next ticket** | T08 |
+| **Latest handoff** | T10 PASS `4a9acdc` (graph tip `ee2367b`) |
+| **Coordinator waves completed** | 10 |
+| **Last boss action** | 2026-07-20 — dual-lane closed: T07+T10 deploy PASS; next T08 |
 | **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-graph` / `…-lane-identity` |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
@@ -51,7 +51,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T07** | **8c** Conditional 2070 recursive context worker | T06 | `recursive_context_required=true` path returns `recursive_context_result.v1`; false path skips 2070 | Done |
 | **T08** | **§9** Recursive Qwen loop (evidence + CI retries) | T07, T01 | Bounded retry on CI fail with evidence-selected context; no unbounded loop | Todo |
 | **T09** | Non-demo **6F.2** staged expand (ACP allowlist only) | T03 | Observe → repair-no-publish → one-class publish on ACP; ADR if scope widens | Todo |
-| **T10** | Invocation ack + acting vs invoker identity | T03 | Start + terminal comments; invoker audit fields on session | Deploy gate |
+| **T10** | Invocation ack + acting vs invoker identity | T03 | Start + terminal comments; invoker audit fields on session | Done |
 | **T11** | **§10** Read-only MCP graph/memory | T05 | MCP read tools only; no write surface | Todo |
 | **T12** | **8d** Controller bake-off (optional) | T07 | Deterministic vs small-transformer vs recurrent metrics; **may Deferred** | Todo |
 | **T13** | **§11** Patch tournaments / rewards (experiment flag) | T08 | Flag-gated; no default enable | Todo |

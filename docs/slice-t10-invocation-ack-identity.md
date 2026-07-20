@@ -1,6 +1,6 @@
 # Slice T10 — Invocation Ack + Acting vs Invoker Identity
 
-**Status:** Implemented (PR pending merge; deploy-verify owned by boss)  
+**Status:** Done — deploy verified (PR pending merge; deploy-verify owned by boss)  
 **Date:** 2026-07-20  
 **Epic ticket:** T10  
 **Plan:** V4 deferred — “invocation ack UX + acting vs invoker identity”  
@@ -62,3 +62,13 @@ After merge + tip pin: start + terminal comments on a live issue; session JSON s
 
 - Ops: confirm CT103 `GITEA_BOT_TOKEN` is the dedicated `agent-bot` user (not a human PAT)
 - Optional: enrich CI / publish comments with full invoker when session is loaded
+
+## Deploy verification (2026-07-20)
+
+| Field | Value |
+|-------|-------|
+| Ticket ID | T10 |
+| Tip SHA | `4a9acdc` |
+| PR | [#26](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/26) |
+| Verdict | **DEPLOY_VERIFY: PASS** |
+| ADR | ADR-0017 (after Orbit 0015 / RLM 0016) |
