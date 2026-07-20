@@ -23,20 +23,24 @@ CT102 LXC `gitea-runner` (`192.168.4.70`). Two Linux users + two containers:
 Both still use the shared host Docker socket (residual risk). Combined
 `act_runner` / `/opt/act-runner/data` retired to `data.bak-combined`.
 
+Containers run as **root inside Docker** (act_runner needs writable cache under
+`HOME`; non-root hit `mkdir /.cache: permission denied`). Host dirs stay
+`0750` `root:runner-*` so the peer Linux user cannot read the other lane's
+`.runner` token file.
+
 ```bash
-# Example recreate (registration token from Gitea instance admin)
+# Example recreate after .runner exists (omit registration token)
 docker run -d --name act_runner_ci --restart unless-stopped \
-  --user "$(id -u runner-ci):$(id -g runner-ci)" \
-  --group-add "$(getent group docker | cut -d: -f3)" \
+  -e HOME=/home/runner \
   -e GITEA_INSTANCE_URL=https://git.ham-sup-lo.com \
-  -e GITEA_RUNNER_REGISTRATION_TOKEN=<TOKEN> \
   -e GITEA_RUNNER_NAME=ct102-ci \
   -e GITEA_RUNNER_LABELS='ubuntu-latest:docker://node:20-bookworm,docker-ci:docker://catthehacker/ubuntu:act-latest' \
   -e CONFIG_FILE=/data/config.yaml \
   -v /opt/act-runner-ci/data:/data \
+  -v /opt/act-runner-ci/home:/home/runner \
   -v /var/run/docker.sock:/var/run/docker.sock \
   gitea/act_runner:0.6.1
-# Mirror for act_runner_deploy with labels deploy-only and /opt/act-runner-deploy/data
+# Mirror for act_runner_deploy with labels deploy-only and /opt/act-runner-deploy/*
 ```
 
 # Trust boundaries (V4.1.1 ADR-0008)
