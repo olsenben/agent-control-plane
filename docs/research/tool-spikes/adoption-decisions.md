@@ -14,7 +14,7 @@
 | RepoGraph | spike | Repo-level graph plug-in pattern |
 | Ray | defer | Two-GPU lab uses RQ first |
 | OpenHands | spike | Sandbox reference |
-| MCP | defer | Read-only state/graph server after graph-lite |
+| MCP | adopt (read-only) | T11 / Phase 24 stdio server; no write tools; see docs/mcp.md |
 | Instructor | adopt (optional) | Structured output provider behind env flag; see instructor-structured-output.md |
 | watchfiles | adopt (optional) | Ingest-watch backup over NFS |
 | CodeQL, Joern, OpenRewrite, Chroma, OpenGrok, Neo4j | defer | See graph-oss-borrowing.md phases |
