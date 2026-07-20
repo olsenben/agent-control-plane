@@ -85,8 +85,9 @@ jobs:
           fi
           test -f .env || { echo ".env missing on host; bootstrap manually on CT103"; exit 1; }
           # Do not run "docker compose config" here — it prints resolved .env values to logs.
-          # Rebuild both app images explicitly; worker-state is behind the workers profile.
-          docker compose --profile workers build control-plane worker-state
+          # Rebuild app images explicitly; worker-state + publish-broker are behind the workers profile.
+          # publish-broker must rebuild on Settings/broker code changes (stale image caused stage-3 RQ miss).
+          docker compose --profile workers build control-plane worker-state publish-broker
           docker compose --profile workers up -d
           status=""
           for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
