@@ -1,6 +1,6 @@
 # V4.1.2 Bundle — Typed Sessions → Recursive Context (umbrella)
 
-**Status:** Active — 5.4b **accepted** 2026-07-20; next 5.5  
+**Status:** Active — 5.5a **implemented** 2026-07-20 (homelab sign-off pending); next 5.6  
 **Date:** 2026-07-19  
 **Plan source:** `gitea_agentic_sdlc_cursor_step_plan_v4.md` (§0.2a, §5a, §0.6, DoD §Recursive context, impl order 5.4–5.7 / 8a–8d)  
 **Prerequisite:** V4.1.1 closeout signed ([slice-v411-closeout.md](slice-v411-closeout.md)) — **2026-07-19**  
@@ -114,12 +114,14 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 
 ### PR-S3 — Slice 5.5a: Deterministic context preflight (no 2070 yet)
 
-- CT103 `memory_preflight.v1` at exact source SHA: events, verified memory, ADR facts, graph queries already available, CI evidence pointers.
+**Status:** **Implemented** 2026-07-20 — see [slice-5.5-deterministic-preflight.md](slice-5.5-deterministic-preflight.md). Homelab sign-off pending.
+
+- CT103 `memory_preflight.v1` at exact frozen source SHA: events, verified memory, ADR facts, graph queries already available, CI evidence pointers.
 - Always set `recursive_context_required: false|true` + `invocation_reasons[]` (heuristic thresholds; 2070 invoke deferred).
-- Attach preflight artifact to session; emit `agent.memory_preflight_created` / `agent.context_packet_created`.
+- Attach preflight + thin `context_packet.v1` to session; emit `agent.memory_preflight_created` / `agent.context_packet_created`.
 - Small-task path: review/plan proceeds with deterministic packet only.
 
-**Acceptance:** Plan/review run records preflight JSON; trivial demo task stays `recursive_context_required=false`.
+**Acceptance:** Plan/review/fix/repair run records preflight JSON; trivial demo task stays `recursive_context_required=false`.
 
 ### PR-S4 — Slice 5.6: Verification evidence gate (session-scoped)
 

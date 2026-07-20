@@ -12,6 +12,9 @@ class ContextPack(BaseModel):
     project: str
     issue_number: int | None = None
     pr_number: int | None = None
+    # Frozen at dispatch (Slice 5.5a identity invariant); optional for older packs.
+    source_sha: str | None = None
+    policy_source_sha: str | None = None
     issue_text: str | None = None
     diff_text: str | None = None
     adr_slice: list[dict] = Field(default_factory=list)

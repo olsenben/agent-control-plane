@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from agent_shared.models.memory_preflight import SessionArtifactRef
+
 
 class SessionStatus(str, Enum):
     CREATED = "created"
@@ -59,7 +61,8 @@ CommandKind = Literal["review", "plan", "fix", "repair"]
 class AgentSession(BaseModel):
     """Durable CT103 session record.
 
-    ``head_sha`` is the dispatch-time SHA only for 5.4a (not later CI tip).
+    ``head_sha`` is the frozen dispatch-time source SHA (5.4a / 5.5a invariant).
+    ``policy_source_sha`` is frozen at the same moment (empty string if unset).
     ``invoked_by`` is required; ``acting_identity`` stays null until write/publish.
     """
 
@@ -75,6 +78,7 @@ class AgentSession(BaseModel):
     correlation_id: str
     input_state_sha: str
     head_sha: str
+    policy_source_sha: str = ""
     risk_level: str
     risk_tags: list[str] = Field(default_factory=list)
     invoked_by: str
@@ -84,6 +88,8 @@ class AgentSession(BaseModel):
     finished_at: str | None = None
     terminal_reason_code: str | None = None
     terminal_reason: str | None = None
+    memory_preflight: SessionArtifactRef | None = None
+    context_packet: SessionArtifactRef | None = None
 
     @model_validator(mode="after")
     def _session_id_distinct_from_runs(self) -> AgentSession:

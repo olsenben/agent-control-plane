@@ -166,6 +166,7 @@ def create_session_record(
         correlation_id=make_correlation_id(session_id=sid, run_id=run_id),
         input_state_sha=input_sha,
         head_sha=head_sha or "",
+        policy_source_sha=policy_source_sha or "",
         risk_level=risk_level_for_command(command_kind),
         risk_tags=tags,
         invoked_by=_invoked_by_from_trigger(trigger_context, fallback=invoked_by),

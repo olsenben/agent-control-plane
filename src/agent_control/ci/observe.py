@@ -476,6 +476,29 @@ def apply_observation(
                                 state_root, fix_session, run_id=repair_run_id
                             )
                             session_id = fix_session.session_id
+                            try:
+                                from agent_control.session.prepare_dispatch import (
+                                    attach_preflight_for_non_rlm_session,
+                                )
+
+                                tc = {
+                                    "author": "ci_repair",
+                                    "issue_number": pending.issue_id,
+                                    "pr_number": pending.opened_pr_number,
+                                }
+                                attach_preflight_for_non_rlm_session(
+                                    state_root,
+                                    fix_session,
+                                    run_id=repair_run_id,
+                                    source_sha=pending.expected_head_commit_sha or "",
+                                    trigger_context=tc,
+                                    settings=settings,
+                                )
+                            except Exception:
+                                logger.exception(
+                                    "repair_preflight_failed fix_run_id=%s",
+                                    pending.fix_run_id,
+                                )
                         else:
                             # No fix session (legacy) — create repair session.
                             tc = {
@@ -492,6 +515,24 @@ def apply_observation(
                                 trigger_context=tc,
                             )
                             session_id = created.session_id
+                            try:
+                                from agent_control.session.prepare_dispatch import (
+                                    attach_preflight_for_non_rlm_session,
+                                )
+
+                                attach_preflight_for_non_rlm_session(
+                                    state_root,
+                                    created,
+                                    run_id=repair_run_id,
+                                    source_sha=pending.expected_head_commit_sha or "",
+                                    trigger_context=tc,
+                                    settings=settings,
+                                )
+                            except Exception:
+                                logger.exception(
+                                    "repair_preflight_failed fix_run_id=%s",
+                                    pending.fix_run_id,
+                                )
                     except Exception:
                         logger.exception(
                             "repair_session_bind_failed fix_run_id=%s",

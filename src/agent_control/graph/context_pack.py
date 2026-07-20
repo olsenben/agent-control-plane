@@ -188,6 +188,8 @@ def compile_context_pack(
         project=project,
         issue_number=trigger_context.issue_number,
         pr_number=trigger_context.pr_number,
+        source_sha=refs.target_sha if refs is not None else None,
+        policy_source_sha=None,
         issue_text=issue_text,
         diff_text=diff_text,
         adr_slice=adr_slice,

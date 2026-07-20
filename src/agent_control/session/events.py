@@ -222,3 +222,82 @@ def append_worker_mapped_event(
         payload=body.model_dump(mode="json"),
         delivery_suffix=worker_event_kind,
     )
+
+
+def append_memory_preflight_created(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    digest: str,
+    status: str,
+    recursive_context_required: bool,
+    relative_path: str,
+) -> tuple[Path, bool]:
+    at = _now()
+    payload = {
+        **correlation_payload(session, run_id=run_id, event_at=at),
+        "artifact_digest": digest,
+        "preflight_status": status,
+        "recursive_context_required": recursive_context_required,
+        "relative_path": relative_path,
+        "schema": "memory_preflight.v1",
+    }
+    return append_session_event(
+        state_root,
+        event_type="agent.memory_preflight_created",
+        session=session,
+        run_id=run_id,
+        payload=payload,
+    )
+
+
+def append_memory_preflight_failed(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    reason: str,
+    reason_code: str = "preflight_persist_failed",
+) -> tuple[Path, bool]:
+    at = _now()
+    payload = {
+        **correlation_payload(session, run_id=run_id, event_at=at),
+        "reason_code": reason_code,
+        "reason": reason,
+    }
+    return append_session_event(
+        state_root,
+        event_type="agent.memory_preflight_failed",
+        session=session,
+        run_id=run_id,
+        payload=payload,
+    )
+
+
+def append_context_packet_created(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    digest: str,
+    preflight_digest: str,
+    context_pack_digest: str,
+    relative_path: str,
+) -> tuple[Path, bool]:
+    at = _now()
+    payload = {
+        **correlation_payload(session, run_id=run_id, event_at=at),
+        "artifact_digest": digest,
+        "preflight_digest": preflight_digest,
+        "context_pack_digest": context_pack_digest,
+        "relative_path": relative_path,
+        "schema": "context_packet.v1",
+    }
+    return append_session_event(
+        state_root,
+        event_type="agent.context_packet_created",
+        session=session,
+        run_id=run_id,
+        payload=payload,
+    )

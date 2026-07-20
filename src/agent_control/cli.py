@@ -743,13 +743,39 @@ def session_list(project: str, command_kind: str | None, as_json: bool) -> None:
 @click.option("--repo", "project", required=True, help="owner/repo")
 @click.option("--json", "as_json", is_flag=True, default=True, help="Emit JSON (default)")
 def session_show(session_id: str, project: str, as_json: bool) -> None:
+    from agent_control.memory.preflight_artifacts import (
+        load_context_packet_artifact,
+        load_preflight_artifact,
+    )
     from agent_control.session import load_session
 
     settings = get_settings()
     record = load_session(settings.agent_state_root, project, session_id)
     if record is None:
         raise click.ClickException(f"no session for {session_id}")
-    click.echo(record.model_dump_json(indent=2))
+    payload = record.model_dump(mode="json")
+    preflight = load_preflight_artifact(settings.agent_state_root, project, session_id)
+    packet = load_context_packet_artifact(settings.agent_state_root, project, session_id)
+    if preflight is not None:
+        payload["memory_preflight_summary"] = {
+            "status": preflight.status,
+            "source_sha": preflight.source_sha,
+            "policy_source_sha": preflight.policy_source_sha,
+            "recursive_context_required": preflight.recursive_context_required,
+            "invocation_reasons": preflight.invocation_reasons,
+            "skip_reason": preflight.skip_reason,
+            "artifact_digest": preflight.artifact_digest,
+            "component_results": preflight.component_results.model_dump(mode="json"),
+        }
+    if packet is not None:
+        payload["context_packet_summary"] = {
+            "source_sha": packet.source_sha,
+            "policy_source_sha": packet.policy_source_sha,
+            "preflight_digest": packet.preflight_digest,
+            "context_pack_digest": packet.context_pack_digest,
+            "artifact_digest": packet.artifact_digest,
+        }
+    click.echo(json.dumps(payload, indent=2))
 
 
 @main.group()

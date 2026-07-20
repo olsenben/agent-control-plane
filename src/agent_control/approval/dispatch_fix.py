@@ -201,10 +201,12 @@ def enqueue_fix_after_authorization(
 ) -> dict[str, Any]:
     """Build fix job, enqueue to CT104, reserve approval (consume on PR open via ingest)."""
     from agent_control.session import (
-        begin_typed_session,
-        bind_session_to_job,
         finalize_enqueue_failure,
         load_session_by_run,
+    )
+    from agent_control.session.prepare_dispatch import (
+        PreflightFatalError,
+        prepare_typed_rlm_dispatch,
     )
 
     settings = settings or get_settings()
@@ -214,21 +216,31 @@ def enqueue_fix_after_authorization(
         plan_record=plan_record,
         settings=settings,
     )
+    # Freeze source SHA once (prefer job target, fall back to approved base).
+    frozen_sha = job.target_sha or approval.approved_base_sha or ""
+    if job.target_sha != frozen_sha:
+        job = job.model_copy(update={"target_sha": frozen_sha})
 
-    session = begin_typed_session(
-        state_root,
-        project=job.project,
-        command_kind="fix",
-        run_id=job.run_id,
-        head_sha=job.target_sha or approval.approved_base_sha or "",
-        trigger_context=job.trigger_context,
-        policy_source_sha=job.policy_source_sha or "",
-        # Sparse trigger events (tests / CLI) still bind to the approval issue.
-        subject_kind="issue",
-        subject_number=approval.issue_id,
-        invoked_by=approval.approved_by_login,
-    )
-    job = bind_session_to_job(job, session)
+    try:
+        prepared = prepare_typed_rlm_dispatch(
+            state_root,
+            job,
+            settings=settings,
+            changed_files=list(approval.allowed_files),
+            subject_kind="issue",
+            subject_number=approval.issue_id,
+            invoked_by=approval.approved_by_login,
+        )
+    except PreflightFatalError as exc:
+        return {
+            "enqueued": False,
+            "reason": "preflight_failed",
+            "run_id": job.run_id,
+            "error": str(exc),
+        }
+
+    job = prepared.job
+    session = prepared.session
 
     enqueue_result = enqueue_rlm_root(settings.redis_url, job.model_dump(mode="json"))
     if enqueue_result.outcome == "failed":
@@ -308,4 +320,6 @@ def enqueue_fix_after_authorization(
             issue_id=approval.issue_id,
             plan_run_id=plan_record.run_id,
         ),
+        "memory_preflight_digest": job.memory_preflight_digest,
+        "context_packet_digest": job.context_packet_digest,
     }

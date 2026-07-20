@@ -1,4 +1,4 @@
-"""CT103-authoritative typed agent sessions (Slice 5.4a + 5.4b)."""
+"""CT103-authoritative typed agent sessions (Slice 5.4a + 5.4b + 5.5a)."""
 
 from agent_control.session.lifecycle import (
     INGEST_TERMINAL_OWNERS,
@@ -37,18 +37,25 @@ from agent_control.session.storage import (
 )
 from agent_control.queue import EnqueueResult
 
+# prepare_dispatch is imported lazily via __getattr__ to avoid circular imports
+# with memory.preflight_artifacts → session.storage.
+
 __all__ = [
     "INGEST_TERMINAL_OWNERS",
     "PUBLISH_TERMINAL_OWNERS",
     "TYPED_SESSION_COMMANDS",
     "WORKER_EVENT_ALLOWLIST",
     "EnqueueResult",
+    "IdentityInvariantError",
+    "PreflightFatalError",
+    "PreparedTypedDispatch",
     "SessionMismatchError",
     "SessionStoreError",
     "SessionTerminalError",
     "SessionTerminalReason",
     "SessionTerminalStatus",
     "append_run_to_session",
+    "attach_preflight_for_non_rlm_session",
     "begin_and_block_typed_session",
     "begin_typed_session",
     "bind_session_to_job",
@@ -68,4 +75,19 @@ __all__ = [
     "map_fix_evaluation_to_block_reason",
     "mark_session_running",
     "normalize_terminal",
+    "prepare_typed_rlm_dispatch",
 ]
+
+
+def __getattr__(name: str):
+    if name in {
+        "IdentityInvariantError",
+        "PreflightFatalError",
+        "PreparedTypedDispatch",
+        "attach_preflight_for_non_rlm_session",
+        "prepare_typed_rlm_dispatch",
+    }:
+        from agent_control.session import prepare_dispatch as _pd
+
+        return getattr(_pd, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

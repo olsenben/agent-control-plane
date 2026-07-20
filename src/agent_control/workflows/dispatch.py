@@ -164,10 +164,12 @@ def maybe_dispatch_rlm_root(
     from agent_control.queue import enqueue_rlm_root
     from agent_control.session import (
         TYPED_SESSION_COMMANDS,
-        begin_typed_session,
-        bind_session_to_job,
         finalize_enqueue_failure,
         load_session_by_run,
+    )
+    from agent_control.session.prepare_dispatch import (
+        PreflightFatalError,
+        prepare_typed_rlm_dispatch,
     )
 
     settings = settings or get_settings()
@@ -178,16 +180,21 @@ def maybe_dispatch_rlm_root(
     session = None
     kind = (job.command_intent.kind if job.command_intent else None) or ""
     if kind in TYPED_SESSION_COMMANDS:
-        session = begin_typed_session(
-            settings.agent_state_root,
-            project=job.project,
-            command_kind=kind,  # type: ignore[arg-type]
-            run_id=job.run_id,
-            head_sha=job.target_sha or "",
-            trigger_context=job.trigger_context,
-            policy_source_sha=job.policy_source_sha or "",
-        )
-        job = bind_session_to_job(job, session)
+        try:
+            prepared = prepare_typed_rlm_dispatch(
+                settings.agent_state_root,
+                job,
+                settings=settings,
+            )
+        except PreflightFatalError as exc:
+            return {
+                "dispatched": False,
+                "reason": "preflight_failed",
+                "run_id": job.run_id,
+                "error": str(exc),
+            }
+        job = prepared.job
+        session = prepared.session
 
     enqueue_result = enqueue_rlm_root(redis_url, job.model_dump(mode="json"))
     if enqueue_result.outcome == "failed":
@@ -223,6 +230,10 @@ def maybe_dispatch_rlm_root(
     }
     if session is not None:
         result["session_id"] = session.session_id
+        if job.memory_preflight_digest:
+            result["memory_preflight_digest"] = job.memory_preflight_digest
+        if job.context_packet_digest:
+            result["context_packet_digest"] = job.context_packet_digest
     return result
 
 
