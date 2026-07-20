@@ -339,7 +339,13 @@ def build_trigger_context(
     issue = payload.get("issue") or {}
     pr = payload.get("pull_request") or {}
     comment = payload.get("comment") or {}
-    author = (comment.get("user") or {}).get("login") or (issue.get("user") or {}).get("login")
+    user = comment.get("user") or issue.get("user") or {}
+    author = user.get("login") or (issue.get("user") or {}).get("login")
+    author_id_raw = user.get("id")
+    try:
+        author_id = int(author_id_raw) if author_id_raw is not None else None
+    except (TypeError, ValueError):
+        author_id = None
     project = event.get("project", "")
     base = settings.gitea_base_url.rstrip("/")
 
@@ -369,6 +375,7 @@ def build_trigger_context(
         "comment_url": comment_url,
         "discussion_id": None,
         "author": author,
+        "author_id": author_id,
         "author_is_owner": author_is_owner,
         "raw_body": intent_body,
         "normalized_body": intent_body.strip(),

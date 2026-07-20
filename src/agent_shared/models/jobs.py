@@ -24,6 +24,7 @@ class TriggerContext(BaseModel):
     comment_url: str | None = None
     discussion_id: str | None = None
     author: str | None = None
+    author_id: int | None = None
     author_is_owner: bool = False
     raw_body: str = ""
     normalized_body: str = ""

@@ -119,6 +119,8 @@ _RUN_COMMENT_KINDS = frozenset({"inspect", "explain", "review", "plan"})
 def _maybe_post_run_comment(
     event: AgentRunCompletedEvent,
     settings: Settings,
+    *,
+    state_root: Path | None = None,
 ) -> None:
     """Post plan/review/inspect/explain (and failed-fix) summaries via CT103 bot token.
 
@@ -138,8 +140,36 @@ def _maybe_post_run_comment(
     else:
         return
 
+    from agent_control.invocation_ack import (
+        append_identity_footer,
+        identity_audit_from_parts,
+        identity_audit_from_session,
+    )
+
+    audit = None
+    if state_root is not None and event.project:
+        try:
+            from agent_control.session.storage import load_session_by_run
+
+            session = load_session_by_run(state_root, event.project, event.run_id)
+            if session is not None:
+                audit = identity_audit_from_session(
+                    session, run_id=event.run_id, settings=settings
+                )
+        except Exception:
+            audit = None
+    if audit is None:
+        sess = event.session_id or ""
+        audit = identity_audit_from_parts(
+            invoked_by="unknown",
+            run_id=event.run_id,
+            session_id=sess if sess.startswith("sess-") else None,
+            settings=settings,
+        )
+    body = append_identity_footer(summary, audit)
+
     try:
-        post_issue_comment(event.project, event.issue_id, summary, settings=settings)
+        post_issue_comment(event.project, event.issue_id, body, settings=settings)
     except Exception:
         pass
 
@@ -160,7 +190,7 @@ def handle_fix_ingest_side_effects(
     if event.fix_status == "pr_opened_pending_ci" and event.producer_protocol != PRODUCER_PROTOCOL_PATCH_BUNDLE_V1:
         return
 
-    _maybe_post_run_comment(event, settings)
+    _maybe_post_run_comment(event, settings, state_root=state_root)
     _maybe_enqueue_publish(state_root, event, settings)
 
     if event.command_kind != "fix" or not event.approval_id or not event.approval_target_id:

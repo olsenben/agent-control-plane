@@ -63,7 +63,8 @@ class AgentSession(BaseModel):
 
     ``head_sha`` is the frozen dispatch-time source SHA (5.4a / 5.5a invariant).
     ``policy_source_sha`` is frozen at the same moment (empty string if unset).
-    ``invoked_by`` is required; ``acting_identity`` stays null until write/publish.
+    ``invoked_by`` is the human invoker (required). ``acting_identity`` is the bot
+    principal (``agent-bot`` / ``GITEA_BOT_TOKEN``) — never the human invoker.
     """
 
     schema_version: str = "agent_session.v1"
@@ -82,7 +83,10 @@ class AgentSession(BaseModel):
     risk_level: str
     risk_tags: list[str] = Field(default_factory=list)
     invoked_by: str
+    invoked_by_id: int | None = None
     acting_identity: str | None = None
+    source_comment_id: int | None = None
+    source_delivery_id: str | None = None
     created_at: str
     updated_at: str
     finished_at: str | None = None
@@ -208,6 +212,10 @@ class SessionEventCorrelation(BaseModel):
 class SessionStartedPayload(SessionEventCorrelation):
     status: SessionStatus = SessionStatus.QUEUED
     invoked_by: str
+    invoked_by_id: int | None = None
+    acting_identity: str | None = None
+    source_comment_id: int | None = None
+    source_delivery_id: str | None = None
 
 
 class SubjectContextResolvedPayload(SessionEventCorrelation):

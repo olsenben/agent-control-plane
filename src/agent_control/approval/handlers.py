@@ -24,6 +24,11 @@ from agent_control.gitea_comments import (
     format_plan_resolution_error,
     post_issue_comment,
 )
+from agent_control.invocation_ack import (
+    identity_audit_from_parts,
+    identity_audit_from_session,
+    invoker_fields_from_trigger,
+)
 from agent_control.project_registry import build_trigger_context
 from agent_control.session import (
     begin_and_block_typed_session,
@@ -75,6 +80,7 @@ def _block_fix_session(
         approval_target_id=approval_target_id,
         plan_hash=plan_hash,
     )
+    delivery_id = str(trigger_event.get("delivery_id") or "") or None
     session = begin_and_block_typed_session(
         state_root,
         project=project,
@@ -87,12 +93,14 @@ def _block_fix_session(
         subject_kind="issue",
         subject_number=issue_id,
         invoked_by=str(tc.get("author") or "unknown"),
+        source_delivery_id=delivery_id,
     )
     run_id = session.run_ids[0] if session.run_ids else ""
     return {
         "session_id": session.session_id,
         "run_id": run_id,
         "terminal_reason_code": reason_code.value,
+        "session": session,
     }
 
 
@@ -181,6 +189,11 @@ def handle_approval_commands(
             comment_id=comment_id,
             evaluation=evaluation,
         )
+        invoker = invoker_fields_from_trigger(
+            tc,
+            delivery_id=str(trigger_event.get("delivery_id") or "") or None,
+            fallback_login=author,
+        )
         result: dict[str, Any] = {
             "handled": True,
             "kind": "fix",
@@ -188,13 +201,6 @@ def handle_approval_commands(
             "policy_decision": evaluation.policy_decision,
         }
         if evaluation.policy_decision == "blocked":
-            if fix_req_created:
-                post_issue_comment(
-                    project,
-                    issue_id,
-                    format_fix_blocked(target=target, reason=evaluation.reason),
-                    settings=settings,
-                )
             plan_hash = evaluation.plan_record.plan_hash if evaluation.plan_record else None
             approval_target_id = (
                 evaluation.plan_record.approval_target_id if evaluation.plan_record else None
@@ -215,6 +221,32 @@ def handle_approval_commands(
                 approval_target_id=approval_target_id,
                 head_sha=head_sha,
             )
+            session = block_info.pop("session", None)
+            run_id = str(block_info.get("run_id") or "")
+            audit = (
+                identity_audit_from_session(session, run_id=run_id, settings=settings)
+                if session is not None
+                else identity_audit_from_parts(
+                    invoked_by=invoker["invoked_by"],
+                    run_id=run_id or None,
+                    invoked_by_id=invoker["invoked_by_id"],
+                    source_comment_id=invoker["source_comment_id"],
+                    source_delivery_id=invoker["source_delivery_id"],
+                    settings=settings,
+                )
+            )
+            if fix_req_created:
+                post_issue_comment(
+                    project,
+                    issue_id,
+                    format_fix_blocked(
+                        target=target,
+                        reason=evaluation.reason,
+                        run_id=run_id or None,
+                        audit=audit,
+                    ),
+                    settings=settings,
+                )
             result.update(block_info)
             result["reason"] = evaluation.reason
             return result
@@ -229,16 +261,6 @@ def handle_approval_commands(
             return result
 
         if not evaluation.approval.allowed_files:
-            if auth_created:
-                post_issue_comment(
-                    project,
-                    issue_id,
-                    format_fix_blocked(
-                        target=target,
-                        reason="Plan lacks explicit file scope (allowed_files empty)",
-                    ),
-                    settings=settings,
-                )
             block_info = _block_fix_session(
                 state_root,
                 project=project,
@@ -253,6 +275,32 @@ def handle_approval_commands(
                 approval_target_id=evaluation.approval.approval_target_id,
                 head_sha=evaluation.approval.approved_base_sha or "",
             )
+            session = block_info.pop("session", None)
+            run_id = str(block_info.get("run_id") or "")
+            audit = (
+                identity_audit_from_session(session, run_id=run_id, settings=settings)
+                if session is not None
+                else identity_audit_from_parts(
+                    invoked_by=invoker["invoked_by"],
+                    run_id=run_id or None,
+                    invoked_by_id=invoker["invoked_by_id"],
+                    source_comment_id=invoker["source_comment_id"],
+                    source_delivery_id=invoker["source_delivery_id"],
+                    settings=settings,
+                )
+            )
+            if auth_created:
+                post_issue_comment(
+                    project,
+                    issue_id,
+                    format_fix_blocked(
+                        target=target,
+                        reason="Plan lacks explicit file scope (allowed_files empty)",
+                        run_id=run_id or None,
+                        audit=audit,
+                    ),
+                    settings=settings,
+                )
             result.update(block_info)
             result["reason"] = "empty_allowed_files"
             return result
@@ -269,15 +317,30 @@ def handle_approval_commands(
             settings=settings,
         )
         result["enqueue"] = enqueue_result
+        run_id = str(enqueue_result.get("run_id") or "")
+        session_id = enqueue_result.get("session_id")
+        audit = identity_audit_from_parts(
+            invoked_by=invoker["invoked_by"],
+            run_id=run_id or None,
+            session_id=str(session_id) if session_id else None,
+            invoked_by_id=invoker["invoked_by_id"],
+            source_comment_id=invoker["source_comment_id"],
+            source_delivery_id=invoker["source_delivery_id"],
+            settings=settings,
+        )
         if enqueue_result.get("enqueued"):
             post_issue_comment(
                 project,
                 issue_id,
                 format_fix_started(
-                    run_id=str(enqueue_result["run_id"]),
+                    run_id=run_id,
                     approval_target_id=evaluation.approval.approval_target_id,
                     allowed_files=evaluation.approval.allowed_files,
                     remote_publish_enabled=fix_remote_publish_enabled(settings),
+                    invoked_by=invoker["invoked_by"],
+                    session_id=str(session_id) if session_id else None,
+                    audit=audit,
+                    settings=settings,
                 ),
                 settings=settings,
             )
@@ -290,6 +353,8 @@ def handle_approval_commands(
                     format_fix_enqueue_failed(
                         target=target,
                         reason=reason,
+                        run_id=run_id or None,
+                        audit=audit,
                     ),
                     settings=settings,
                 )

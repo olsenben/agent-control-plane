@@ -161,6 +161,13 @@ def maybe_dispatch_rlm_root(
     redis_url: str,
     settings: Settings | None = None,
 ) -> dict[str, Any]:
+    from agent_control.gitea_comments import post_issue_comment
+    from agent_control.invocation_ack import (
+        format_invocation_started,
+        format_invocation_terminal,
+        identity_audit_from_session,
+        invoker_fields_from_trigger,
+    )
     from agent_control.queue import enqueue_rlm_root
     from agent_control.session import (
         TYPED_SESSION_COMMANDS,
@@ -171,6 +178,7 @@ def maybe_dispatch_rlm_root(
         PreflightFatalError,
         prepare_typed_rlm_dispatch,
     )
+    from agent_shared.constants import QUEUE_RLM_ROOT
 
     settings = settings or get_settings()
     job = build_rlm_job(state, trigger_event, settings=settings)
@@ -179,6 +187,21 @@ def maybe_dispatch_rlm_root(
 
     session = None
     kind = (job.command_intent.kind if job.command_intent else None) or ""
+    invoker = invoker_fields_from_trigger(
+        job.trigger_context,
+        delivery_id=job.trigger_delivery_id,
+    )
+    issue_number = job.trigger_context.issue_number
+
+    def _post_ack(body: str) -> None:
+        if issue_number is None:
+            return
+        try:
+            post_issue_comment(job.project, int(issue_number), body, settings=settings)
+        except Exception:
+            # Comment failure must not roll back enqueue / session state.
+            pass
+
     if kind in TYPED_SESSION_COMMANDS:
         try:
             prepared = prepare_typed_rlm_dispatch(
@@ -187,6 +210,21 @@ def maybe_dispatch_rlm_root(
                 settings=settings,
             )
         except PreflightFatalError as exc:
+            if issue_number is not None:
+                _post_ack(
+                    format_invocation_terminal(
+                        outcome="failure",
+                        command=kind,
+                        run_id=job.run_id,
+                        invoked_by=invoker["invoked_by"],
+                        reason=str(exc),
+                        reason_code="preflight_failed",
+                        invoked_by_id=invoker["invoked_by_id"],
+                        source_comment_id=invoker["source_comment_id"],
+                        source_delivery_id=invoker["source_delivery_id"],
+                        settings=settings,
+                    )
+                )
             return {
                 "dispatched": False,
                 "reason": "preflight_failed",
@@ -205,6 +243,21 @@ def maybe_dispatch_rlm_root(
                 run_id=job.run_id,
                 reason=enqueue_result.error or "enqueue failed",
             )
+        _post_ack(
+            format_invocation_terminal(
+                outcome="failure",
+                command=kind or "command",
+                run_id=job.run_id,
+                invoked_by=invoker["invoked_by"],
+                reason=enqueue_result.error or "enqueue failed",
+                reason_code="enqueue_failed",
+                session_id=session.session_id if session else None,
+                invoked_by_id=invoker["invoked_by_id"],
+                source_comment_id=invoker["source_comment_id"],
+                source_delivery_id=invoker["source_delivery_id"],
+                settings=settings,
+            )
+        )
         raise RuntimeError(enqueue_result.error or "enqueue failed")
 
     if enqueue_result.outcome == "deduplicated":
@@ -234,6 +287,35 @@ def maybe_dispatch_rlm_root(
             result["memory_preflight_digest"] = job.memory_preflight_digest
         if job.context_packet_digest:
             result["context_packet_digest"] = job.context_packet_digest
+        audit = identity_audit_from_session(session, run_id=job.run_id, settings=settings)
+        _post_ack(
+            format_invocation_started(
+                command=kind,
+                run_id=job.run_id,
+                invoked_by=audit.invoked_by,
+                session_id=session.session_id,
+                queue=QUEUE_RLM_ROOT,
+                host="ct104",
+                invoked_by_id=audit.invoked_by_id,
+                source_comment_id=audit.source_comment_id,
+                source_delivery_id=audit.source_delivery_id,
+                settings=settings,
+            )
+        )
+    else:
+        _post_ack(
+            format_invocation_started(
+                command=kind or "command",
+                run_id=job.run_id,
+                invoked_by=invoker["invoked_by"],
+                queue=QUEUE_RLM_ROOT,
+                host="ct104",
+                invoked_by_id=invoker["invoked_by_id"],
+                source_comment_id=invoker["source_comment_id"],
+                source_delivery_id=invoker["source_delivery_id"],
+                settings=settings,
+            )
+        )
     return result
 
 
