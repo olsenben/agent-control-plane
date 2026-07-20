@@ -1,6 +1,6 @@
 # Slice 5.5a — Deterministic Context Preflight
 
-**Status:** Implemented — pending homelab sign-off  
+**Status:** Implemented — deploy verified 2026-07-20 (`6f170a4`); formal Gitea issue sign-off optional  
 **Date:** 2026-07-20  
 **Umbrella:** [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) PR-S3  
 **Builds on:** [slice-5.4-typed-sessions.md](slice-5.4-typed-sessions.md), [slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md)
@@ -8,6 +8,16 @@
 ## Goal
 
 Every typed RLM root session for `/agent review|plan|fix|repair` gets a mandatory CT103 `memory_preflight.v1` at a **frozen** source + policy SHA before enqueue. Optional evidence compilers may degrade; only identity, schema, or durable-persist failures block enqueue. The recursive-context flag is advisory — **no 2070 invoke** in this slice.
+
+## Deploy verification (2026-07-20)
+
+| Check | Result |
+|-------|--------|
+| Tip | `6f170a4` (feat 5.5a + ADR-0011) |
+| Actions | CI test + deploy + deploy-ct104 → `success` (runs 590–592 / tasks 454–458) |
+| CT103 / CT104 host tip | both `6f170a4` |
+| CT103 `/readyz` | redis/state ok (2070 Ollama unreachable is expected; 5.5a does not call it) |
+| In-container prepare smoke | `PREPARE_OK` `sess-47b90b22…` status=`complete` `recursive_context_required=false` |
 
 ## Pipeline (locked)
 
