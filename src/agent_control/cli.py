@@ -712,6 +712,38 @@ def approvals_grant(project: str, issue_id: int, approval_target: str, approver:
 
 
 @main.group()
+def session() -> None:
+    """CT103 typed agent sessions (Slice 5.4a)."""
+
+
+@session.command("list")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--command-kind", default=None, help="Filter: review|plan|fix|repair")
+@click.option("--json", "as_json", is_flag=True, default=True, help="Emit JSON (default)")
+def session_list(project: str, command_kind: str | None, as_json: bool) -> None:
+    from agent_control.session import list_sessions
+
+    settings = get_settings()
+    items = list_sessions(settings.agent_state_root, project, command_kind=command_kind)
+    payload = [s.model_dump(mode="json") for s in items]
+    click.echo(json.dumps(payload, indent=2))
+
+
+@session.command("show")
+@click.option("--session-id", required=True, help="sess-… id")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--json", "as_json", is_flag=True, default=True, help="Emit JSON (default)")
+def session_show(session_id: str, project: str, as_json: bool) -> None:
+    from agent_control.session import load_session
+
+    settings = get_settings()
+    record = load_session(settings.agent_state_root, project, session_id)
+    if record is None:
+        raise click.ClickException(f"no session for {session_id}")
+    click.echo(record.model_dump_json(indent=2))
+
+
+@main.group()
 def memory() -> None:
     """Trajectory memory (CT103 SQLite)."""
 

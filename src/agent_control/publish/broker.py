@@ -462,6 +462,16 @@ def broker_publish_fix(
         # Comment failure must not mark publication failed
         pass
 
+    from agent_control.session import handle_publish_session_terminal
+
+    handle_publish_session_terminal(
+        state_root,
+        project=project,
+        run_id=run_id,
+        success=True,
+        reason_code="publish_succeeded",
+    )
+
     return {
         "ok": True,
         "publish_state": "succeeded",
@@ -749,6 +759,16 @@ def broker_publish_repair(
         to_state="succeeded",
         commit_sha=validated.commit_sha,
         agent_branch=agent_branch,
+    )
+
+    from agent_control.session import handle_publish_session_terminal
+
+    handle_publish_session_terminal(
+        state_root,
+        project=project,
+        run_id=run_id,
+        success=True,
+        reason_code="repair_publish_succeeded",
     )
 
     return {

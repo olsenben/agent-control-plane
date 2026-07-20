@@ -38,6 +38,10 @@ def runs_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_fake_review_end_to_end(runs_env: Path) -> None:
+    from agent_control.session import begin_typed_session, bind_session_to_job, load_session
+    from agent_control.events import load_project_events
+
+    state_root = Path(os.environ["AGENT_STATE_ROOT"])
     state = VerificationState(
         project="ai-sdlc-lab/demo-app",
         command_intent=CommandIntent(
@@ -63,6 +67,19 @@ def test_fake_review_end_to_end(runs_env: Path) -> None:
     assert job.risk_class == "read_only_with_repo_context"
     assert job.context_pack is not None
     assert "graph_blast_radius" in job.context_pack.context_sources
+
+    session = begin_typed_session(
+        state_root,
+        project=job.project,
+        command_kind="review",
+        run_id=job.run_id,
+        head_sha=job.target_sha or "",
+        trigger_context=job.trigger_context,
+        policy_source_sha=job.policy_source_sha or "",
+    )
+    job = bind_session_to_job(job, session)
+    assert job.session_id.startswith("sess-")
+    assert job.session_id != job.run_id
 
     root_result = process_rlm_root(job.model_dump(mode="json"))
     assert root_result["status"] == "completed"
@@ -112,7 +129,31 @@ def test_fake_review_end_to_end(runs_env: Path) -> None:
     assert inbox_data.get("command_kind") == "review"
     assert inbox_data.get("review_result") is not None
     assert inbox_data.get("issue_id") == 2
+    assert inbox_data.get("session_id") == job.session_id
 
     stored, created = ingest_result_file(Path(os.environ["AGENT_STATE_ROOT"]), inbox)
     assert created is True
     assert stored.exists()
+
+    loaded = load_session(state_root, job.project, job.session_id)
+    assert loaded is not None
+    assert loaded.status.value == "finished"
+    assert loaded.session_id != job.run_id
+    events = load_project_events(state_root, job.project)
+    types = [e["type"] for e in events]
+    assert types.count("agent.session_started") == 1
+    assert types.count("agent.subject_context_resolved") == 1
+    assert types.count("agent.session_finished") == 1
+    finished = next(e for e in events if e["type"] == "agent.session_finished")
+    payload = finished["payload"]
+    assert payload["session_id"] == job.session_id
+    assert payload["run_id"] == job.run_id
+    assert payload["correlation_id"] == loaded.correlation_id
+    assert payload["input_state_sha"] == loaded.input_state_sha
+
+    # Re-ingest must not add another terminal.
+    inbox.write_text(json.dumps(inbox_data), encoding="utf-8")
+    _, created2 = ingest_result_file(state_root, inbox)
+    assert created2 is False
+    events2 = load_project_events(state_root, job.project)
+    assert sum(1 for e in events2 if e["type"] == "agent.session_finished") == 1

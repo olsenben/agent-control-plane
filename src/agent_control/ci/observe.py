@@ -455,9 +455,54 @@ def apply_observation(
                         )
                 elif dispatch.get("dispatched"):
                     reservation = dispatch.get("reservation") or {}
+                    # Automatic repair stays in the fix session (append run_id).
+                    repair_run_id = (
+                        f"run-repair-{pending.fix_run_id}-"
+                        f"{int(dispatch.get('repair_attempt') or 0)}"
+                    )
+                    session_id = None
+                    try:
+                        from agent_control.session import (
+                            append_run_to_session,
+                            begin_typed_session,
+                            load_session_by_run,
+                        )
+
+                        fix_session = load_session_by_run(
+                            state_root, pending.repository, pending.fix_run_id
+                        )
+                        if fix_session is not None:
+                            fix_session = append_run_to_session(
+                                state_root, fix_session, run_id=repair_run_id
+                            )
+                            session_id = fix_session.session_id
+                        else:
+                            # No fix session (legacy) — create repair session.
+                            tc = {
+                                "author": "ci_repair",
+                                "issue_number": pending.issue_id,
+                                "pr_number": pending.opened_pr_number,
+                            }
+                            created = begin_typed_session(
+                                state_root,
+                                project=pending.repository,
+                                command_kind="repair",
+                                run_id=repair_run_id,
+                                head_sha=pending.expected_head_commit_sha or "",
+                                trigger_context=tc,
+                            )
+                            session_id = created.session_id
+                    except Exception:
+                        logger.exception(
+                            "repair_session_bind_failed fix_run_id=%s",
+                            pending.fix_run_id,
+                        )
+
                     job_payload = {
                         "schema_version": "ci_repair_job.v1",
                         "state_root": str(state_root),
+                        "session_id": session_id,
+                        "run_id": repair_run_id,
                         **reservation,
                     }
                     job_id = enqueue_ci_repair(settings.redis_url, job_payload)

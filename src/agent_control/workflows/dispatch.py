@@ -162,15 +162,64 @@ def maybe_dispatch_rlm_root(
     settings: Settings | None = None,
 ) -> dict[str, Any]:
     from agent_control.queue import enqueue_rlm_root
+    from agent_control.session import (
+        TYPED_SESSION_COMMANDS,
+        begin_typed_session,
+        bind_session_to_job,
+        finalize_enqueue_failure,
+    )
 
+    settings = settings or get_settings()
     job = build_rlm_job(state, trigger_event, settings=settings)
     if job is None:
         return {"dispatched": False, "reason": "no_dispatch"}
 
-    job_id = enqueue_rlm_root(redis_url, job.model_dump(mode="json"))
+    session = None
+    kind = (job.command_intent.kind if job.command_intent else None) or ""
+    if kind in TYPED_SESSION_COMMANDS:
+        session = begin_typed_session(
+            settings.agent_state_root,
+            project=job.project,
+            command_kind=kind,  # type: ignore[arg-type]
+            run_id=job.run_id,
+            head_sha=job.target_sha or "",
+            trigger_context=job.trigger_context,
+            policy_source_sha=job.policy_source_sha or "",
+        )
+        job = bind_session_to_job(job, session)
+
+    try:
+        job_id = enqueue_rlm_root(redis_url, job.model_dump(mode="json"))
+    except Exception as exc:
+        if session is not None:
+            finalize_enqueue_failure(
+                settings.agent_state_root,
+                session,
+                run_id=job.run_id,
+                reason=str(exc),
+            )
+        raise
+
     if job_id is None:
-        return {"dispatched": False, "reason": "deduped", "run_id": job.run_id}
-    return {"dispatched": True, "job_id": job_id, "run_id": job.run_id, "flow": job.flow}
+        # Deduped: session retained from first dispatch; do not fail.
+        out: dict[str, Any] = {
+            "dispatched": False,
+            "reason": "deduped",
+            "run_id": job.run_id,
+        }
+        if session is not None:
+            out["session_id"] = session.session_id
+        return out
+
+    result: dict[str, Any] = {
+        "dispatched": True,
+        "job_id": job_id,
+        "run_id": job.run_id,
+        "flow": job.flow,
+    }
+    if session is not None:
+        result["session_id"] = session.session_id
+    return result
 
 
 def dispatch(event: dict) -> dict:

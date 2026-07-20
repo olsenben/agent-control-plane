@@ -219,6 +219,18 @@ def ingest_result_file(
         project=event_model.project,
         payload=payload,
     )
+    from agent_control.session import SessionMismatchError, handle_ingest_session_update
+    from agent_control.session.lifecycle import resolve_session_for_ingest
+
+    # Fail closed on session identity mismatch before ledger append / finalize.
+    try:
+        resolve_session_for_ingest(state_root, event_model)
+    except LookupError:
+        pass  # inspect/explain and other non-typed runs
+    except SessionMismatchError:
+        # Do not append mapped session events or finalize; leave inbox for ops.
+        raise
+
     stored_path, created = append_event(state_root, event)
     enriched = event_model.model_copy(
         update={
@@ -234,6 +246,10 @@ def ingest_result_file(
     ):
         writeback_from_completed(enriched, settings=settings)
     if created:
+        try:
+            handle_ingest_session_update(state_root, enriched)
+        except LookupError:
+            pass
         handle_fix_ingest_side_effects(state_root, enriched, settings=settings)
         processed = path.with_suffix(".json.processed")
         os.replace(path, processed)

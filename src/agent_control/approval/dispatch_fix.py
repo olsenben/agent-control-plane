@@ -200,6 +200,12 @@ def enqueue_fix_after_authorization(
     settings: Settings | None = None,
 ) -> dict[str, Any]:
     """Build fix job, enqueue to CT104, reserve approval (consume on PR open via ingest)."""
+    from agent_control.session import (
+        begin_typed_session,
+        bind_session_to_job,
+        finalize_enqueue_failure,
+    )
+
     settings = settings or get_settings()
     job = build_fix_rlm_job(
         trigger_event=trigger_event,
@@ -208,12 +214,34 @@ def enqueue_fix_after_authorization(
         settings=settings,
     )
 
-    job_id = enqueue_rlm_root(settings.redis_url, job.model_dump(mode="json"))
+    session = begin_typed_session(
+        state_root,
+        project=job.project,
+        command_kind="fix",
+        run_id=job.run_id,
+        head_sha=job.target_sha or approval.approved_base_sha or "",
+        trigger_context=job.trigger_context,
+        policy_source_sha=job.policy_source_sha or "",
+    )
+    job = bind_session_to_job(job, session)
+
+    try:
+        job_id = enqueue_rlm_root(settings.redis_url, job.model_dump(mode="json"))
+    except Exception as exc:
+        finalize_enqueue_failure(
+            state_root,
+            session,
+            run_id=job.run_id,
+            reason=str(exc),
+        )
+        raise
+
     if job_id is None:
         return {
             "enqueued": False,
             "reason": "deduped_or_failed",
             "run_id": job.run_id,
+            "session_id": session.session_id,
         }
 
     enqueued_body = FixEnqueuedEvent(
@@ -255,6 +283,7 @@ def enqueue_fix_after_authorization(
     return {
         "enqueued": True,
         "run_id": job.run_id,
+        "session_id": session.session_id,
         "job_id": job_id,
         "fix_enqueued_created": enq_created,
         "approval_reserved": True,
