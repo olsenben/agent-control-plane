@@ -6,6 +6,8 @@ import re
 import sys
 from pathlib import Path
 
+from agent_control.graph.provenance import annotate_edge
+
 _STDLIB_MODULES = sys.stdlib_module_names
 
 IMPORT_RE = re.compile(r"^\s*(?:from|import)\s+([a-zA-Z_][\w.]*)", re.MULTILINE)
@@ -118,14 +120,17 @@ def extract_file_import_edges(
             for candidate in module_to_file_candidates(module, repo_root):
                 if candidate in path_set:
                     edges.append(
-                        {
-                            "kind": "file_imports_file",
-                            "src_kind": "file",
-                            "src": f"file:{rel}",
-                            "dst_kind": "file",
-                            "dst": f"file:{candidate}",
-                            "confidence": "medium",
-                        }
+                        annotate_edge(
+                            {
+                                "kind": "file_imports_file",
+                                "src_kind": "file",
+                                "src": f"file:{rel}",
+                                "dst_kind": "file",
+                                "dst": f"file:{candidate}",
+                                "confidence": "medium",
+                            },
+                            provenance="static_analysis",
+                        )
                     )
                     resolved = True
                     break

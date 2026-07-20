@@ -28,4 +28,6 @@ def test_catalog_edges() -> None:
     assert "service_depends_on_service" in kinds
     assert "file_tested_by_test" in kinds
     assert "adr_mentions_service" in kinds
+    assert "adr_constrains_service" in kinds
     assert "repo_contains_service" in kinds
+    assert all(e.get("provenance") == "catalog" for e in edges)
