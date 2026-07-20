@@ -61,3 +61,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0021 proposed: V5 T02 memory-as-governance repeated failed fix deny
 - 2026-07-20 — ADR-0022 proposed: V5 T04 ADR vs graph architecture drift detector (fail-soft)
 - 2026-07-20 — ADR-0023 proposed: V5 T03 review replay console from durable session artifacts
+- 2026-07-20 — ADR-0024 proposed: V5 T05 SARIF → graph security evidence; Risk 0/1 only

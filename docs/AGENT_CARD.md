@@ -178,11 +178,12 @@ Model self-review is **not** an acceptance gate.
 | **T09 — non-demo 6F.2 ACP** | **2026-07-20** | tip `38e01d6`; `agentctl repair stage-status` → `t09_complete=true` — [slice-t09-non-demo-6f2-acp.md](slice-t09-non-demo-6f2-acp.md) |
 | **T13 — flag-gated tournaments** | **2026-07-20** | tip `078d030`; spawn/rewards deny-by-default — [slice-t13-patch-tournaments.md](slice-t13-patch-tournaments.md), ADR-0019 |
 | **V4 epic remaining track** | **closed** | T01–T11 + T13 Done; T12 Deferred — [handoff/boss-ledger.md](handoff/boss-ledger.md) |
-| **V5 governance epic** | **in progress** | T01–T04 Done tip `5ca8d78`; T05 in progress — [handoff/boss-ledger-v5.md](handoff/boss-ledger-v5.md) |
+| **V5 governance epic** | **in progress** | T01–T05 Done tip `60f30bb`; Next T06 — [handoff/boss-ledger-v5.md](handoff/boss-ledger-v5.md) |
 | **V5 T01 AgentFacts-lite** | **2026-07-20** | tip `bdbdc99`; Actions 705–707; `agentctl agentfacts check` ok + unsigned fail — [slice-v5-t01-agentfacts-lite.md](slice-v5-t01-agentfacts-lite.md), ADR-0020 |
 | **V5 T02 Memory-as-governance** | **2026-07-20** | tip `f2b8ce9`; Actions 711–713; deny + `agent.memory_governance_denied` — [slice-v5-t02-memory-as-governance.md](slice-v5-t02-memory-as-governance.md), ADR-0021 |
 | **V5 T03 Review replay console** | **2026-07-20** | tip `5ca8d78` (feat `b7fa044`); Actions 723–725; `agentctl replay review` `complete=true` — [slice-v5-t03-review-replay-console.md](slice-v5-t03-review-replay-console.md), ADR-0023 |
 | **V5 T04 Architecture drift** | **2026-07-20** | tip `a8c5373`; drift report missing/extra fail-soft — [slice-v5-t04-architecture-drift.md](slice-v5-t04-architecture-drift.md), ADR-0022 |
+| **V5 T05 SARIF ingest** | **2026-07-20** | tip `60f30bb`; Actions 729–731; sample SARIF → evidence nodes Risk 0/1 — [slice-v5-t05-sarif-ingest.md](slice-v5-t05-sarif-ingest.md), ADR-0024 |
 
 Dates are UTC as recorded on CT103/CT104 at ingest time.
 
