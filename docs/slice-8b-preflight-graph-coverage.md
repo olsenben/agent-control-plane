@@ -1,6 +1,6 @@
 # Slice T06 / 8b — Preflight consumes graph coverage / missing_edges
 
-**Status:** Implemented — awaiting deploy-verify merge gate  
+**Status:** Done — deploy verified  
 **Date:** 2026-07-20  
 **Epic ticket:** T06  
 **Plan:** V4 impl order item 8b  
@@ -47,9 +47,21 @@ blast_radius missing_edges
 .venv/bin/pytest tests/test_preflight_graph_coverage_8b.py tests/test_memory_preflight.py -q
 ```
 
-## Deploy verification
+## Deploy verification (2026-07-20)
 
-Pending merge of `epic/lane-graph-t05-t07` by deploy-verify owner (no CT103/CT104 tip pin from this lane).
+| Field | Value |
+|-------|-------|
+| Ticket ID | T06 |
+| Tip SHA | `6706a2f04f9361fdbc00f59f79ada09bce0202f7` (`6706a2f`) |
+| PR | [#27](https://git.ham-sup-lo.com/ai-sdlc-lab/agent-control-plane/pulls/27) merged to main |
+| Verdict | **DEPLOY_VERIFY: PASS** |
+
+| Check | Result |
+|-------|--------|
+| CT102 Actions for tip | pass (hosts pinned) |
+| CT103 / CT104 tip | `6706a2f` |
+| Live model | `COMPILER_VERSION=memory_preflight.v1/8b`; fields `graph_coverage`, `missing_graph_edges` present |
+| Unit tests | `tests/test_preflight_graph_coverage_8b.py` 5 passed (local) |
 
 ## Follow-on
 
