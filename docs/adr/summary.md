@@ -20,6 +20,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0014 | Adequacy profiles scope verification claims | proposed | 2026-07-20 | fixed_verified only when profile passes; agent tests scoped_only by default |
 | ADR-0015 | Orbit dual-graph edges carry provenance | proposed | 2026-07-20 | Provenanced code+SDLC edges; coverage CLI; blast-radius stays fail-soft |
 | ADR-0016 | Conditional recursive context worker on 2070 | proposed | 2026-07-20 | Invoke only when preflight requires; read-only tools; skip path no 2070 |
+| ADR-0017 | Split acting_identity from human invoked_by | proposed | 2026-07-20 | Bot acting_identity vs human invoked_by; started+terminal ack by run_id |
 
 ## Review log
 
@@ -46,3 +47,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0014 proposed: T04 adequacy profiles; scoped verification / fixed_verified
 - 2026-07-20 — ADR-0015 proposed: T05/8a Orbit dual-graph provenance + coverage; blast-radius fail-soft
 - 2026-07-20 — ADR-0016 proposed: T07/8c conditional recursive context worker; skip path preserves no-2070
+- 2026-07-20 — ADR-0017 proposed: T10 acting_identity vs invoked_by + invocation ack
