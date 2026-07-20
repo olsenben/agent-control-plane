@@ -338,7 +338,7 @@ def test_worker_session_mismatch_fail_closed(tmp_path: Path) -> None:
     assert loaded.status == SessionStatus.QUEUED
 
 
-def test_fix_ingest_does_not_finish(tmp_path: Path) -> None:
+def test_fix_ingest_publish_candidate_stays_running(tmp_path: Path) -> None:
     state = tmp_path / "agent-state"
     state.mkdir()
     s = begin_typed_session(
@@ -349,6 +349,11 @@ def test_fix_ingest_does_not_finish(tmp_path: Path) -> None:
         head_sha="h",
         trigger_context=_tc(),
     )
+    from agent_shared.constants import (
+        FIX_STATUS_PATCH_BUNDLE_READY,
+        PRODUCER_PROTOCOL_PATCH_BUNDLE_V1,
+    )
+
     event = AgentRunCompletedEvent(
         run_id="run-fixing",
         job_id="j1",
@@ -365,8 +370,11 @@ def test_fix_ingest_does_not_finish(tmp_path: Path) -> None:
         artifact_root="/tmp",
         command_kind="fix",
         issue_id=2,
+        producer_protocol=PRODUCER_PROTOCOL_PATCH_BUNDLE_V1,
+        fix_status=FIX_STATUS_PATCH_BUNDLE_READY,
+        bundle_id="bundle-1",
     )
-    out = handle_ingest_session_update(state, event)
+    out = handle_ingest_session_update(state, event, remote_publish_enabled=True)
     assert out["terminal"] is False
     loaded = load_session(state, "ai-sdlc-lab/demo-app", s.session_id)
     assert loaded is not None
@@ -375,6 +383,43 @@ def test_fix_ingest_does_not_finish(tmp_path: Path) -> None:
         e["type"] == "agent.session_finished"
         for e in load_project_events(state, "ai-sdlc-lab/demo-app")
     )
+
+
+def test_fix_ingest_failed_worker_terminals(tmp_path: Path) -> None:
+    state = tmp_path / "agent-state"
+    state.mkdir()
+    s = begin_typed_session(
+        state,
+        project="ai-sdlc-lab/demo-app",
+        command_kind="fix",
+        run_id="run-fix-fail",
+        head_sha="h",
+        trigger_context=_tc(),
+    )
+    event = AgentRunCompletedEvent(
+        run_id="run-fix-fail",
+        job_id="j1",
+        workflow_id="run-fix-fail",
+        session_id=s.session_id,
+        trigger_event_id="fxf",
+        project="ai-sdlc-lab/demo-app",
+        flow="developer_flow",
+        agent="developer",
+        risk_class="write_patch",
+        status="failed",
+        terminal_status="failed_infra",
+        summary="worker crashed",
+        artifact_root="/tmp",
+        command_kind="fix",
+        issue_id=2,
+        policy_decision="deny",
+    )
+    out = handle_ingest_session_update(state, event)
+    assert out["terminal"] is True
+    loaded = load_session(state, "ai-sdlc-lab/demo-app", s.session_id)
+    assert loaded is not None
+    assert loaded.status == SessionStatus.BLOCKED
+    assert loaded.terminal_reason_code == "policy_denied"
 
 
 def test_dispatch_creates_session_before_enqueue(
@@ -391,11 +436,13 @@ def test_dispatch_creates_session_before_enqueue(
 
     install_fake_policy_pin(monkeypatch)
 
+    from agent_control.queue import EnqueueResult
+
     captured: dict = {}
 
-    def _enqueue(redis_url: str, payload: dict) -> str:
+    def _enqueue(redis_url: str, payload: dict) -> EnqueueResult:
         captured["payload"] = payload
-        return "rq-job-1"
+        return EnqueueResult(outcome="enqueued", job_id="rq-job-1")
 
     monkeypatch.setattr(
         "agent_control.queue.enqueue_rlm_root",

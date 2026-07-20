@@ -1,4 +1,4 @@
-"""CT103-authoritative typed agent sessions (Slice 5.4a)."""
+"""CT103-authoritative typed agent sessions (Slice 5.4a + 5.4b)."""
 
 from agent_control.session.lifecycle import (
     INGEST_TERMINAL_OWNERS,
@@ -7,14 +7,26 @@ from agent_control.session.lifecycle import (
     WORKER_EVENT_ALLOWLIST,
     SessionMismatchError,
     append_run_to_session,
+    begin_and_block_typed_session,
     begin_typed_session,
     bind_session_to_job,
     create_session_record,
     finalize_enqueue_failure,
     finalize_session,
+    finalize_session_blocked,
     handle_ingest_session_update,
     handle_publish_session_terminal,
+    make_blocked_request_key,
     mark_session_running,
+)
+from agent_control.session.reasons import (
+    SessionTerminalError,
+    SessionTerminalReason,
+    SessionTerminalStatus,
+    classify_broker_reject,
+    classify_unsuccessful_terminal,
+    map_fix_evaluation_to_block_reason,
+    normalize_terminal,
 )
 from agent_control.session.storage import (
     SessionStoreError,
@@ -23,25 +35,37 @@ from agent_control.session.storage import (
     load_session_by_run,
     lookup_session_id_by_run,
 )
+from agent_control.queue import EnqueueResult
 
 __all__ = [
     "INGEST_TERMINAL_OWNERS",
     "PUBLISH_TERMINAL_OWNERS",
     "TYPED_SESSION_COMMANDS",
     "WORKER_EVENT_ALLOWLIST",
+    "EnqueueResult",
     "SessionMismatchError",
     "SessionStoreError",
+    "SessionTerminalError",
+    "SessionTerminalReason",
+    "SessionTerminalStatus",
     "append_run_to_session",
+    "begin_and_block_typed_session",
     "begin_typed_session",
     "bind_session_to_job",
+    "classify_broker_reject",
+    "classify_unsuccessful_terminal",
     "create_session_record",
     "finalize_enqueue_failure",
     "finalize_session",
+    "finalize_session_blocked",
     "handle_ingest_session_update",
     "handle_publish_session_terminal",
     "list_sessions",
     "load_session",
     "load_session_by_run",
     "lookup_session_id_by_run",
+    "make_blocked_request_key",
+    "map_fix_evaluation_to_block_reason",
     "mark_session_running",
+    "normalize_terminal",
 ]

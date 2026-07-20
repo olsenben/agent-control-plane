@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from agent_control.session.events import (
     append_session_blocked,
@@ -15,11 +16,20 @@ from agent_control.session.events import (
     append_subject_context_resolved,
     append_worker_mapped_event,
 )
+from agent_control.session.publish_candidate import is_publish_candidate
+from agent_control.session.reasons import (
+    SessionTerminalReason,
+    SessionTerminalStatus,
+    classify_unsuccessful_terminal,
+    normalize_terminal,
+)
 from agent_control.session.storage import (
     SessionStoreError,
+    load_blocked_request_index,
     load_session_by_run,
     lookup_session_id_by_run,
     persist_session_with_run_index,
+    save_blocked_request_index,
     save_run_index,
     save_session,
 )
@@ -257,11 +267,19 @@ def finalize_session(
     session: AgentSession,
     *,
     run_id: str,
-    status: Literal["finished", "failed", "blocked"],
-    reason_code: str | None = None,
+    status: SessionTerminalStatus,
+    reason_code: SessionTerminalReason,
     reason: str | None = None,
+    domain_reasons: list[str] | None = None,
 ) -> AgentSession:
     """Terminal transition + ledger event. Idempotent for same terminal+reason."""
+    _, canonical, detail = normalize_terminal(
+        status,
+        reason_code,
+        domain_reasons=domain_reasons,
+        message=reason,
+    )
+    reason_value = canonical.value
     status_enum = {
         "finished": SessionStatus.FINISHED,
         "failed": SessionStatus.FAILED,
@@ -272,8 +290,8 @@ def finalize_session(
             session,
             new_status=status_enum,
             updated_at=_now(),
-            terminal_reason_code=reason_code,
-            terminal_reason=reason,
+            terminal_reason_code=reason_value,
+            terminal_reason=detail,
         )
     except SessionTransitionError:
         logger.exception(
@@ -285,7 +303,6 @@ def finalize_session(
         raise
 
     if updated is session and session.status == status_enum:
-        # no-op idempotent
         return session
 
     save_session(state_root, updated)
@@ -296,18 +313,163 @@ def finalize_session(
             state_root,
             updated,
             run_id=run_id,
-            reason_code=reason_code or "session_failed",
-            reason=reason,
+            reason_code=reason_value,
+            reason=detail,
         )
     else:
         append_session_blocked(
             state_root,
             updated,
             run_id=run_id,
-            reason_code=reason_code or "session_blocked",
-            reason=reason,
+            reason_code=reason_value,
+            reason=detail,
         )
     return updated
+
+
+def finalize_session_blocked(
+    state_root: Path,
+    session: AgentSession,
+    *,
+    run_id: str,
+    reason_code: SessionTerminalReason,
+    reason: str | None = None,
+    domain_reasons: list[str] | None = None,
+) -> AgentSession:
+    return finalize_session(
+        state_root,
+        session,
+        run_id=run_id,
+        status="blocked",
+        reason_code=reason_code,
+        reason=reason,
+        domain_reasons=domain_reasons,
+    )
+
+
+def make_blocked_request_key(
+    *,
+    project: str,
+    command_kind: str,
+    issue_id: int | None,
+    comment_id: int | None,
+    trigger_event_id: str | None,
+    approval_target_id: str | None = None,
+    plan_hash: str | None = None,
+) -> str:
+    parts = [
+        project,
+        command_kind,
+        str(issue_id or ""),
+        str(comment_id or trigger_event_id or ""),
+        approval_target_id or "",
+        plan_hash or "",
+    ]
+    digest = hashlib.sha256("|".join(parts).encode()).hexdigest()[:24]
+    return f"blocked-{digest}"
+
+
+def deterministic_blocked_run_id(request_key: str) -> str:
+    digest = hashlib.sha256(request_key.encode()).hexdigest()[:28]
+    return f"run-{digest}"
+
+
+def begin_and_block_typed_session(
+    state_root: Path,
+    *,
+    project: str,
+    command_kind: CommandKind,
+    request_key: str,
+    head_sha: str,
+    trigger_context: Any,
+    reason_code: SessionTerminalReason,
+    reason: str | None = None,
+    domain_reasons: list[str] | None = None,
+    policy_source_sha: str = "",
+    subject_kind: SubjectKind | None = None,
+    subject_number: int | None = None,
+    invoked_by: str | None = None,
+) -> AgentSession:
+    """Idempotent compound helper: create blocked session or return existing."""
+    existing_index = load_blocked_request_index(state_root, project, request_key)
+    if existing_index:
+        sid = existing_index.get("session_id")
+        run_id = existing_index.get("run_id")
+        if isinstance(sid, str) and isinstance(run_id, str):
+            loaded = load_session_by_run(state_root, project, run_id)
+            if loaded is not None:
+                if loaded.status not in (
+                    SessionStatus.BLOCKED,
+                    SessionStatus.FINISHED,
+                    SessionStatus.FAILED,
+                ):
+                    return finalize_session_blocked(
+                        state_root,
+                        loaded,
+                        run_id=run_id,
+                        reason_code=reason_code,
+                        reason=reason,
+                        domain_reasons=domain_reasons,
+                    )
+                return loaded
+
+    run_id = deterministic_blocked_run_id(request_key)
+    existing = load_session_by_run(state_root, project, run_id)
+    if existing is not None:
+        if existing.status != SessionStatus.BLOCKED:
+            return finalize_session_blocked(
+                state_root,
+                existing,
+                run_id=run_id,
+                reason_code=reason_code,
+                reason=reason,
+                domain_reasons=domain_reasons,
+            )
+        save_blocked_request_index(
+            state_root,
+            project=project,
+            request_key=request_key,
+            session_id=existing.session_id,
+            run_id=run_id,
+        )
+        return existing
+
+    session = begin_typed_session(
+        state_root,
+        project=project,
+        command_kind=command_kind,
+        run_id=run_id,
+        head_sha=head_sha,
+        trigger_context=trigger_context,
+        policy_source_sha=policy_source_sha,
+        subject_kind=subject_kind,
+        subject_number=subject_number,
+        invoked_by=invoked_by,
+    )
+    try:
+        blocked = finalize_session_blocked(
+            state_root,
+            session,
+            run_id=run_id,
+            reason_code=reason_code,
+            reason=reason,
+            domain_reasons=domain_reasons,
+        )
+    except Exception:
+        # Replay path: session may exist without terminal if prior attempt failed mid-flight.
+        replay = load_session_by_run(state_root, project, run_id)
+        if replay is not None and replay.status == SessionStatus.BLOCKED:
+            blocked = replay
+        else:
+            raise
+    save_blocked_request_index(
+        state_root,
+        project=project,
+        request_key=request_key,
+        session_id=blocked.session_id,
+        run_id=run_id,
+    )
+    return blocked
 
 
 def finalize_enqueue_failure(
@@ -322,7 +484,7 @@ def finalize_enqueue_failure(
         session,
         run_id=run_id,
         status="failed",
-        reason_code="enqueue_failed",
+        reason_code=SessionTerminalReason.ENQUEUE_FAILED,
         reason=reason,
     )
 
@@ -390,12 +552,14 @@ def map_worker_allowlisted_events(
 def handle_ingest_session_update(
     state_root: Path,
     event: AgentRunCompletedEvent,
+    *,
+    remote_publish_enabled: bool = True,
 ) -> dict[str, Any]:
     """Apply ingest-time session rules. Returns action summary.
 
     - Mismatch → raise SessionMismatchError (caller must not finalize / map).
-    - review/plan → terminal finished|failed.
-    - fix/repair → running update only (publish owns terminal).
+    - review/plan → terminal finished|failed|blocked.
+    - fix/repair → running when publish candidate; else terminal failed|blocked.
     """
     try:
         session = resolve_session_for_ingest(state_root, event)
@@ -407,13 +571,50 @@ def handle_ingest_session_update(
     )
 
     kind = session.command_kind
-    if kind in PUBLISH_TERMINAL_OWNERS:
-        updated = mark_session_running(state_root, session)
+
+    if event.policy_decision == "deny":
+        updated = finalize_session_blocked(
+            state_root,
+            session,
+            run_id=event.run_id,
+            reason_code=SessionTerminalReason.POLICY_DENIED,
+            reason=event.summary[:500] if event.summary else "policy denied",
+            domain_reasons=list(event.diff_gate_violation_codes or []),
+        )
         return {
             "skipped": False,
             "session_id": updated.session_id,
             "status": updated.status.value,
-            "terminal": False,
+            "terminal": True,
+        }
+
+    if kind in PUBLISH_TERMINAL_OWNERS:
+        if is_publish_candidate(event, remote_publish_enabled=remote_publish_enabled):
+            updated = mark_session_running(state_root, session)
+            return {
+                "skipped": False,
+                "session_id": updated.session_id,
+                "status": updated.status.value,
+                "terminal": False,
+            }
+        terminal_status, reason = classify_unsuccessful_terminal(
+            domain_reasons=[event.terminal_status or "", event.fix_status or ""],
+            policy_decision=event.policy_decision,
+        )
+        updated = finalize_session(
+            state_root,
+            session,
+            run_id=event.run_id,
+            status=terminal_status,
+            reason_code=reason,
+            reason=event.summary[:500] if event.summary else "worker failed",
+            domain_reasons=[c for c in [event.terminal_status, event.fix_status] if c],
+        )
+        return {
+            "skipped": False,
+            "session_id": updated.session_id,
+            "status": updated.status.value,
+            "terminal": True,
         }
 
     if kind in INGEST_TERMINAL_OWNERS:
@@ -427,17 +628,22 @@ def handle_ingest_session_update(
                 session,
                 run_id=event.run_id,
                 status="finished",
-                reason_code="ingest_completed",
+                reason_code=SessionTerminalReason.INGEST_COMPLETED,
                 reason="validated result persisted",
             )
         else:
+            terminal_status, reason = classify_unsuccessful_terminal(
+                domain_reasons=[event.terminal_status or ""],
+                policy_decision=event.policy_decision,
+            )
             updated = finalize_session(
                 state_root,
                 session,
                 run_id=event.run_id,
-                status="failed",
-                reason_code=event.terminal_status or "worker_failed",
+                status=terminal_status,
+                reason_code=reason,
                 reason=event.summary[:500] if event.summary else "worker failed",
+                domain_reasons=[event.terminal_status] if event.terminal_status else None,
             )
         return {
             "skipped": False,
@@ -454,9 +660,10 @@ def handle_publish_session_terminal(
     *,
     project: str,
     run_id: str,
-    success: bool,
-    reason_code: str | None = None,
+    terminal: SessionTerminalStatus,
+    reason_code: SessionTerminalReason,
     reason: str | None = None,
+    domain_reasons: list[str] | None = None,
 ) -> AgentSession | None:
     """Fix/repair terminal owner — publish/verification path."""
     session = load_session_by_run(state_root, project, run_id)
@@ -464,22 +671,14 @@ def handle_publish_session_terminal(
         return None
     if session.command_kind not in PUBLISH_TERMINAL_OWNERS:
         return session
-    if success:
-        return finalize_session(
-            state_root,
-            session,
-            run_id=run_id,
-            status="finished",
-            reason_code=reason_code or "publish_succeeded",
-            reason=reason or "publish/verification complete",
-        )
     return finalize_session(
         state_root,
         session,
         run_id=run_id,
-        status="failed",
-        reason_code=reason_code or "publish_failed",
+        status=terminal,
+        reason_code=reason_code,
         reason=reason,
+        domain_reasons=domain_reasons,
     )
 
 

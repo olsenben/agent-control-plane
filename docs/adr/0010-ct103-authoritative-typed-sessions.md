@@ -24,7 +24,7 @@ Jobs carried `session_id` aliased to `run_id`, and CT104 wrote only local `sessi
 - Dispatch paths (`maybe_dispatch_rlm_root`, fix enqueue, CI repair) must begin or bind sessions before queueing.
 - CT104 continues to echo `session_id` in `agent.run_completed` evidence only.
 - CLI: `agentctl session show|list`.
-- Follow-ups: 5.4b taxonomy, 5.5 preflight, 5.6 verification gate, 5.7 writeback.
+- Follow-ups: ~~5.4b taxonomy~~ (done 2026-07-20), 5.5 preflight, 5.6 verification gate, 5.7 writeback.
 
 ## Related
 

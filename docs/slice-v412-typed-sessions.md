@@ -1,6 +1,6 @@
 # V4.1.2 Bundle — Typed Sessions → Recursive Context (umbrella)
 
-**Status:** Active — 5.4a **done**; next 5.4b / 5.5  
+**Status:** Active — 5.4b **implemented** (homelab sign-off pending); next 5.5  
 **Date:** 2026-07-19  
 **Plan source:** `gitea_agentic_sdlc_cursor_step_plan_v4.md` (§0.2a, §5a, §0.6, DoD §Recursive context, impl order 5.4–5.7 / 8a–8d)  
 **Prerequisite:** V4.1.1 closeout signed ([slice-v411-closeout.md](slice-v411-closeout.md)) — **2026-07-19**  
@@ -106,7 +106,7 @@ Stale V4 plan / AGENT_CARD “next” pointers were patched in the Phase A docs-
 
 ### PR-S2 — Slice 5.4b: Failure / blocked taxonomy
 
-**Status:** **Planned** — see [slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md).
+**Status:** **Implemented** 2026-07-20 — homelab sign-off pending. See [slice-5.4b-session-failure-taxonomy.md](slice-5.4b-session-failure-taxonomy.md).
 
 - Terminal reasons: `session_failed`, `session_blocked`, `sandbox_unavailable`, `verification_missing`, `context_overflow`, `policy_denied`, `human_approval_required`.
 - Ensure Risk-2 sandbox deny and policy deny set blocked/failed consistently with existing SRT / tool_policy paths.

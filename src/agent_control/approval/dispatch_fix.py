@@ -204,6 +204,7 @@ def enqueue_fix_after_authorization(
         begin_typed_session,
         bind_session_to_job,
         finalize_enqueue_failure,
+        load_session_by_run,
     )
 
     settings = settings or get_settings()
@@ -229,24 +230,34 @@ def enqueue_fix_after_authorization(
     )
     job = bind_session_to_job(job, session)
 
-    try:
-        job_id = enqueue_rlm_root(settings.redis_url, job.model_dump(mode="json"))
-    except Exception as exc:
+    enqueue_result = enqueue_rlm_root(settings.redis_url, job.model_dump(mode="json"))
+    if enqueue_result.outcome == "failed":
         finalize_enqueue_failure(
             state_root,
             session,
             run_id=job.run_id,
-            reason=str(exc),
+            reason=enqueue_result.error or "enqueue failed",
         )
-        raise
-
-    if job_id is None:
         return {
             "enqueued": False,
-            "reason": "deduped_or_failed",
+            "reason": "enqueue_failed",
             "run_id": job.run_id,
             "session_id": session.session_id,
+            "error": enqueue_result.error,
         }
+
+    if enqueue_result.outcome == "deduplicated":
+        existing = load_session_by_run(state_root, job.project, job.run_id)
+        sid = existing.session_id if existing else session.session_id
+        return {
+            "enqueued": False,
+            "reason": "deduplicated",
+            "run_id": job.run_id,
+            "session_id": sid,
+            "existing_job_id": enqueue_result.existing_job_id,
+        }
+
+    job_id = enqueue_result.job_id
 
     enqueued_body = FixEnqueuedEvent(
         fix_run_id=job.run_id,

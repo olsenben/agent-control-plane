@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Final, Sequence
+from dataclasses import dataclass
+from typing import Any, Callable, Final, Literal, Sequence
 
 import rq
 from redis import Redis
@@ -30,6 +31,14 @@ CI_REPAIR_JOB_ID_PREFIX: Final[str] = "ci-repair"
 PUBLISH_JOB_ID_PREFIX: Final[str] = "publish"
 DEDUPE_KEY_PREFIX: Final[str] = "rq:dedupe:"
 DEDUPE_TTL_SECONDS: Final[int] = 86400
+
+
+@dataclass(frozen=True)
+class EnqueueResult:
+    outcome: Literal["enqueued", "deduplicated", "failed"]
+    job_id: str | None = None
+    existing_job_id: str | None = None
+    error: str | None = None
 
 
 def deterministic_job_id(queue: str, payload_key: str) -> str:
@@ -70,13 +79,17 @@ def _enqueue(
     *args,
     retry_max: int = 0,
     **kwargs,
-) -> str | None:
+) -> EnqueueResult:
     conn = get_redis(redis_url)
     enqueue_kwargs: dict = {"job_id": job_id}
     if _rq_supports_unique():
         enqueue_kwargs["unique"] = True
     elif not _acquire_dedupe(conn, job_id):
-        return None
+        return EnqueueResult(
+            outcome="deduplicated",
+            job_id=None,
+            existing_job_id=job_id,
+        )
 
     queue = Queue(prefixed_queue(queue_name), connection=conn)
     try:
@@ -90,12 +103,16 @@ def _enqueue(
         except ImportError:  # pragma: no cover
             DuplicateJobError = ()  # type: ignore[misc, assignment]
         if DuplicateJobError and isinstance(exc, DuplicateJobError):
-            return None
-        raise
+            return EnqueueResult(
+                outcome="deduplicated",
+                job_id=None,
+                existing_job_id=job_id,
+            )
+        return EnqueueResult(outcome="failed", job_id=None, error=str(exc))
     if retry_max:
         job.meta["retry_max"] = retry_max
         job.save_meta()
-    return job.id
+    return EnqueueResult(outcome="enqueued", job_id=job.id)
 
 
 def enqueue_state_reduction(
@@ -108,15 +125,26 @@ def enqueue_state_reduction(
     from agent_control.jobs.state import process_state_reduction
 
     job_id = deterministic_job_id(STATE_JOB_ID_PREFIX, event_id)
-    return _enqueue(redis_url, "state", process_state_reduction, job_id, state_root, event_id, project)
+    result = _enqueue(redis_url, "state", process_state_reduction, job_id, state_root, event_id, project)
+    if result.outcome == "enqueued":
+        return result.job_id
+    return None
 
 
-def enqueue_rlm_root(redis_url: str, job_payload: dict[str, Any]) -> str | None:
+def enqueue_rlm_root(redis_url: str, job_payload: dict[str, Any]) -> EnqueueResult:
     from agent_workers.jobs.rlm_root import process_rlm_root
 
     trigger_event_id = job_payload.get("trigger_event_id", "unknown")
     job_id = deterministic_job_id(RLM_ROOT_JOB_ID_PREFIX, trigger_event_id)
     return _enqueue(redis_url, QUEUE_RLM_ROOT, process_rlm_root, job_id, job_payload, retry_max=1)
+
+
+def enqueue_rlm_root_legacy(redis_url: str, job_payload: dict[str, Any]) -> str | None:
+    """Backward-compatible wrapper returning job id or None."""
+    result = enqueue_rlm_root(redis_url, job_payload)
+    if result.outcome == "enqueued":
+        return result.job_id
+    return None
 
 
 def enqueue_ci_repair(redis_url: str, job_payload: dict[str, Any]) -> str | None:
@@ -129,14 +157,16 @@ def enqueue_ci_repair(redis_url: str, job_payload: dict[str, Any]) -> str | None
     attempt = job_payload.get("repair_attempt") or 0
     key = f"{repo}:{pr}:{sha}:{attempt}"
     job_id = deterministic_job_id(CI_REPAIR_JOB_ID_PREFIX, key)
-    return _enqueue(redis_url, QUEUE_CI_REPAIR, process_ci_repair, job_id, job_payload, retry_max=1)
+    result = _enqueue(redis_url, QUEUE_CI_REPAIR, process_ci_repair, job_id, job_payload, retry_max=1)
+    return result.job_id if result.outcome == "enqueued" else None
 
 
 def enqueue_report(redis_url: str, run_id: str, job_payload: dict[str, Any]) -> str | None:
     from agent_workers.jobs.report import process_report
 
     job_id = deterministic_job_id(REPORT_JOB_ID_PREFIX, run_id)
-    return _enqueue(redis_url, "report", process_report, job_id, job_payload, retry_max=3)
+    result = _enqueue(redis_url, "report", process_report, job_id, job_payload, retry_max=3)
+    return result.job_id if result.outcome == "enqueued" else None
 
 
 def enqueue_ingest_inbox_file(
@@ -149,7 +179,7 @@ def enqueue_ingest_inbox_file(
     from agent_control.jobs.ingest import process_ingest_inbox_file
 
     job_id = deterministic_job_id(INGEST_JOB_ID_PREFIX, f"{run_id}-{content_hash}")
-    return _enqueue(
+    result = _enqueue(
         redis_url,
         QUEUE_RESULTS_INGEST,
         process_ingest_inbox_file,
@@ -157,6 +187,7 @@ def enqueue_ingest_inbox_file(
         state_root,
         inbox_path,
     )
+    return result.job_id if result.outcome == "enqueued" else None
 
 
 def enqueue_publish(
@@ -193,7 +224,8 @@ def enqueue_publish(
         ):
             if key in extra:
                 payload[key] = extra[key]
-    return _enqueue(redis_url, QUEUE_PUBLISH, process_publish, job_id, payload, retry_max=2)
+    result = _enqueue(redis_url, QUEUE_PUBLISH, process_publish, job_id, payload, retry_max=2)
+    return result.job_id if result.outcome == "enqueued" else None
 
 
 def _rlm_job_exception_handler(job, exc_type, exc_value, traceback) -> bool:

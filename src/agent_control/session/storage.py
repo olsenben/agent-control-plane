@@ -39,6 +39,51 @@ def run_index_path(state_root: Path, project: str, run_id: str) -> Path:
     )
 
 
+def blocked_request_index_path(state_root: Path, project: str, request_key: str) -> Path:
+    return (
+        sessions_dir(state_root, project)
+        / "by_blocked_request"
+        / f"{sanitize_path_segment(request_key)}.json"
+    )
+
+
+def save_blocked_request_index(
+    state_root: Path,
+    *,
+    project: str,
+    request_key: str,
+    session_id: str,
+    run_id: str,
+) -> Path:
+    path = blocked_request_index_path(state_root, project, request_key)
+    body = json.dumps(
+        {
+            "request_key": request_key,
+            "session_id": session_id,
+            "run_id": run_id,
+            "project": canonical_project(project),
+        },
+        indent=2,
+    )
+    _atomic_write_json(path, body)
+    return path
+
+
+def load_blocked_request_index(
+    state_root: Path,
+    project: str,
+    request_key: str,
+) -> dict | None:
+    path = blocked_request_index_path(state_root, project, request_key)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def _atomic_write_json(path: Path, body: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")

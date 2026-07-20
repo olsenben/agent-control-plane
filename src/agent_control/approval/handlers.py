@@ -25,6 +25,11 @@ from agent_control.gitea_comments import (
     post_issue_comment,
 )
 from agent_control.project_registry import build_trigger_context
+from agent_control.session import (
+    begin_and_block_typed_session,
+    make_blocked_request_key,
+    map_fix_evaluation_to_block_reason,
+)
 from agent_shared.models.intent import CommandIntent
 
 
@@ -40,6 +45,55 @@ def _comment_id(trigger_event: dict[str, Any]) -> int | None:
     comment = payload.get("comment") or {}
     cid = comment.get("id")
     return int(cid) if cid is not None else None
+
+
+def _block_fix_session(
+    state_root: Path,
+    *,
+    project: str,
+    issue_id: int,
+    trigger_event: dict[str, Any],
+    tc: dict[str, Any],
+    target: str,
+    evaluation_reason: str | None,
+    comment_id: int | None,
+    empty_allowed_files: bool = False,
+    plan_hash: str | None = None,
+    approval_target_id: str | None = None,
+    head_sha: str = "",
+) -> dict[str, str]:
+    reason_code = map_fix_evaluation_to_block_reason(
+        evaluation_reason=evaluation_reason,
+        empty_allowed_files=empty_allowed_files,
+    )
+    request_key = make_blocked_request_key(
+        project=project,
+        command_kind="fix",
+        issue_id=issue_id,
+        comment_id=comment_id,
+        trigger_event_id=str(trigger_event.get("event_id") or ""),
+        approval_target_id=approval_target_id,
+        plan_hash=plan_hash,
+    )
+    session = begin_and_block_typed_session(
+        state_root,
+        project=project,
+        command_kind="fix",
+        request_key=request_key,
+        head_sha=head_sha,
+        trigger_context=tc,
+        reason_code=reason_code,
+        reason=evaluation_reason,
+        subject_kind="issue",
+        subject_number=issue_id,
+        invoked_by=str(tc.get("author") or "unknown"),
+    )
+    run_id = session.run_ids[0] if session.run_ids else ""
+    return {
+        "session_id": session.session_id,
+        "run_id": run_id,
+        "terminal_reason_code": reason_code.value,
+    }
 
 
 def handle_approval_commands(
@@ -141,6 +195,27 @@ def handle_approval_commands(
                     format_fix_blocked(target=target, reason=evaluation.reason),
                     settings=settings,
                 )
+            plan_hash = evaluation.plan_record.plan_hash if evaluation.plan_record else None
+            approval_target_id = (
+                evaluation.plan_record.approval_target_id if evaluation.plan_record else None
+            )
+            head_sha = ""
+            if evaluation.approval:
+                head_sha = evaluation.approval.approved_base_sha or ""
+            block_info = _block_fix_session(
+                state_root,
+                project=project,
+                issue_id=issue_id,
+                trigger_event=trigger_event,
+                tc=tc,
+                target=target,
+                evaluation_reason=evaluation.reason,
+                comment_id=comment_id,
+                plan_hash=plan_hash,
+                approval_target_id=approval_target_id,
+                head_sha=head_sha,
+            )
+            result.update(block_info)
             result["reason"] = evaluation.reason
             return result
 
@@ -164,6 +239,21 @@ def handle_approval_commands(
                     ),
                     settings=settings,
                 )
+            block_info = _block_fix_session(
+                state_root,
+                project=project,
+                issue_id=issue_id,
+                trigger_event=trigger_event,
+                tc=tc,
+                target=target,
+                evaluation_reason="empty_allowed_files",
+                comment_id=comment_id,
+                empty_allowed_files=True,
+                plan_hash=evaluation.plan_record.plan_hash,
+                approval_target_id=evaluation.approval.approval_target_id,
+                head_sha=evaluation.approval.approved_base_sha or "",
+            )
+            result.update(block_info)
             result["reason"] = "empty_allowed_files"
             return result
 
@@ -192,15 +282,17 @@ def handle_approval_commands(
                 settings=settings,
             )
         else:
-            post_issue_comment(
-                project,
-                issue_id,
-                format_fix_enqueue_failed(
-                    target=target,
-                    reason=str(enqueue_result.get("reason", "enqueue failed")),
-                ),
-                settings=settings,
-            )
+            reason = str(enqueue_result.get("reason", "enqueue failed"))
+            if reason != "deduplicated":
+                post_issue_comment(
+                    project,
+                    issue_id,
+                    format_fix_enqueue_failed(
+                        target=target,
+                        reason=reason,
+                    ),
+                    settings=settings,
+                )
         return result
 
     return {"handled": False, "reason": "unsupported_kind"}

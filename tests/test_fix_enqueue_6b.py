@@ -7,11 +7,13 @@ import pytest
 
 from agent_control.approval.dispatch_fix import build_fix_rlm_job, enqueue_fix_after_authorization
 from agent_control.approval.handlers import handle_approval_commands
+from agent_control.approval.service import grant_approval
 from agent_control.approval.storage import load_approval
 from agent_control.events import load_project_events
+from agent_control.queue import EnqueueResult
+from agent_shared.models.agent_session import SessionStatus
 from agent_shared.models.intent import CommandIntent
 from conftest import sample_plan, seed_plan_completed
-from agent_control.approval.service import grant_approval
 from support.policy_pin import install_fake_policy_pin
 
 
@@ -47,7 +49,10 @@ def test_build_fix_rlm_job_has_binding(tmp_path: Path, monkeypatch: pytest.Monke
     assert job.fix_authorization.allowed_files
 
 
-@patch("agent_control.approval.dispatch_fix.enqueue_rlm_root", return_value="job-1")
+@patch(
+    "agent_control.approval.dispatch_fix.enqueue_rlm_root",
+    return_value=EnqueueResult(outcome="enqueued", job_id="job-1"),
+)
 def test_enqueue_emits_fix_enqueued(mock_enqueue, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AGENT_STATE_ROOT", str(tmp_path))
     target = seed_plan_completed(tmp_path)
@@ -81,8 +86,11 @@ def test_enqueue_emits_fix_enqueued(mock_enqueue, tmp_path: Path, monkeypatch: p
     assert stored.status == "reserved"
 
 
-@patch("agent_control.approval.dispatch_fix.enqueue_rlm_root", return_value=None)
-def test_enqueue_failure_does_not_consume(mock_enqueue, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@patch(
+    "agent_control.approval.dispatch_fix.enqueue_rlm_root",
+    return_value=EnqueueResult(outcome="deduplicated", existing_job_id="job-existing"),
+)
+def test_enqueue_dedupe_does_not_consume(mock_enqueue, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AGENT_STATE_ROOT", str(tmp_path))
     target = seed_plan_completed(tmp_path)
     approval, _, _ = grant_approval(
@@ -105,9 +113,47 @@ def test_enqueue_failure_does_not_consume(mock_enqueue, tmp_path: Path, monkeypa
         comment_id=100,
     )
     assert result["enqueued"] is False
+    assert result["reason"] == "deduplicated"
     stored = load_approval(tmp_path, "ai-sdlc-lab/agent-control-plane", target)
     assert stored is not None
     assert stored.status == "approved"
+
+
+@patch(
+    "agent_control.approval.dispatch_fix.enqueue_rlm_root",
+    return_value=EnqueueResult(outcome="failed", error="redis down"),
+)
+def test_enqueue_failure_does_not_consume(mock_enqueue, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_STATE_ROOT", str(tmp_path))
+    target = seed_plan_completed(tmp_path)
+    approval, _, _ = grant_approval(
+        tmp_path,
+        project="ai-sdlc-lab/agent-control-plane",
+        issue_id=4,
+        target=target,
+        approver_login="owner",
+        author_is_owner=True,
+    )
+    assert approval is not None
+    from agent_control.approval.plan_lookup import resolve_plan_for_target
+    from agent_control.session import load_session_by_run
+
+    record = resolve_plan_for_target(tmp_path, "ai-sdlc-lab/agent-control-plane", 4, target)
+    result = enqueue_fix_after_authorization(
+        tmp_path,
+        trigger_event={"event_id": "t4"},
+        approval=approval,
+        plan_record=record,
+        comment_id=101,
+    )
+    assert result["enqueued"] is False
+    assert result["reason"] == "enqueue_failed"
+    stored = load_approval(tmp_path, "ai-sdlc-lab/agent-control-plane", target)
+    assert stored is not None
+    assert stored.status == "approved"
+    session = load_session_by_run(tmp_path, "ai-sdlc-lab/agent-control-plane", result["run_id"])
+    assert session is not None
+    assert session.status == SessionStatus.FAILED
 
 
 def test_empty_allowed_files_blocks_before_enqueue(tmp_path: Path) -> None:
@@ -143,3 +189,4 @@ def test_empty_allowed_files_blocks_before_enqueue(tmp_path: Path) -> None:
         )
         mock_enqueue.assert_not_called()
     assert result.get("reason") == "empty_allowed_files"
+    assert result.get("terminal_reason_code") == "policy_denied"

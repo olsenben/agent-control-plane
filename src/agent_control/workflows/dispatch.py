@@ -167,6 +167,7 @@ def maybe_dispatch_rlm_root(
         begin_typed_session,
         bind_session_to_job,
         finalize_enqueue_failure,
+        load_session_by_run,
     )
 
     settings = settings or get_settings()
@@ -188,32 +189,35 @@ def maybe_dispatch_rlm_root(
         )
         job = bind_session_to_job(job, session)
 
-    try:
-        job_id = enqueue_rlm_root(redis_url, job.model_dump(mode="json"))
-    except Exception as exc:
+    enqueue_result = enqueue_rlm_root(redis_url, job.model_dump(mode="json"))
+    if enqueue_result.outcome == "failed":
         if session is not None:
             finalize_enqueue_failure(
                 settings.agent_state_root,
                 session,
                 run_id=job.run_id,
-                reason=str(exc),
+                reason=enqueue_result.error or "enqueue failed",
             )
-        raise
+        raise RuntimeError(enqueue_result.error or "enqueue failed")
 
-    if job_id is None:
-        # Deduped: session retained from first dispatch; do not fail.
+    if enqueue_result.outcome == "deduplicated":
+        existing = load_session_by_run(
+            settings.agent_state_root, job.project, job.run_id
+        )
         out: dict[str, Any] = {
             "dispatched": False,
-            "reason": "deduped",
+            "reason": "deduplicated",
             "run_id": job.run_id,
+            "existing_job_id": enqueue_result.existing_job_id,
         }
-        if session is not None:
-            out["session_id"] = session.session_id
+        sid = existing.session_id if existing else (session.session_id if session else None)
+        if sid:
+            out["session_id"] = sid
         return out
 
     result: dict[str, Any] = {
         "dispatched": True,
-        "job_id": job_id,
+        "job_id": enqueue_result.job_id,
         "run_id": job.run_id,
         "flow": job.flow,
     }

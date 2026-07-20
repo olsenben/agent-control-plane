@@ -30,12 +30,40 @@ from agent_control.publish.state import (
     save_publish_intent,
 )
 from agent_control.publish.validate import ValidationError, validate_and_commit
+from agent_control.session.reasons import classify_broker_reject
 from agent_shared.bundles.inbox import BundleError, copy_bundle_to_snapshot, load_ready_bundle
 from agent_shared.models.approval import FixAuthorizationBinding
 from agent_shared.models.bundle import AuthoritativePublishResult
 from agent_shared.models.fix import FixResult
 from agent_shared.models.publish import PublishIntent
 from agent_shared.project_ids import split_project
+
+
+def _terminalize_broker_reject(
+    state_root: Path,
+    *,
+    project: str | None,
+    run_id: str,
+    broker_reason: str,
+    detail: list[str] | str | None = None,
+) -> None:
+    if not project:
+        return
+    from agent_control.session import handle_publish_session_terminal
+
+    terminal, reason_code = classify_broker_reject(
+        broker_reason=broker_reason,
+        detail=detail if isinstance(detail, list) else ([str(detail)] if detail else []),
+    )
+    domain = detail if isinstance(detail, list) else ([str(detail)] if detail else [])
+    handle_publish_session_terminal(
+        state_root,
+        project=project,
+        run_id=run_id,
+        terminal=terminal,
+        reason_code=reason_code,
+        domain_reasons=domain,
+    )
 
 
 def _now() -> str:
@@ -118,6 +146,13 @@ def broker_publish_fix(
                 to_state="rejected",
                 messages=eligibility.reason_codes + eligibility.messages,
             )
+            _terminalize_broker_reject(
+                state_root,
+                project=record.project if record else None,
+                run_id=run_id,
+                broker_reason="attestation_gate",
+                detail=eligibility.reason_codes,
+            )
             return {
                 "ok": False,
                 "reason": "attestation_gate",
@@ -141,6 +176,13 @@ def broker_publish_fix(
             to_state="rejected",
             messages=[str(exc)],
         )
+        _terminalize_broker_reject(
+            state_root,
+            project=record.project if record else None,
+            run_id=run_id,
+            broker_reason="bundle_invalid",
+            detail=[str(exc)],
+        )
         return {"ok": False, "reason": "bundle_invalid", "detail": str(exc)}
 
     project = record.project if record else None
@@ -156,6 +198,12 @@ def broker_publish_fix(
             to_state="failed_terminal",
             messages=["missing project/approval on publish record"],
         )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="missing_binding",
+        )
         return {"ok": False, "reason": "missing_binding"}
 
     approval = load_approval(state_root, project, approval_target_id)
@@ -170,6 +218,12 @@ def broker_publish_fix(
             to_state="failed_terminal",
             messages=["approval not found"],
         )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="approval_missing",
+        )
         return {"ok": False, "reason": "approval_missing"}
 
     if approval.status in ("rejected", "expired", "consumed"):
@@ -182,6 +236,13 @@ def broker_publish_fix(
             from_state="validating",
             to_state="failed_terminal",
             messages=[f"approval status {approval.status}"],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="approval_unavailable",
+            detail=[f"approval status {approval.status}"],
         )
         return {"ok": False, "reason": "approval_unavailable"}
 
@@ -196,6 +257,12 @@ def broker_publish_fix(
             from_state="validating",
             to_state="failed_terminal",
             messages=["no approved_base_sha"],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="no_trusted_sha",
         )
         return {"ok": False, "reason": "no_trusted_sha"}
 
@@ -233,6 +300,13 @@ def broker_publish_fix(
             to_state="rejected",
             messages=[f"{exc.reason}: {exc}"],
         )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason=exc.reason,
+            detail=[str(exc)],
+        )
         return {"ok": False, "reason": exc.reason, "detail": str(exc)}
 
     job_key = f"{run_id}:{bundle_id}"
@@ -251,6 +325,12 @@ def broker_publish_fix(
             from_state="validating",
             to_state="failed_retryable",
             messages=["approval claim failed"],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="claim_failed",
         )
         return {"ok": False, "reason": "claim_failed"}
 
@@ -307,6 +387,12 @@ def broker_publish_fix(
                 to_state="failed_terminal",
                 messages=["remote base advanced"],
             )
+            _terminalize_broker_reject(
+                state_root,
+                project=project,
+                run_id=run_id,
+                broker_reason="stale_base",
+            )
             return {"ok": False, "reason": "stale_base"}
 
         push_commit(
@@ -329,6 +415,13 @@ def broker_publish_fix(
             to_state="failed_retryable" if not exc.stale else "failed_terminal",
             messages=[str(exc)],
         )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="stale_base" if exc.stale else (exc.stage or "push_failed"),
+            detail=[str(exc)],
+        )
         return {"ok": False, "reason": exc.stage, "detail": str(exc), "stale": exc.stale}
     except Exception as exc:
         release_approval_claim(state_root, claimed)
@@ -341,6 +434,13 @@ def broker_publish_fix(
             from_state="remote_pending",
             to_state="failed_retryable",
             messages=[str(exc)],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="push_failed",
+            detail=[str(exc)],
         )
         return {"ok": False, "reason": "push_failed", "detail": str(exc)}
 
@@ -463,13 +563,14 @@ def broker_publish_fix(
         pass
 
     from agent_control.session import handle_publish_session_terminal
+    from agent_control.session.reasons import SessionTerminalReason
 
     handle_publish_session_terminal(
         state_root,
         project=project,
         run_id=run_id,
-        success=True,
-        reason_code="publish_succeeded",
+        terminal="finished",
+        reason_code=SessionTerminalReason.PUBLISH_SUCCEEDED,
     )
 
     return {
@@ -539,6 +640,13 @@ def broker_publish_repair(
                 to_state="rejected",
                 messages=eligibility.reason_codes + eligibility.messages,
             )
+            _terminalize_broker_reject(
+                state_root,
+                project=project,
+                run_id=run_id,
+                broker_reason="attestation_gate",
+                detail=eligibility.reason_codes,
+            )
             return {
                 "ok": False,
                 "reason": "attestation_gate",
@@ -562,6 +670,13 @@ def broker_publish_repair(
             to_state="rejected",
             messages=[str(exc)],
         )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="bundle_invalid",
+            detail=[str(exc)],
+        )
         return {"ok": False, "reason": "bundle_invalid", "detail": str(exc)}
 
     if manifest.producer_base_sha != expected_head_commit_sha:
@@ -574,6 +689,12 @@ def broker_publish_repair(
             from_state="validating",
             to_state="rejected",
             messages=["producer_base_sha != trusted expected head"],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="base_sha_mismatch",
         )
         return {
             "ok": False,
@@ -603,6 +724,13 @@ def broker_publish_repair(
             from_state="validating",
             to_state="rejected",
             messages=[publish_decision.reason_code],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason=publish_decision.reason_code,
+            detail=[publish_decision.reason_code],
         )
         return {
             "ok": False,
@@ -643,6 +771,13 @@ def broker_publish_repair(
             from_state="validating",
             to_state="rejected",
             messages=[f"{exc.reason}: {exc}"],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason=exc.reason,
+            detail=[str(exc)],
         )
         return {"ok": False, "reason": exc.reason, "detail": str(exc)}
 
@@ -700,6 +835,13 @@ def broker_publish_repair(
             from_state="remote_pending",
             to_state="failed_terminal" if push.get("stale") else "failed_retryable",
             messages=[str(push.get("reason") or "push_failed")],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="stale_base" if push.get("stale") else "push_failed",
+            detail=[str(push.get("reason") or "push_failed")],
         )
         return {
             "ok": False,
@@ -762,13 +904,14 @@ def broker_publish_repair(
     )
 
     from agent_control.session import handle_publish_session_terminal
+    from agent_control.session.reasons import SessionTerminalReason
 
     handle_publish_session_terminal(
         state_root,
         project=project,
         run_id=run_id,
-        success=True,
-        reason_code="repair_publish_succeeded",
+        terminal="finished",
+        reason_code=SessionTerminalReason.REPAIR_PUBLISH_SUCCEEDED,
     )
 
     return {

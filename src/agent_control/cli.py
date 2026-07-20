@@ -361,8 +361,17 @@ def queue_enqueue_rlm_test(project: str, flow: str, intent: str, task: str, even
     job = build_rlm_job(state, trigger, settings=settings)
     if job is None:
         raise click.ClickException("failed to build RLM job")
-    job_id = enqueue_rlm_root(settings.redis_url, job.model_dump(mode="json"))
-    click.echo(json.dumps({"job_id": job_id, "run_id": job.run_id, "status": "enqueued"}))
+    result = enqueue_rlm_root(settings.redis_url, job.model_dump(mode="json"))
+    job_id = result.job_id if result.outcome == "enqueued" else result.existing_job_id
+    click.echo(
+        json.dumps(
+            {
+                "job_id": job_id,
+                "run_id": job.run_id,
+                "status": result.outcome,
+            }
+        )
+    )
 
 
 @queue.command("enqueue-test")
