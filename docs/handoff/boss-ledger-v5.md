@@ -10,12 +10,12 @@ Epic supervisor state. Boss reads **this file first** for post-V4 work. Prior ep
 | **Status doc** | This ledger + per-slice `docs/slice-*.md` |
 | **Umbrella** | [slice-v5-t01-agentfacts-lite.md](../slice-v5-t01-agentfacts-lite.md) |
 | **Integration branch** | `main` |
-| **Epic status** | in_progress |
-| **Tickets done (count)** | 5 / 6 |
-| **Next ticket** | T06 Gated self-improvement |
-| **Latest handoff** | [coordinator-handoff-008.md](coordinator-handoff-008.md) |
-| **Coordinator waves completed** | 5 |
-| **Last boss action** | 2026-07-20 — T05 DEPLOY_VERIFY PASS `60f30bb`; advance to T06 |
+| **Epic status** | complete |
+| **Tickets done (count)** | 6 / 6 |
+| **Next ticket** | EPIC_COMPLETE / none |
+| **Latest handoff** | [coordinator-handoff-009.md](coordinator-handoff-009.md) |
+| **Coordinator waves completed** | 6 |
+| **Last boss action** | 2026-07-20 — T06 DEPLOY_VERIFY PASS `7b01adc`; epic complete |
 | **Lanes** | [lanes.md](lanes.md) — retired; main only until dual-lane needed |
 | **Environment constraints** | Same as V4: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth; SRT fail-closed Risk 2 |
 
@@ -37,6 +37,8 @@ V5 T03 tip `5ca8d78` (feature `b7fa044`) — Review replay console; see [slice-v
 
 V5 T05 tip `60f30bb` — SARIF ingest; see [slice-v5-t05-sarif-ingest.md](../slice-v5-t05-sarif-ingest.md), ADR-0024.
 
+V5 T06 tip `7b01adc` — Gated self-improvement; see [slice-v5-t06-gated-self-improvement.md](../slice-v5-t06-gated-self-improvement.md), ADR-0025.
+
 ## Remaining tickets (dependency order)
 
 Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
@@ -48,7 +50,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T03** | **Review replay console** — issue → context → model → policy → memory | T01 | Operator can replay one finished review session end-to-end from durable artifacts | Done |
 | **T04** | **Architecture drift detector** — ADR vs graph edges | T01 | Drift report lists missing/extra edges vs ADR facts; fail-soft on CT103 | Done |
 | **T05** | **SARIF ingest** — findings → graph/security nodes | T03 or T04 | Sample SARIF attaches as evidence nodes; Risk 0/1 only | Done |
-| **T06** | **Gated self-improvement** — workflow/prompt proposals as PRs only | T02, T03 | Agent opens PR for prompt/workflow change; no in-prod self-edit | Todo |
+| **T06** | **Gated self-improvement** — workflow/prompt proposals as PRs only | T02, T03 | Agent opens PR for prompt/workflow change; no in-prod self-edit | Done |
 
 ### Parallelism policy
 
@@ -72,6 +74,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | 3 | 2026-07-20 | [coordinator-handoff-006.md](coordinator-handoff-006.md) | T03 | T04 Done tip `a8c5373`; Actions 717–719; T03 dual-lane concurrent |
 | 4 | 2026-07-20 | [coordinator-handoff-007.md](coordinator-handoff-007.md) | T05 | T03 Done tip `5ca8d78`; Actions 723–725; T04 re-smoke OK; dual-lane closed |
 | 5 | 2026-07-20 | [coordinator-handoff-008.md](coordinator-handoff-008.md) | T06 | T05 Done tip `60f30bb`; Actions 729–731; SARIF evidence nodes OK |
+| 6 | 2026-07-20 | [coordinator-handoff-009.md](coordinator-handoff-009.md) | EPIC_COMPLETE | T06 Done tip `7b01adc`; Actions 742–744; PR #31; epic complete |
 
 ## Boss prompt skeleton
 

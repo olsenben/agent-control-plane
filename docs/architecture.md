@@ -144,6 +144,4 @@ Homelab sign-off: [AGENT_CARD.md](AGENT_CARD.md) — **2026-07-20: 5.4a+5.4b+5.5
 
 ### Future experiments
 
-AgentFacts-lite, memory-as-governance, review replay console, risk-tagged ledger, graph-gated fix, CI minimizer, architecture drift detector, SARIF ingestion, MCP graph server, 2070 SSM memory worker, gated self-improvement PRs.
-
-See §0.5 in V4 plan.
+V5 governance epic **complete** (T01–T06). Remaining themes from §0.5: `/agent security-review`, 2070 recursive context bake-off, broader Orbit coverage — new epic only if requested.
