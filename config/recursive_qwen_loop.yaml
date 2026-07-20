@@ -1,0 +1,30 @@
+# Bounded recursive Qwen loop (T08 / V4 impl order item 9)
+# Evidence-selected context + CI-grounded retries. Never unbounded.
+# Does NOT enable 6F.2 repair allowlist (T09) or dispatch sandboxed repair.
+
+recursive_qwen_loop:
+  enabled: true
+  primary_model: gpu-3080:qwen-coder-14b
+  controller: gpu-2070
+  deterministic_preflight: true
+  max_plan_iterations: 2
+  max_patch_iterations: 3
+  max_ci_repair_iterations: 3
+  max_selected_evidence_refs: 24
+  max_selected_chars: 12000
+  max_rejected_hypotheses: 10
+  max_likely_files: 12
+  require_evidence_for_retry: true
+  stop_conditions:
+    - verification_passed
+    - sufficient_evidence
+    - contradictory_evidence
+    - policy_denied
+    - sandbox_failed
+    - budget_exhausted
+    - human_required
+  required_external_feedback:
+    - graph_context
+    - memory_preflight
+    - evidence_citations
+    - tests_or_ci
