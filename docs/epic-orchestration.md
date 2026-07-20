@@ -1,6 +1,9 @@
 # Epic orchestration — V4 full build
 
-Boss-agent discipline adapted for the homelab control plane. Use this to finish [gitea_agentic_sdlc_cursor_step_plan_v4.md](../../../gitea_agentic_sdlc_cursor_step_plan_v4.md) **one slice at a time**, with **mandatory deployment verification before the next slice starts**.
+Boss-agent discipline adapted for the homelab control plane. Use this to finish work **one slice at a time**, with **mandatory deployment verification before the next slice starts**.
+
+- **Active epic ledger:** [handoff/boss-ledger-v5.md](handoff/boss-ledger-v5.md) (governance & transparency)
+- **Closed V4 ledger:** [handoff/boss-ledger.md](handoff/boss-ledger.md) (archive; T12 still Deferred)
 
 This is an **operator / Cursor playbook**, not a new CT104 worker type. Authority stays on CT103 (policy, ledger, publish-broker), CT104 (execution), CT102 (CI truth).
 
@@ -27,7 +30,7 @@ Do **not** spawn parallel Cursor leaves that mutate the **same** `main` tip. Opt
 ## Standard loop
 
 ```text
-1. Orient     — read docs/handoff/boss-ledger.md only
+1. Orient     — read docs/handoff/boss-ledger-v5.md (active) or boss-ledger.md (V4 archive)
 2. Coordinate — one slice (code + tests + slice doc)
 3. Deploy     — merge/deploy CT103+CT104; fill DEPLOY_VERIFY
 4. Handoff    — write coordinator-handoff-NNN.md; update ledger ≤5 lines
@@ -40,7 +43,8 @@ Stop only when ledger `Epic status: complete` or a **user-blocking** blocker is 
 
 | Artifact | Owner | Purpose |
 |----------|-------|---------|
-| [boss-ledger.md](handoff/boss-ledger.md) | Boss | Epic scope, ticket order, next ID, wave log |
+| [boss-ledger-v5.md](handoff/boss-ledger-v5.md) | Boss | **Active** epic scope, ticket order, next ID, wave log |
+| [boss-ledger.md](handoff/boss-ledger.md) | Boss | Closed V4 archive |
 | [HANDOFF_TEMPLATE.md](handoff/HANDOFF_TEMPLATE.md) | Coordinator | Compact continuation for next wave |
 | [DEPLOY_VERIFY_TEMPLATE.md](handoff/DEPLOY_VERIFY_TEMPLATE.md) | Coordinator | Gate between slices |
 | `docs/slice-*.md` | Coordinator | Slice design + acceptance evidence |
@@ -60,13 +64,13 @@ A ticket may move to `Done` only when **all** are true:
 
 ## Cursor entry points
 
-- **“Run the V4 epic” / “continue the epic”** → apply `.cursor/skills/v4-epic-boss`
-- **“Implement the next slice” / named slice** → apply `.cursor/skills/v4-slice-coordinator` after boss orients from the ledger
+- **“Run the V5 epic” / “continue the epic”** → orient from [boss-ledger-v5.md](handoff/boss-ledger-v5.md); apply `.cursor/skills/v4-epic-boss`
+- **“Implement the next slice” / named slice** → apply `.cursor/skills/v4-slice-coordinator` after boss orients from the active ledger
 
 ## Related
 
 - [architecture.md](architecture.md)
-- [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) — active V4.1.2 umbrella
+- [slice-v412-typed-sessions.md](slice-v412-typed-sessions.md) — closed V4.1.2 umbrella
 - [POLICY_GATES.md](POLICY_GATES.md)
 - [AGENT_CARD.md](AGENT_CARD.md)
 - Source pattern: repo-root `boss-agent/` (Jarala pack — do not run as CT104 agents)

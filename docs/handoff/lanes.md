@@ -1,45 +1,21 @@
-# Parallel lanes — wave 2 (T08 ∥ T11)
+# Parallel lanes — retired (V4 epic closed)
 
-Disjoint worktrees/branches. **One deploy-verify owner** (boss) serializes CT103/CT104 tip pins.
+Wave 1–2 lane worktrees were removed after T08/T11/T09/T13 closed (2026-07-20). Tip pin authority remains **main** only.
 
-| Lane | Branch | Worktree | Owns | Must not |
-|------|--------|----------|------|----------|
-| **Loop** | `epic/lane-t08-qwen-loop` | `…-lane-t08` | **T08** Recursive Qwen loop (evidence + CI retries) | MCP server surface; Risk-2 allowlist expand (T09); tip-pin/deploy |
-| **MCP** | `epic/lane-t11-mcp` | `…-lane-t11` | **T11** Read-only MCP graph/memory | Qwen retry loop; repair/publish; tip-pin/deploy |
-| **Deploy-verify owner** | `main` | `agent-control-plane` | Merge order; tip pins; `DEPLOY_VERIFY`; ledger | Parallel tip races |
+| Former lane | Former branch | Status |
+|-------------|---------------|--------|
+| Graph T05–T07 | `epic/lane-graph-t05-t07` | merged; worktree removed |
+| Identity T10 | `epic/lane-identity-t10` | merged; worktree removed |
+| Loop T08 | `epic/lane-t08-qwen-loop` | merged; worktree removed |
+| MCP T11 | `epic/lane-t11-mcp` | merged; worktree removed |
+| Deploy-verify owner | `main` | active (`agent-control-plane`) |
 
-Base tip: `8523a0e` (T10 signoff on main).
-
-## Order
-
-```text
-Now:   T08 ∥ T11   (PR-only until owner merges)
-Then:  T09 alone   (Risk-2 — no parallel enablement track)
-Last:  T13         (after T08 Done)
-Defer: T12         (controller bake-off — Deferred)
-```
-
-Prefer merge **T08** first when both ready (critical path). Merge **T11** after T08 tip green (or same wave if no file thrash — owner decides). Never auto-deploy from lane agents.
-
-## File / concern split
-
-| Area | T08 | T11 |
-|------|-----|-----|
-| Recursive Qwen / CI retry / evidence-selected context | yes | no |
-| `recursive_context` worker (consume results only) | yes | read-only via MCP |
-| New MCP server / `docs/mcp.md` | no | yes |
-| Graph/memory **write** paths | no | **forbidden** |
-| Repair allowlist / 6F.2 (T09) | no | no |
-| `boss-ledger.md` | propose only | propose only |
-| SSH tip pin | **owner only** | **forbidden** |
-
-## Agent return
+## Current policy
 
 ```text
-lane: t08 | t11
-ticket_id: T08 | T11
-branch: epic/…
-pr_url: … | pending
-stopped_reason: ticket_ready_for_merge | blocker | context_handoff
-blocker: none | <one line>
+No active dual lanes.
+New epic work: use docs/handoff/boss-ledger-v5.md
+Optional T12 (controller bake-off): still Deferred unless explicitly reopened
 ```
+
+Do not recreate worktrees unless a future epic opens disjoint lanes again. Only one **deploy-verify owner** may pin CT103/CT104.

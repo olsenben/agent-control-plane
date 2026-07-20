@@ -10,13 +10,13 @@ Epic supervisor state. Boss reads **this file first**. Keep edits ≤5 lines per
 | **Status doc** | This ledger + per-slice `docs/slice-*.md` |
 | **Umbrella (active)** | [slice-v412-typed-sessions.md](../slice-v412-typed-sessions.md) |
 | **Integration branch** | `main` (homelab tip on CT103/CT104); feature branches per slice PR |
-| **Epic status** | complete (T12 Deferred with approval) |
+| **Epic status** | complete (T12 Deferred with approval) — **superseded for new work by [boss-ledger-v5.md](boss-ledger-v5.md)** |
 | **Tickets done (count)** | 12 / 13 remaining track (T01–T11, T13 done; T12 Deferred) |
-| **Next ticket** | — (epic track closed; optional bake-off T12 stays Deferred) |
-| **Latest handoff** | T13 PASS `078d030` |
+| **Next ticket** | — use [boss-ledger-v5.md](boss-ledger-v5.md) (V5 T01 AgentFacts-lite) |
+| **Latest handoff** | T13 PASS `078d030` (docs tip `16738d0`) |
 | **Coordinator waves completed** | 15 |
-| **Last boss action** | 2026-07-20 — T13 deploy verify PASS; epic remaining track closed |
-| **Lanes** | [lanes.md](lanes.md) — worktrees `…-lane-t08` / `…-lane-t11` (retire optional) |
+| **Last boss action** | 2026-07-20 — housekeeping; V5 ledger spawned; lanes retired |
+| **Lanes** | [lanes.md](lanes.md) — retired |
 | **Environment constraints** | WSL SSH deploy key; `docker compose exec -T … </dev/null`; no CT104 Gitea write tokens; SRT fail-closed Risk 2; CI truth = CT102 |
 
 ## Done condition
@@ -63,9 +63,9 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 - **Then serial:** **T13** (flag-gated; no default enable). **T12 Deferred**.
 - **T12 Deferred** (controller bake-off).
 
-### Backlog (not in done count)
+### Backlog (moved)
 
-AgentFacts-lite, memory-as-governance, review replay console, architecture drift detector, SARIF, gated self-improvement PRs — spawn a **new** epic ledger when ready.
+Post-V4 themes live in **[boss-ledger-v5.md](boss-ledger-v5.md)** (AgentFacts-lite, memory-as-governance, replay console, architecture drift, SARIF, gated self-improvement).
 
 ## Wave log
 
@@ -80,6 +80,7 @@ AgentFacts-lite, memory-as-governance, review replay console, architecture drift
 | 6 | 2026-07-20 | lanes.md | T05∥T10 | Worktrees + dual-lane spawn; tip pins owned by boss |
 | 14 | 2026-07-20 | — | T13 | T09 stage-status PASS `38e01d6`; next T13 |
 | 15 | 2026-07-20 | — | — | T13 deny-by-default PASS `078d030`; epic track closed (T12 Deferred) |
+| 16 | 2026-07-20 | — | V5 | Lanes retired; [boss-ledger-v5.md](boss-ledger-v5.md) spawned |
 
 ## Boss prompt skeleton (fill from this ledger)
 
