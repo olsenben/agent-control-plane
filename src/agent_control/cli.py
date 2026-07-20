@@ -40,6 +40,8 @@ from agent_shared.models.state import VerificationState
 from agent_control.workflows import dispatch as dispatch_wf
 from agent_control.workflows import fix as fix_wf
 from agent_control.workflows import review as review_wf
+from agent_control.workflows import reward as reward_wf
+from agent_control.workflows import tournament as tournament_wf
 from agent_control.graph.blast_radius import export_blast_radius_json
 from agent_control.graph.context_pack import compile_context_pack, write_context_pack_export
 from agent_control.graph.coverage import export_coverage_json, export_edges_json
@@ -624,6 +626,70 @@ def repair_stage_status_cmd() -> None:
     from agent_control.ci.repair_stages import repair_stage_status
 
     click.echo(json.dumps(repair_stage_status(), indent=2, sort_keys=True))
+
+
+@main.group()
+def tournament() -> None:
+    """Patch tournament (experiment flag)."""
+
+
+@tournament.command("spawn")
+@click.option("--finding-id", required=True)
+@click.option("--candidates", default=3, show_default=True, type=int)
+@click.option("--repo", default="ai-sdlc-lab/agent-control-plane", show_default=True)
+def tournament_spawn(finding_id: str, candidates: int, repo: str) -> None:
+    click.echo(
+        json.dumps(
+            tournament_wf.spawn_tournament(
+                finding_id, candidates=candidates, repository=repo
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+@tournament.command("judge")
+@click.option("--tournament-id", required=True)
+@click.option("--repo", default="ai-sdlc-lab/agent-control-plane", show_default=True)
+def tournament_judge(tournament_id: str, repo: str) -> None:
+    click.echo(
+        json.dumps(
+            tournament_wf.judge_tournament(tournament_id, repository=repo),
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+@main.group()
+def rewards() -> None:
+    """Reward logging commands (experiment flag)."""
+
+
+@rewards.command("log")
+@click.option("--run-id", required=True)
+@click.option("--repo", default="ai-sdlc-lab/agent-control-plane", show_default=True)
+@click.option("--outcome", default="unknown", show_default=True)
+@click.option("--score", default=0.0, type=float, show_default=True)
+def rewards_log(run_id: str, repo: str, outcome: str, score: float) -> None:
+    click.echo(
+        json.dumps(
+            reward_wf.log_reward(
+                run_id,
+                {"outcome": outcome, "score": score},
+                repository=repo,
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+@rewards.command("summarize")
+@click.option("--repo", default="ai-sdlc-lab/agent-control-plane", show_default=True)
+def rewards_summarize(repo: str) -> None:
+    click.echo(json.dumps(reward_wf.summarize_rewards(repository=repo), indent=2, sort_keys=True))
 
 
 @main.group()

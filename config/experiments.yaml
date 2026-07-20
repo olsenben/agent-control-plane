@@ -1,0 +1,6 @@
+# Experiment flags (T13). Defaults OFF — never enable in production compose without review.
+experiments:
+  patch_tournament: false
+  rl_reward_logging: false
+  max_tournament_candidates: 4
+  reward_schema: agent.reward.v1
