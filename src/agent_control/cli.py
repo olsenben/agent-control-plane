@@ -1237,6 +1237,63 @@ def eval_export_cmd(project: str, run_id: str, output_dir: Path | None) -> None:
     )
 
 
+@eval_group.command("inspect-adapt")
+@click.option(
+    "--bundle",
+    "bundle_path",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Path to eval_bundle.v1 JSON",
+)
+@click.option(
+    "--out",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output directory (default: cwd/inspect-adapt)",
+)
+@click.option("--task-name", default=None, help="Inspect task name override")
+@click.option(
+    "--namespace",
+    "bakeoff_namespace",
+    default=None,
+    help="Bake-off memory namespace (default: bakeoff/<bundle.ns>/<run_id>)",
+)
+def eval_inspect_adapt_cmd(
+    bundle_path: Path,
+    output_dir: Path | None,
+    task_name: str | None,
+    bakeoff_namespace: str | None,
+) -> None:
+    """Adapt a verified eval_bundle.v1 into inspect_adapt.v1 (V7 T01; no prod memory writes)."""
+    from agent_control.inspect_adapter import InspectAdaptError, adapt_eval_bundle_file
+
+    out_dir = output_dir or Path.cwd() / "inspect-adapt"
+    try:
+        task, path = adapt_eval_bundle_file(
+            bundle_path,
+            output_dir=out_dir,
+            task_name=task_name,
+            bakeoff_namespace=bakeoff_namespace,
+        )
+    except InspectAdaptError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(
+        json.dumps(
+            {
+                "path": str(path),
+                "schema_version": task.get("schema_version"),
+                "task_name": task.get("task_name"),
+                "samples": len(task.get("samples") or []),
+                "source_eval_bundle_sha256": task.get("source_eval_bundle_sha256"),
+                "memory_namespace": task.get("memory_namespace"),
+                "production_memory_touched": task.get("production_memory_touched"),
+            },
+            indent=2,
+        )
+    )
+
+
 @main.group()
 def memory() -> None:
     """Trajectory memory (CT103 SQLite)."""
