@@ -111,6 +111,21 @@ class Settings(BaseSettings):
         alias="OBSERVE_SHARED_TOKEN",
         description="Optional shared bearer token that grants Observatory read access",
     )
+    observe_oauth_client_id: str | None = Field(
+        default=None,
+        alias="OBSERVE_OAUTH_CLIENT_ID",
+        description="V8 T04: Gitea OAuth application client id (CT103 secret; empty until human registers app)",
+    )
+    observe_oauth_client_secret: str | None = Field(
+        default=None,
+        alias="OBSERVE_OAUTH_CLIENT_SECRET",
+        description="V8 T04: Gitea OAuth application client secret (CT103 only; never commit)",
+    )
+    observe_oauth_redirect_uri: str | None = Field(
+        default=None,
+        alias="OBSERVE_OAUTH_REDIRECT_URI",
+        description="V8 T04: registered redirect URI (e.g. http://192.168.4.62:8080/observe/oauth/callback)",
+    )
     model_routing_policy: str = Field(
         default="fake",
         alias="MODEL_ROUTING_POLICY",
