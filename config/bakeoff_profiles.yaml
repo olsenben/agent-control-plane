@@ -1,0 +1,75 @@
+# V7 T02 — controller / context strategy ablation profiles (bake-off only).
+# Does not enable unbounded recursion in production. Shadow injection is never authority.
+
+schema_version: bakeoff_profiles.v1
+
+defaults:
+  allow_repo_write: false
+  allow_network: false
+  allow_secret_paths: false
+  require_evidence_citations: true
+  production_memory_touched: false
+  injection_shadow_is_authority: false
+  unbounded_recursion: false
+
+profiles:
+  A:
+    name: deterministic_preflight
+    description: >
+      CT103 deterministic preflight only — no recursive context worker.
+      Baseline for ablation (graph/memory via deterministic packet only).
+    controller_backend: none
+    recursive_context_enabled: false
+    context_strategy: deterministic_packet
+    max_depth: 0
+    max_subcalls: 0
+    max_graph_queries: 8
+    max_memory_records: 12
+    max_wall_seconds: 30
+    memory_namespace_prefix: bakeoff/profile-A
+
+  B:
+    name: bounded_rlm_transformer
+    description: >
+      Conditional RLM-style recursive context with small-transformer / summarizer
+      controller (current 8c homelab shape). Bounded depth and subcalls.
+    controller_backend: transformer_summarizer
+    recursive_context_enabled: true
+    context_strategy: conditional_rlm
+    max_depth: 2
+    max_subcalls: 6
+    max_graph_queries: 20
+    max_memory_records: 24
+    max_wall_seconds: 180
+    memory_namespace_prefix: bakeoff/profile-B
+
+  C:
+    name: graph_memory_heavy
+    description: >
+      Same conditional invocation as B but higher graph/memory budgets —
+      tests whether extra retrieval helps without raising depth.
+    controller_backend: transformer_summarizer
+    recursive_context_enabled: true
+    context_strategy: graph_memory_priority
+    max_depth: 2
+    max_subcalls: 6
+    max_graph_queries: 40
+    max_memory_records: 48
+    max_wall_seconds: 240
+    memory_namespace_prefix: bakeoff/profile-C
+
+  D:
+    name: experimental_recurrent
+    description: >
+      Placeholder for RWKV / xLSTM / SSM controller backend. Bake-off dry-run
+      only — does not activate a recurrent model in production.
+    controller_backend: recurrent_experimental
+    recursive_context_enabled: true
+    context_strategy: conditional_rlm_recurrent
+    max_depth: 2
+    max_subcalls: 6
+    max_graph_queries: 20
+    max_memory_records: 24
+    max_wall_seconds: 180
+    memory_namespace_prefix: bakeoff/profile-D
+    experimental: true

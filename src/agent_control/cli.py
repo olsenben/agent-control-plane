@@ -1294,6 +1294,72 @@ def eval_inspect_adapt_cmd(
     )
 
 
+@eval_group.command("bakeoff-run")
+@click.option(
+    "--bundle",
+    "bundle_path",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Path to verified eval_bundle.v1 JSON",
+)
+@click.option(
+    "--profile",
+    "profile_id",
+    default="all",
+    show_default=True,
+    help="Profile id A|B|C|D or 'all'",
+)
+@click.option(
+    "--out",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output directory (default: cwd/bakeoff-runs)",
+)
+def eval_bakeoff_run_cmd(
+    bundle_path: Path,
+    profile_id: str,
+    output_dir: Path | None,
+) -> None:
+    """Run bake-off profile(s) A–D against one fixture bundle (V7 T02 dry-run)."""
+    from agent_control.bakeoff_profiles import (
+        BakeoffProfileError,
+        run_all_profiles_against_bundle,
+        run_profile_against_bundle,
+    )
+    from agent_control.inspect_adapter import InspectAdaptError
+
+    out_dir = output_dir or Path.cwd() / "bakeoff-runs"
+    try:
+        if profile_id.strip().lower() == "all":
+            results = run_all_profiles_against_bundle(bundle_path, output_dir=out_dir)
+        else:
+            results = [
+                run_profile_against_bundle(bundle_path, profile_id, output_dir=out_dir)
+            ]
+    except (BakeoffProfileError, InspectAdaptError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(
+        json.dumps(
+            {
+                "runs": [
+                    {
+                        "profile_id": doc.get("profile_id"),
+                        "path": str(path),
+                        "memory_namespace": doc.get("memory_namespace"),
+                        "source_eval_bundle_sha256": doc.get("source_eval_bundle_sha256"),
+                        "production_memory_touched": doc.get("production_memory_touched"),
+                        "mode": doc.get("mode"),
+                    }
+                    for doc, path in results
+                ],
+                "count": len(results),
+            },
+            indent=2,
+        )
+    )
+
+
 @main.group()
 def memory() -> None:
     """Trajectory memory (CT103 SQLite)."""
