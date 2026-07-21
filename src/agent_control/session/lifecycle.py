@@ -38,6 +38,7 @@ from agent_shared.input_state import (
     default_risk_tags,
     make_correlation_id,
     make_session_id,
+    make_trace_id,
     risk_level_for_command,
 )
 from agent_shared.models.agent_session import (
@@ -189,6 +190,7 @@ def create_session_record(
         status=SessionStatus.CREATED,
         run_ids=[run_id],
         correlation_id=make_correlation_id(session_id=sid, run_id=run_id),
+        trace_id=make_trace_id(),
         input_state_sha=input_sha,
         head_sha=head_sha or "",
         policy_source_sha=policy_source_sha or "",
@@ -248,11 +250,20 @@ def begin_typed_session(
         new_status=SessionStatus.QUEUED,
         updated_at=_now(),
     )
-    persist_session_with_run_index(state_root, session)
-    started_path, _ = append_session_started(state_root, session, run_id=run_id)
-    if not started_path:
-        raise SessionStoreError("failed to append agent.session_started")
-    append_subject_context_resolved(state_root, session, run_id=run_id)
+    from agent_control.telemetry import short_span
+
+    with short_span(
+        "dispatch.enqueue",
+        trace_id=session.trace_id,
+        run_id=run_id,
+        session_id=session.session_id,
+        policy_source_sha=session.policy_source_sha or None,
+    ):
+        persist_session_with_run_index(state_root, session)
+        started_path, _ = append_session_started(state_root, session, run_id=run_id)
+        if not started_path:
+            raise SessionStoreError("failed to append agent.session_started")
+        append_subject_context_resolved(state_root, session, run_id=run_id)
     return session
 
 

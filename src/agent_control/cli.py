@@ -1138,6 +1138,57 @@ def replay_review(
 
 
 @main.group()
+def trace() -> None:
+    """Session trace / observation projection (V6 T01+)."""
+
+
+@trace.command("show")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--session-id", default=None, help="sess-… id")
+@click.option("--run-id", default=None, help="run-… id")
+@click.option(
+    "--text",
+    "as_text",
+    is_flag=True,
+    default=False,
+    help="Emit compact text instead of JSON",
+)
+def trace_show(
+    project: str,
+    session_id: str | None,
+    run_id: str | None,
+    as_text: bool,
+) -> None:
+    """Show observation projection from durable ledger + session artifacts."""
+    from agent_control.observe.projection import build_observation_projection
+    from agent_control.project_registry import normalize_repo_full_name
+
+    if not session_id and not run_id:
+        raise click.ClickException("Provide --session-id and/or --run-id")
+    repo_full = normalize_repo_full_name(project)
+    if repo_full is None:
+        raise click.ClickException(f"invalid repo: {project}")
+    settings = get_settings()
+    doc = build_observation_projection(
+        settings.agent_state_root,
+        project=repo_full,
+        run_id=run_id,
+        session_id=session_id,
+    )
+    payload = doc.model_dump(mode="json")
+    if not as_text:
+        click.echo(json.dumps(payload, indent=2))
+        return
+    click.echo(
+        f"observation_projection session={payload.get('session_id')} "
+        f"run={payload.get('run_id')} trace={payload.get('trace_id')} "
+        f"complete={payload.get('complete')} max_seq={payload.get('max_sequence')}"
+    )
+    for stage in payload.get("stages") or []:
+        click.echo(f"  [{stage.get('name')}] status={stage.get('status')}")
+
+
+@main.group()
 def memory() -> None:
     """Trajectory memory (CT103 SQLite)."""
 

@@ -44,6 +44,7 @@ def correlation_payload(
         "input_state_sha": session.input_state_sha,
         "head_sha": session.head_sha,
         "correlation_id": session.correlation_id,
+        "trace_id": session.trace_id,
         "session_created_at": session.created_at,
         "event_at": at,
     }

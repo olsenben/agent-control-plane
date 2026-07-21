@@ -77,6 +77,7 @@ class AgentSession(BaseModel):
     status: SessionStatus = SessionStatus.CREATED
     run_ids: list[str] = Field(default_factory=list)
     correlation_id: str
+    trace_id: str | None = None
     input_state_sha: str
     head_sha: str
     policy_source_sha: str = ""

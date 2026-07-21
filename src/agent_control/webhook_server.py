@@ -48,6 +48,9 @@ def verify_hmac(secret: str, body: bytes, signature: str) -> bool:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
+    from agent_control.telemetry import init_telemetry
+
+    init_telemetry(service_name="agent-control-plane")
     app = FastAPI(title="agent-control-plane")
 
     @app.middleware("http")

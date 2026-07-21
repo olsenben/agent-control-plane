@@ -14,6 +14,7 @@ from agent_control.config import Settings, get_settings
 from agent_control.gitea_client import GiteaClient
 from agent_control.graph.blast_radius import compute_blast_radius
 from agent_control.memory.retrieval import PRIOR_MEMORY_HEADER, retrieve_prior_memory_dicts
+from agent_control.observe.provenance import build_provenance_items
 from agent_control.project_registry import RefResolution
 from agent_shared.models.context_pack import ContextPack
 from agent_shared.models.jobs import TriggerContext
@@ -197,6 +198,7 @@ def compile_context_pack(
         search_hits=search_hits,
         prior_memory=prior_memory,
         context_sources=sources,
+        provenance_items=build_provenance_items(sources),
         budget=budget,
     )
 

@@ -19,6 +19,11 @@ def make_correlation_id(*, session_id: str, run_id: str) -> str:
     return f"corr-{digest}"
 
 
+def make_trace_id() -> str:
+    """W3C-compatible 32-hex trace id for one agent session timeline."""
+    return uuid.uuid4().hex
+
+
 def canonical_input_state(
     *,
     project: str,
