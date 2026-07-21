@@ -1350,10 +1350,69 @@ def eval_bakeoff_run_cmd(
                         "source_eval_bundle_sha256": doc.get("source_eval_bundle_sha256"),
                         "production_memory_touched": doc.get("production_memory_touched"),
                         "mode": doc.get("mode"),
+                        "metrics": {
+                            k: (doc.get("metrics") or {}).get(k)
+                            for k in (
+                                "ct102_verified_success",
+                                "repair_iterations",
+                                "fallback_count",
+                                "policy_violations",
+                                "tokens_input",
+                                "tokens_output",
+                                "cost_usd",
+                                "wall_seconds",
+                            )
+                        },
                     }
                     for doc, path in results
                 ],
                 "count": len(results),
+            },
+            indent=2,
+        )
+    )
+
+
+@eval_group.command("bakeoff-metrics")
+@click.option(
+    "--bundle",
+    "bundle_path",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Path to verified eval_bundle.v1 JSON",
+)
+@click.option(
+    "--out",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output directory (default: cwd/bakeoff-metrics)",
+)
+def eval_bakeoff_metrics_cmd(bundle_path: Path, output_dir: Path | None) -> None:
+    """Extract bakeoff_metrics.v1 from an eval_bundle (V7 T03)."""
+    from agent_control.bakeoff_metrics import build_metrics_for_bundle_file, write_metrics
+    from agent_control.inspect_adapter import InspectAdaptError
+
+    out_dir = output_dir or Path.cwd() / "bakeoff-metrics"
+    try:
+        metrics = build_metrics_for_bundle_file(bundle_path)
+    except InspectAdaptError as exc:
+        raise click.ClickException(str(exc)) from exc
+    path = write_metrics(metrics, out_dir)
+    click.echo(
+        json.dumps(
+            {
+                "path": str(path),
+                "schema_version": metrics.get("schema_version"),
+                "ct102_verified_success": metrics.get("ct102_verified_success"),
+                "repair_iterations": metrics.get("repair_iterations"),
+                "fallback_count": metrics.get("fallback_count"),
+                "policy_violations": metrics.get("policy_violations"),
+                "tokens_input": metrics.get("tokens_input"),
+                "tokens_output": metrics.get("tokens_output"),
+                "cost_usd": metrics.get("cost_usd"),
+                "wall_seconds": metrics.get("wall_seconds"),
+                "production_memory_touched": False,
             },
             indent=2,
         )

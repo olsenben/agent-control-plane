@@ -153,6 +153,13 @@ def run_profile_against_bundle(
         raise InspectAdaptError("bake-off must not touch production memory")
 
     sample_ids = [s.get("id") for s in (task.get("samples") or [])]
+    from agent_control.bakeoff_metrics import (
+        attach_metrics_to_bakeoff_run,
+        extract_metrics_from_bundle,
+        write_metrics,
+    )
+
+    metrics = extract_metrics_from_bundle(bundle)
     run_doc: dict[str, Any] = {
         "schema_version": "bakeoff_run.v1",
         "profile_id": profile.id,
@@ -179,13 +186,16 @@ def run_profile_against_bundle(
         "mode": "dry_run",
         "ran_at": datetime.now(timezone.utc).isoformat(),
         "notes": (
-            "T02 dry-run: same fixture adapted under profile namespace; "
-            "live controller invocation deferred; metrics in T03."
+            "Bake-off dry-run with bakeoff_metrics.v1 attached; "
+            "live controller invocation still deferred (T04/T05)."
         ),
     }
+    run_doc = attach_metrics_to_bakeoff_run(run_doc, metrics)
     out_dir = output_dir / f"profile-{profile.id}"
     out_dir.mkdir(parents=True, exist_ok=True)
     digest = bundle.eval_bundle_sha256[:12]
+    metrics_path = write_metrics(metrics, out_dir, profile_id=profile.id)
+    run_doc["metrics_path"] = str(metrics_path)
     out_path = out_dir / f"bakeoff-{profile.id}-{digest}.json"
     out_path.write_text(json.dumps(run_doc, indent=2, sort_keys=True), encoding="utf-8")
     return run_doc, out_path
