@@ -1,6 +1,6 @@
 # Slice V8 T03 — Mid-SSE token revoke
 
-**Status:** Deploy gate  
+**Status:** Done  
 **Epic ticket:** V8 T03  
 **Deps:** none (disjoint from T01/T02/T04)
 
