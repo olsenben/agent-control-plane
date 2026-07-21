@@ -10,11 +10,11 @@ Epic supervisor state. Boss reads **this file first** for post-V6 work. Prior ep
 | **Status doc** | This ledger + per-slice `docs/slice-v7-*.md` |
 | **Integration branch** | `main` |
 | **Epic status** | in progress |
-| **Tickets done (count)** | 1 / 5 |
-| **Next ticket** | T02 |
-| **Latest handoff** | [coordinator-handoff-017.md](coordinator-handoff-017.md) |
-| **Coordinator waves completed** | 1 |
-| **Last boss action** | 2026-07-21 — T01 DEPLOY_VERIFY PASS `b1a8a38`; next T02 |
+| **Tickets done (count)** | 2 / 5 |
+| **Next ticket** | T03 |
+| **Latest handoff** | [coordinator-handoff-018.md](coordinator-handoff-018.md) |
+| **Coordinator waves completed** | 2 |
+| **Last boss action** | 2026-07-21 — T02 DEPLOY_VERIFY PASS `234e248`; next T03 |
 | **Lanes** | main only (serial waves) |
 | **Environment constraints** | Same as V4–V6: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth; **no production memory mutation during bake-off** |
 
@@ -34,7 +34,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | ID | Slice | Deps | Deploy smoke (minimum) | Status |
 |----|-------|------|------------------------|--------|
 | **T01** | **Inspect adapter** — `eval_bundle.v1` → Inspect AI tasks (framework-neutral import) | — | Import one exported bundle; Inspect task loads timeline/stages; no prod memory write | Done |
-| **T02** | **Profiles A–D** — controller / context strategy ablation configs | T01 | Four named profiles selectable; each runs against same fixture bundle | Todo |
+| **T02** | **Profiles A–D** — controller / context strategy ablation configs | T01 | Four named profiles selectable; each runs against same fixture bundle | Done |
 | **T03** | **Metrics** — CT102 success, repair iters, fallback, policy violations, tokens/cost/time | T01 | Metrics JSON emitted per profile run; fields documented | Todo |
 | **T04** | **Memory isolation** — fork/reset namespaces via `memory_namespace` metadata | T01 | Profile runs cannot see each other's writebacks; prod namespace untouched | Todo |
 | **T05** | **Bake-off report** — longitudinal compare + negative-transfer notes; production gates | T02–T04 | Report artifact; unbounded recursion still off; shadow ≠ authority | Todo |
@@ -57,6 +57,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 |------|------------|--------------|-------------|-------|
 | 0 | 2026-07-21 | — | T01 | Epic opened; QA V6 signed off `28292c0` |
 | 1 | 2026-07-21 | [coordinator-handoff-017.md](coordinator-handoff-017.md) | T02 | T01 Done tip `b1a8a38` |
+| 2 | 2026-07-21 | [coordinator-handoff-018.md](coordinator-handoff-018.md) | T03 | T02 Done tip `234e248` |
 
 ## Boss prompt skeleton
 
