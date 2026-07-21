@@ -122,12 +122,16 @@ def run_quality_gated_attempts(
     for attempt_idx, (label, endpoint, suffix) in enumerate(_attempts_for_kind(kind), start=1):
         if endpoint is None or not endpoint.base_url:
             continue
-        kind_budget = "quality_retry" if attempt_idx > 1 else "infrastructure"
+        if label == "external_fallback":
+            kind_budget = "provider_route"
+            fallback_attempted = True
+        elif attempt_idx == 1:
+            kind_budget = "infrastructure"
+        else:
+            kind_budget = "quality_retry"
         if not budget.consume(kind_budget):
             all_reasons.append("model_attempt_budget exhausted")
             break
-        if label == "external_fallback":
-            fallback_attempted = True
         raw = call_model(endpoint, suffix)
         if artifact_path is not None:
             write_model_output_excerpt(artifact_path, raw, attempt=attempt_idx)
