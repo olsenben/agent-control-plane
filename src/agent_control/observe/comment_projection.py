@@ -206,6 +206,22 @@ def project_session_comment(
         else:
             result = post_issue_comment(session.project, int(issue), body, settings=settings)
     except GiteaHttpError as exc:
+        # Ambiguous timeout: Gitea may have applied PATCH — reconcile via GET.
+        if exc.ambiguous and comment_id:
+            reconciled = _reconcile_patch_applied(
+                session.project, int(comment_id), body, settings=settings
+            )
+            if reconciled:
+                updated = session.model_copy(
+                    update={
+                        "session_comment_id": int(comment_id),
+                        "session_comment_version": (session.session_comment_version or 0) + 1,
+                        "last_rendered_event_sequence": seq,
+                        "last_rendered_status": status,
+                    }
+                )
+                save_session(state_root, updated)
+                return updated
         # Do not advance last_rendered_event_sequence on transient/rate-limit failures.
         if exc.deleted or exc.status_code == 404:
             logger.warning(
@@ -261,6 +277,28 @@ def project_session_comment(
     )
     save_session(state_root, updated)
     return updated
+
+
+def _reconcile_patch_applied(
+    project: str,
+    comment_id: int,
+    expected_body: str,
+    *,
+    settings: Settings | None = None,
+) -> bool:
+    """Return True if remote comment body matches expected (PATCH likely applied)."""
+    settings = settings or get_settings()
+    if not settings.gitea_bot_token:
+        return False
+    try:
+        from agent_control.gitea_client import GiteaClient
+
+        owner, repo = project.split("/", 1)
+        remote = GiteaClient(settings).get_issue_comment(owner, repo, comment_id)
+        return (remote.get("body") or "") == expected_body
+    except Exception:
+        logger.warning("comment_patch_reconcile_failed project=%s comment_id=%s", project, comment_id)
+        return False
 
 
 def post_invocation_rejected_comment(

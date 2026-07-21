@@ -119,6 +119,9 @@ class GiteaClient:
             {"body": body},
         )
 
+    def get_issue_comment(self, owner: str, repo: str, comment_id: int) -> dict[str, Any]:
+        return self._get(f"/repos/{owner}/{repo}/issues/comments/{comment_id}")
+
     def get_repo(self, owner: str, repo: str) -> dict[str, Any]:
         return self._get(f"/repos/{owner}/{repo}")
 

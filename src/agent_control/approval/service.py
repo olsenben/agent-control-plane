@@ -181,6 +181,7 @@ def evaluate_fix_request(
     project: str,
     issue_id: int,
     target: str,
+    expected_base_sha: str | None = None,
 ) -> FixEvaluation:
     try:
         record = resolve_plan_for_target(state_root, project, issue_id, target)
@@ -247,6 +248,17 @@ def evaluate_fix_request(
         return FixEvaluation(
             policy_decision="blocked",
             reason="Project or issue mismatch",
+            approval=approval,
+            plan_record=record,
+        )
+    if (
+        expected_base_sha
+        and approval.approved_base_sha
+        and expected_base_sha != approval.approved_base_sha
+    ):
+        return FixEvaluation(
+            policy_decision="blocked",
+            reason="Approved base SHA mismatch — re-approve required",
             approval=approval,
             plan_record=record,
         )
