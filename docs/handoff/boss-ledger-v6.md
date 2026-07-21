@@ -1,6 +1,6 @@
 # Boss ledger — V6 observable, attributable, secure sessions
 
-Epic supervisor state. Boss reads **this file first** for post-V5 work. Prior epic: [boss-ledger-v5.md](boss-ledger-v5.md). **V6 complete.** Next: [boss-ledger-v7-preview.md](boss-ledger-v7-preview.md) (not started).
+Epic supervisor state. Boss reads **this file first** for post-V5 work. Prior epic: [boss-ledger-v5.md](boss-ledger-v5.md). **V6 complete.** QA signed off tip `28292c0`. **Next epic:** [boss-ledger-v7.md](boss-ledger-v7.md) (opened).
 
 | Field | Value |
 |-------|-------|
@@ -14,7 +14,7 @@ Epic supervisor state. Boss reads **this file first** for post-V5 work. Prior ep
 | **Next ticket** | EPIC_COMPLETE / none |
 | **Latest handoff** | [coordinator-handoff-016.md](coordinator-handoff-016.md) |
 | **Coordinator waves completed** | 8 |
-| **Last boss action** | 2026-07-21 — T08 DEPLOY_VERIFY PASS `a9917b8`; epic complete |
+| **Last boss action** | 2026-07-21 — QA SIGNED OFF `28292c0`; V7 opened |
 | **Lanes** | main only (serial waves) |
 | **Environment constraints** | Same as V4/V5: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth |
 
