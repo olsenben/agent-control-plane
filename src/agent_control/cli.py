@@ -1188,6 +1188,55 @@ def trace_show(
         click.echo(f"  [{stage.get('name')}] status={stage.get('status')}")
 
 
+@main.group(name="eval")
+def eval_group() -> None:
+    """Frozen evaluation export (V6 T08)."""
+
+
+@eval_group.command("export")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option("--run-id", required=True, help="run-… id")
+@click.option(
+    "--out",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output directory (default: state_root/eval-exports)",
+)
+def eval_export_cmd(project: str, run_id: str, output_dir: Path | None) -> None:
+    """Export content-addressed eval_bundle.v1 (does not touch production memory)."""
+    from agent_control.eval_export import export_eval_bundle, verify_eval_bundle_sha256
+    from agent_shared.repo_identity import normalize_repo_full_name
+
+    repo_full = normalize_repo_full_name(project)
+    if repo_full is None:
+        raise click.ClickException(f"invalid repo: {project}")
+    settings = get_settings()
+    out_dir = output_dir or (settings.agent_state_root / "eval-exports")
+    bundle, path = export_eval_bundle(
+        settings.agent_state_root,
+        project=repo_full,
+        run_id=run_id,
+        output_dir=out_dir,
+    )
+    if not verify_eval_bundle_sha256(bundle):
+        raise click.ClickException("eval_bundle_sha256 mismatch after export")
+    if bundle.production_memory_touched:
+        raise click.ClickException("export must not touch production memory")
+    click.echo(
+        json.dumps(
+            {
+                "path": str(path),
+                "eval_bundle_sha256": bundle.eval_bundle_sha256,
+                "memory_namespace": bundle.memory_namespace,
+                "production_memory_touched": bundle.production_memory_touched,
+                "events": len(bundle.timeline),
+            },
+            indent=2,
+        )
+    )
+
+
 @main.group()
 def memory() -> None:
     """Trajectory memory (CT103 SQLite)."""

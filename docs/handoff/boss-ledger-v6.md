@@ -10,11 +10,11 @@ Epic supervisor state. Boss reads **this file first** for post-V5 work. Prior ep
 | **Status doc** | This ledger + per-slice `docs/slice-v6-*.md` |
 | **Integration branch** | `main` |
 | **Epic status** | in progress |
-| **Tickets done (count)** | 6 / 8 |
-| **Next ticket** | T07 |
-| **Latest handoff** | [coordinator-handoff-014.md](coordinator-handoff-014.md) |
-| **Coordinator waves completed** | 6 |
-| **Last boss action** | 2026-07-21 — T06 DEPLOY_VERIFY PASS `6cc8264` |
+| **Tickets done (count)** | 7 / 8 |
+| **Next ticket** | T08 |
+| **Latest handoff** | [coordinator-handoff-015.md](coordinator-handoff-015.md) |
+| **Coordinator waves completed** | 7 |
+| **Last boss action** | 2026-07-21 — T07 DEPLOY_VERIFY PASS `70de9a3` |
 | **Lanes** | main only (serial waves) |
 | **Environment constraints** | Same as V4/V5: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth |
 
@@ -28,8 +28,6 @@ V5 complete tip `09f8340` — see [boss-ledger-v5.md](boss-ledger-v5.md).
 
 ## Remaining tickets (dependency order)
 
-Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
-
 | ID | Slice | Deps | Deploy smoke (minimum) | Status |
 |----|-------|------|------------------------|--------|
 | **T01** | Trace, provenance, observation contract | — | `trace_id` on session; provenance on context pack; projection sequence monotonic; session completes with OTel down | Done |
@@ -38,7 +36,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T04** | LiteLLM gateway + bounded failover | T01 | Chaos test proves fallback or visible failure; attempt budget enforced | Done |
 | **T05** | Authorization decisions + attribution | T01 | Separate predicate checks; pre-publish recheck; commit trailers | Done |
 | **T06** | Injection scanner shadow | T01, T03 | Shadow assessment in Observatory; no authority grant from scanner | Done |
-| **T07** | NL invocation + clarification lifecycle | T05, T06 | `@agent` resolves; `/agent` unchanged; invocation_id FSM | Todo |
+| **T07** | NL invocation + clarification lifecycle | T05, T06 | `@agent` resolves; `/agent` unchanged; invocation_id FSM | Done |
 | **T08** | Frozen eval export + V7 handoff | T03–T07 | Content-addressed `eval_bundle_sha256`; production memory unchanged | Todo |
 
 ### Wave order (serial)
@@ -49,7 +47,7 @@ Scaffold → T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08
 
 ### Out of scope
 
-- V7 recursive-controller bake-off (V4 T12 Deferred)
+- V7 recursive-controller bake-off (see [boss-ledger-v7-preview.md](boss-ledger-v7-preview.md))
 - LlamaFirewall blocking mode (shadow only in T06)
 - Semantic Router mandatory on T07 day one
 
@@ -62,15 +60,10 @@ Scaffold → T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08
 | 4 | 2026-07-21 | [coordinator-handoff-012.md](coordinator-handoff-012.md) | T05 | T04 Done tip `d5e4e93`; V6_T04_SMOKE_OK |
 | 5 | 2026-07-21 | [coordinator-handoff-013.md](coordinator-handoff-013.md) | T06 | T05 Done tip `1dff508`; V6_T05_SMOKE_OK |
 | 6 | 2026-07-21 | [coordinator-handoff-014.md](coordinator-handoff-014.md) | T07 | T06 Done tip `6cc8264`; V6_T06_SMOKE_OK |
+| 7 | 2026-07-21 | [coordinator-handoff-015.md](coordinator-handoff-015.md) | T08 | T07 Done tip `70de9a3`; V6_T07_SMOKE_OK |
 
 ## Boss prompt skeleton
 
 ```text
 EPIC: V6 observable sessions — finish T01–T08 per docs/handoff/boss-ledger-v6.md.
-
-RULES:
-1. Orient from this ledger only; one slice per wave.
-2. DEPLOY_VERIFY must PASS before marking Done / advancing.
-3. No pause between waves after deploy/doc update complete.
-4. Environment: CT103 192.168.4.62 / CT104 192.168.4.63; WSL SSH deploy key.
 ```
