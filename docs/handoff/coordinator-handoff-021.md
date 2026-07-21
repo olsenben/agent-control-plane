@@ -7,7 +7,7 @@
 | Handoff ID | 021 |
 | Date (UTC) | 2026-07-21 |
 | Slice / ticket ID | V7 T05 |
-| Tip SHA (ACP) | TIP_PLACEHOLDER (feature `fc446b6`) |
+| Tip SHA (ACP) | eb9bbf7 (feature `fc446b6`) |
 | Epic | V7 recursive context evaluation & controller bake-off |
 | `stopped_reason` | `deploy_gate_pending` |
 
