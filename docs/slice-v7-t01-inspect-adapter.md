@@ -1,6 +1,6 @@
 # Slice V7 T01 — Inspect AI adapter for eval_bundle.v1
 
-**Status:** Deploy gate  
+**Status:** Done — deploy verify PASS tip `b1a8a38` (2026-07-21)  
 **Date:** 2026-07-21  
 **Epic ticket:** T01  
 **Deps:** none (V6 eval export tip `a9917b8` / QA tip `28292c0`)  
@@ -24,19 +24,10 @@ Provide a framework-neutral → **Inspect AI** adapter that imports a content-ad
 - Schema: `inspect_adapt.v1` (samples + bake-off namespace); optional `try_build_inspect_memory_dataset` when `inspect_ai` installed
 - CLI: `agentctl eval inspect-adapt --bundle … --out …`
 
-## Non-goals
-
-- Full profiles A–D (T02)
-- Metrics aggregation (T03)
-- Namespace fork/reset machinery beyond adapter metadata (T04)
-- Enabling production recursive controllers
-
-## Deploy smoke (minimum)
-
-1. On CT103 tip: export or use fixture bundle → adapter import succeeds.
-2. Confirm no writes under production memory paths.
-3. Unit tests for SHA verify fail-closed.
-
 ## Deploy verification
 
-Filled after DEPLOY_VERIFY gate.
+| Field | Value |
+|-------|-------|
+| Tip SHA | `b1a8a38` |
+| Verdict | **DEPLOY_VERIFY: PASS** |
+| Smoke | `V7_T01_SMOKE_OK` (CT103); CT103+CT104 tip pin `b1a8a38` |
