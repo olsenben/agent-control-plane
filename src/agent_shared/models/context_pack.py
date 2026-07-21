@@ -23,4 +23,5 @@ class ContextPack(BaseModel):
     prior_memory: list[dict] = Field(default_factory=list)
     context_sources: list[str] = Field(default_factory=list)
     provenance_items: list[dict[str, str]] = Field(default_factory=list)
+    injection_assessments: list[dict] = Field(default_factory=list)
     budget: dict[str, int] = Field(default_factory=dict)

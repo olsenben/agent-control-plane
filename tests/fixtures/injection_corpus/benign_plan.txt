@@ -1,0 +1,2 @@
+Please review the failing CI logs for the flaky timeout in test_login.
+The patch should stay within src/auth/session.py.

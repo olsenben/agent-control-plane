@@ -19,6 +19,7 @@ SESSION_EVENT_TYPES = frozenset(
         "agent.session_failed",
         "agent.session_blocked",
         "agent.control_decision",
+        "agent.injection_assessment",
         "agent.run_completed",
     }
 )
@@ -83,6 +84,7 @@ def build_observation_projection(
     stages.append(stage("session", {"agent.session_started"}))
     stages.append(stage("context", {"agent.memory_preflight_created", "agent.context_packet_created"}))
     stages.append(stage("decisions", {"agent.control_decision"}))
+    stages.append(stage("injection_shadow", {"agent.injection_assessment"}))
     stages.append(
         stage(
             "terminal",

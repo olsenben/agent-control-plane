@@ -238,6 +238,28 @@ def prepare_typed_rlm_dispatch(
         )
         job = job.model_copy(update={"context_pack": pack})
 
+    # V6 T06 — shadow injection scan (never grants authority; never blocks enqueue).
+    if pack is not None and (pack.issue_text or "").strip():
+        from agent_control.security.injection_events import append_injection_assessment
+        from agent_control.security.injection_scanner import assess_text_shadow
+
+        assessment = assess_text_shadow(
+            pack.issue_text or "",
+            content_ref="context_pack.issue_text",
+            project=job.project,
+            run_id=job.run_id,
+            session_id=session.session_id,
+        )
+        assessments = list(pack.injection_assessments or [])
+        assessments.append(assessment.model_dump(mode="json"))
+        pack = pack.model_copy(update={"injection_assessments": assessments})
+        job = job.model_copy(update={"context_pack": pack})
+        try:
+            append_injection_assessment(state_root, assessment)
+        except Exception:
+            # Shadow scan must not fail dispatch.
+            pass
+
     pack_digest = context_pack_digest(pack) if pack is not None else ""
 
     try:
