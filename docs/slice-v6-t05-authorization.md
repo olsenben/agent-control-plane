@@ -1,6 +1,6 @@
 # Slice V6 T05 — Authorization decisions and attribution
 
-**Status:** In Progress  
+**Status:** Done — deploy verify PASS tip `1dff508` (2026-07-21)  
 **Date:** 2026-07-21  
 **Epic ticket:** T05  
 **Deps:** T01 Done  
@@ -13,13 +13,13 @@ Record separate authorization predicates (`authorization_decision.v1`), keep inv
 
 | Check | Expected | Result |
 |-------|----------|--------|
-| Predicates | invoker / approver / bot write / policy / approval_scope evaluated separately | pending |
-| Read-only plan | Invoker with repo read may `/agent plan` without write | pending |
-| Approve | Non-approver denied; owner/configured approver allowed | pending |
-| Fix enqueue | `invoked_by` = fix requester; `approved_by` = approval grantor | pending |
-| Pre-publish | Recheck fails on source SHA drift or lost bot write | pending |
-| Trailers | `Invoked-By`, `Agent-Run`, `Agent-Session` (+ optional `Approved-By`) | pending |
-| ADR-0017 | status `accepted` | pending |
+| Predicates | invoker / approver / bot write / policy / approval_scope evaluated separately | pass |
+| Read-only plan | Invoker with repo read may `/agent plan` without write | pass |
+| Approve | Non-approver denied; owner/configured approver allowed | pass |
+| Fix enqueue | `invoked_by` = fix requester; `approved_by` = approval grantor | pass |
+| Pre-publish | Recheck fails on source SHA drift or lost bot write | pass |
+| Trailers | `Invoked-By`, `Agent-Run`, `Agent-Session` (+ optional `Approved-By`) | pass |
+| ADR-0017 | status `accepted` | pass |
 
 ## Artifacts
 
@@ -36,6 +36,7 @@ Record separate authorization predicates (`authorization_decision.v1`), keep inv
 
 | Field | Value |
 |-------|-------|
-| Tip SHA | (pending) |
-| Verdict | pending |
+| Tip SHA | `1dff508` |
+| Verdict | **DEPLOY_VERIFY: PASS** |
 | Smoke | `V6_T05_SMOKE_OK` |
+| CT103/CT104 | tip pin match; Actions success |
