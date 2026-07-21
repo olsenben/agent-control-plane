@@ -16,9 +16,35 @@ from agent_shared.models.plan import PlanResult, PlanStep
 from agent_shared.models.review import BlastRadiusContext
 
 
+@pytest.fixture(autouse=True)
+def _allow_repo_permissions_in_unit_tests(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unit tests do not hit live Gitea; V6 fail-closed auth would deny every dispatch.
+
+    Production still fail-closes via agent_control.authorization.check_user_repo_permission.
+    Opt out with @pytest.mark.live_gitea_auth when a test must exercise the real check.
+    """
+    if request.node.get_closest_marker("live_gitea_auth"):
+        return
+
+    def _allow(*_args: Any, **_kwargs: Any) -> bool:
+        return True
+
+    monkeypatch.setattr(
+        "agent_control.authorization.check_user_repo_permission",
+        _allow,
+    )
+    monkeypatch.setattr(
+        "agent_control.gitea_client.GiteaClient.user_has_repo_permission",
+        lambda self, *a, **k: True,
+    )
+
+
 @pytest.fixture
 def control_plane_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
 
 
 @pytest.fixture

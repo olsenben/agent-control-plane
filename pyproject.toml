@@ -46,6 +46,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
+markers = [
+    "live_gitea_auth: exercise real check_user_repo_permission (no autouse allow mock)",
+]
 
 [tool.ruff]
 line-length = 100

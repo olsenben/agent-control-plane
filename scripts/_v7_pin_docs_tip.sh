@@ -2,7 +2,10 @@
 # Pin both hosts to origin/main tip (docs-ahead OK; no mandatory rebuild if tree match).
 set -euo pipefail
 KEY="${HOME}/.ssh/.ct103_deploy"
-TIP="${1:-c3b3fb4}"
+TIP="${1:-}"
+if [ -z "$TIP" ]; then
+  TIP=$(cd /mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/agent-control-plane && git rev-parse --short=7 HEAD)
+fi
 TIP="${TIP:0:7}"
 
 for HOST in 192.168.4.62 192.168.4.63; do
