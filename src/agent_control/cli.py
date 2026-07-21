@@ -1321,7 +1321,8 @@ def eval_bakeoff_run_cmd(
     profile_id: str,
     output_dir: Path | None,
 ) -> None:
-    """Run bake-off profile(s) A–D against one fixture bundle (V7 T02 dry-run)."""
+    """Run bake-off profile(s) A–D against one fixture bundle (isolated namespaces)."""
+    from agent_control.bakeoff_memory import BakeoffMemoryError
     from agent_control.bakeoff_profiles import (
         BakeoffProfileError,
         run_all_profiles_against_bundle,
@@ -1337,7 +1338,7 @@ def eval_bakeoff_run_cmd(
             results = [
                 run_profile_against_bundle(bundle_path, profile_id, output_dir=out_dir)
             ]
-    except (BakeoffProfileError, InspectAdaptError) as exc:
+    except (BakeoffProfileError, InspectAdaptError, BakeoffMemoryError) as exc:
         raise click.ClickException(str(exc)) from exc
     click.echo(
         json.dumps(
@@ -1347,6 +1348,7 @@ def eval_bakeoff_run_cmd(
                         "profile_id": doc.get("profile_id"),
                         "path": str(path),
                         "memory_namespace": doc.get("memory_namespace"),
+                        "memory_isolation": doc.get("memory_isolation"),
                         "source_eval_bundle_sha256": doc.get("source_eval_bundle_sha256"),
                         "production_memory_touched": doc.get("production_memory_touched"),
                         "mode": doc.get("mode"),

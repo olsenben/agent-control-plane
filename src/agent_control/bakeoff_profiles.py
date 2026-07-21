@@ -10,6 +10,11 @@ from typing import Any
 
 import yaml
 
+from agent_control.bakeoff_memory import (
+    BakeoffMemoryFacade,
+    assert_writebacks_isolated,
+    marker_record,
+)
 from agent_control.inspect_adapter import (
     InspectAdaptError,
     adapt_eval_bundle_file,
@@ -134,15 +139,21 @@ def run_profile_against_bundle(
     *,
     output_dir: Path,
     config_path: Path | None = None,
+    memory: BakeoffMemoryFacade | None = None,
+    seed_namespace: str | None = None,
 ) -> tuple[dict[str, Any], Path]:
     """Dry-run one profile against a verified eval_bundle (no production memory writes).
 
     Emits bakeoff_run.v1 + inspect_adapt.v1 under a profile-scoped namespace.
-    Does not invoke the live recursive context worker (T03+ metrics / T05 report).
+    Prepares an isolated bake-off memory namespace (fork/reset) and writes a
+    profile-local marker so sibling profiles cannot see each other's writebacks.
     """
     profile = get_profile(profile_id, config_path)
     bundle = load_eval_bundle(bundle_path)
     ns = _namespace_for(profile, bundle)
+    facade = memory or BakeoffMemoryFacade()
+    isolation = facade.prepare_namespace(ns, seed_namespace=seed_namespace)
+
     task, inspect_path = adapt_eval_bundle_file(
         bundle_path,
         output_dir=output_dir / f"profile-{profile.id}" / "inspect",
@@ -151,6 +162,15 @@ def run_profile_against_bundle(
     )
     if task.get("production_memory_touched"):
         raise InspectAdaptError("bake-off must not touch production memory")
+
+    marker_run_id = f"bakeoff-{profile.id}-{(bundle.manifest or {}).get('run_id') or 'run'}"
+    facade.upsert(ns, marker_record(run_id=marker_run_id, profile_id=profile.id, namespace=ns))
+    isolation = {
+        **isolation,
+        "record_count": facade.record_count(ns),
+        "writeback_run_ids": sorted(facade.visible_run_ids(ns)),
+        "production_memory_touched": facade.production_memory_touched,
+    }
 
     sample_ids = [s.get("id") for s in (task.get("samples") or [])]
     from agent_control.bakeoff_metrics import (
@@ -176,6 +196,7 @@ def run_profile_against_bundle(
             "max_wall_seconds": profile.max_wall_seconds,
         },
         "memory_namespace": ns,
+        "memory_isolation": isolation,
         "production_memory_touched": False,
         "unbounded_recursion": False,
         "injection_shadow_is_authority": False,
@@ -186,8 +207,8 @@ def run_profile_against_bundle(
         "mode": "dry_run",
         "ran_at": datetime.now(timezone.utc).isoformat(),
         "notes": (
-            "Bake-off dry-run with bakeoff_metrics.v1 attached; "
-            "live controller invocation still deferred (T04/T05)."
+            "Bake-off dry-run with isolated bakeoff/* memory namespaces and "
+            "bakeoff_metrics.v1; live controller invocation deferred to T05."
         ),
     }
     run_doc = attach_metrics_to_bakeoff_run(run_doc, metrics)
@@ -206,15 +227,23 @@ def run_all_profiles_against_bundle(
     *,
     output_dir: Path,
     config_path: Path | None = None,
+    memory: BakeoffMemoryFacade | None = None,
 ) -> list[tuple[dict[str, Any], Path]]:
-    """Run profiles A–D against the same fixture bundle."""
+    """Run profiles A–D against the same fixture bundle with shared isolation facade."""
     results: list[tuple[dict[str, Any], Path]] = []
     # Verify once up front so all four share the same integrity gate.
     load_eval_bundle(bundle_path)
+    facade = memory or BakeoffMemoryFacade()
     for pid in PROFILE_IDS:
         results.append(
             run_profile_against_bundle(
-                bundle_path, pid, output_dir=output_dir, config_path=config_path
+                bundle_path,
+                pid,
+                output_dir=output_dir,
+                config_path=config_path,
+                memory=facade,
             )
         )
+    namespaces = [doc["memory_namespace"] for doc, _ in results]
+    assert_writebacks_isolated(facade, namespaces)
     return results
