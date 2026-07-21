@@ -7,7 +7,7 @@
 | Handoff ID | 022 |
 | Date (UTC) | 2026-07-21 |
 | Slice / ticket ID | V8 T01 |
-| Tip SHA (ACP) | (commit after push; live soak on `c274c07`) |
+| Tip SHA (ACP) | `cde0820` (live soak on `c274c07`) |
 | Epic | V8 residual QA |
 | `stopped_reason` | `context_handoff` |
 
