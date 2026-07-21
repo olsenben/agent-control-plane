@@ -7,7 +7,7 @@
 | Handoff ID | 023 |
 | Date (UTC) | 2026-07-21 |
 | Slice / ticket ID | V8 T02 |
-| Tip SHA (ACP) | (pending commit) |
+| Tip SHA (ACP) | 9f92594 |
 | Epic | V8 residual QA |
 | `stopped_reason` | `blocker` (WaitingHuman — disposable approver) |
 
