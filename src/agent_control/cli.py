@@ -1161,7 +1161,7 @@ def trace_show(
 ) -> None:
     """Show observation projection from durable ledger + session artifacts."""
     from agent_control.observe.projection import build_observation_projection
-    from agent_control.project_registry import normalize_repo_full_name
+    from agent_shared.repo_identity import normalize_repo_full_name
 
     if not session_id and not run_id:
         raise click.ClickException("Provide --session-id and/or --run-id")

@@ -100,6 +100,7 @@ def render_session_comment_body(
         f"Command: `/agent {command}`",
         f"Status: **{display_status}**",
         f"Invoker: `{session.invoked_by}`",
+        f"Observe: `/observe/sessions/{run_id}`",
     ]
     if session.terminal_reason:
         lines.append(f"Reason: {session.terminal_reason}")

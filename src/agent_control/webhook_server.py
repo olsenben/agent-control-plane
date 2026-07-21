@@ -57,7 +57,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def restrict_public_surface(request: Request, call_next):
         if settings.enforce_public_surface_restriction:
             path = request.url.path
-            if path not in PUBLIC_ALLOWED_PATHS:
+            if path not in PUBLIC_ALLOWED_PATHS and not path.startswith(
+                ("/observe", "/api/observe")
+            ):
                 return Response(status_code=404)
         return await call_next(request)
 
@@ -132,4 +134,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         return {"status": "accepted", "event_id": event_id, "path": str(path)}
 
+    app.state.settings = settings
+    from agent_control.observe.routes import register_observe_routes
+
+    register_observe_routes(app)
     return app
