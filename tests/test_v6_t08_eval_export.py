@@ -63,6 +63,37 @@ def test_export_writes_file_without_memory_touch(tmp_path: Path) -> None:
     assert path.is_file()
     assert bundle.eval_bundle_sha256[:12] in path.name
     assert verify_eval_bundle_sha256(bundle)
+    assert bundle.manifest.get("authenticity") == "integrity_only"
     # No writes under projects/.../memory
     memory_dirs = list((tmp_path / "projects").rglob("memory"))
     assert memory_dirs == [] or all(not p.is_dir() or not any(p.iterdir()) for p in memory_dirs)
+
+
+def test_missing_artifact_on_disk_fails_closed(tmp_path: Path) -> None:
+    from agent_control.eval_export import EvalBundleError, build_eval_bundle
+    from agent_control.session.storage import load_session_by_run, save_session
+    from agent_shared.models.memory_preflight import SessionArtifactRef
+
+    project = "ai-sdlc-lab/demo-app"
+    run_id = "run-eval03"
+    _seed_session(tmp_path, project, run_id)
+    session = load_session_by_run(tmp_path, project, run_id)
+    assert session is not None
+    updated = session.model_copy(
+        update={
+            "context_packet": SessionArtifactRef(
+                artifact_type="context_packet",
+                relative_path="missing/does-not-exist.json",
+                digest="a" * 64,
+                byte_size=1,
+                schema_name="context_packet.v1",
+                created_at="2026-07-21T00:00:00+00:00",
+            )
+        }
+    )
+    save_session(tmp_path, updated)
+    try:
+        build_eval_bundle(tmp_path, project=project, run_id=run_id)
+        raise AssertionError("expected EvalBundleError")
+    except EvalBundleError as exc:
+        assert "missing artifact" in str(exc)

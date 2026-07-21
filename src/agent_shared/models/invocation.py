@@ -33,6 +33,8 @@ class InvocationRecord(BaseModel):
     status: InvocationStatus = "invocation_received"
     source_comment_id: int | None = None
     source_delivery_id: str | None = None
+    invocation_comment_id: int | None = None
+    subject_number: int | None = None
     invoked_by: str = "unknown"
     raw_text: str = ""
     intent: AgentIntent | None = None

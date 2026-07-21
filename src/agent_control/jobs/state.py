@@ -36,10 +36,32 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
     dispatch_result: dict[str, Any] = {"dispatched": False}
     approval_result: dict[str, Any] = {"handled": False}
     ci_result: dict[str, Any] = {"handled": False}
+    nl_result: dict[str, Any] = {"handled": False}
     if events:
         trigger = next((e for e in reversed(events) if e.get("event_id") == event_id), events[-1])
         trigger_intent, trigger_dispatch, trigger_kind = dispatch_for_event(trigger)
         settings = get_settings()
+
+        from agent_control.nl_invocation_wire import (
+            handoff_invocation_to_session,
+            maybe_begin_nl_invocation,
+        )
+
+        nl_result = maybe_begin_nl_invocation(root, project, trigger, settings=settings)
+        if nl_result.get("clarify"):
+            return {
+                "trigger_event_id": event_id,
+                "project": project,
+                "events_loaded": len(events),
+                "state_path": str(state_path),
+                "command_intent": trigger_intent.kind if trigger_intent else None,
+                "dispatch_recommended": False,
+                "snapshot_required": state.snapshot_required,
+                "dispatch": {"dispatched": False, "reason": "nl_clarification"},
+                "approval": approval_result,
+                "ci": ci_result,
+                "nl_invocation": nl_result,
+            }
 
         if trigger_intent.activated and trigger_intent.kind in ("approve", "reject", "fix"):
             approval_result = handle_approval_commands(
@@ -64,6 +86,20 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
                     settings.redis_url,
                     settings=settings,
                 )
+                if (
+                    dispatch_result.get("dispatched")
+                    and nl_result.get("invocation_id")
+                    and dispatch_result.get("session_id")
+                    and dispatch_result.get("run_id")
+                ):
+                    handoff_invocation_to_session(
+                        root,
+                        project=project,
+                        invocation_id=nl_result.get("invocation_id"),
+                        session_id=str(dispatch_result["session_id"]),
+                        run_id=str(dispatch_result["run_id"]),
+                        settings=settings,
+                    )
             except Exception as exc:
                 dispatch_result = {"dispatched": False, "error": str(exc)}
 
@@ -98,4 +134,5 @@ def process_state_reduction(state_root: str, event_id: str, project: str) -> dic
         "dispatch": dispatch_result,
         "approval": approval_result,
         "ci": ci_result,
+        "nl_invocation": nl_result,
     }

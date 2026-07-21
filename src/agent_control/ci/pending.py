@@ -189,4 +189,39 @@ def register_pending_ci(
         artifact_root=artifact_root,
     )
     save_pending_ci(state_root, record)
+    _project_waiting_for_ci(state_root, record)
     return record
+
+
+def _project_waiting_for_ci(state_root: Path, record: PendingCiRecord) -> None:
+    """Drive session comment → WaitingForCI when CI is registered (QA F-10)."""
+    try:
+        from agent_control.observe.comment_projection import project_session_comment
+        from agent_control.session.storage import load_session_by_run
+
+        session = load_session_by_run(state_root, record.repository, record.fix_run_id)
+        if session is None:
+            return
+        # Mark reason so display_status_from_session can map running→waiting_for_ci.
+        code = (session.terminal_reason_code or "").lower()
+        if "ci" not in code:
+            session = session.model_copy(
+                update={
+                    "terminal_reason_code": "waiting_for_ci",
+                    "terminal_reason": session.terminal_reason or "Waiting for CT102 CI",
+                }
+            )
+        project_session_comment(
+            state_root,
+            session,
+            run_id=record.fix_run_id,
+            command=session.command_kind or "fix",
+            display_status="waiting_for_ci",
+            issue_number=record.issue_id or session.subject_number,
+        )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "waiting_for_ci_projection_failed run=%s", record.fix_run_id
+        )

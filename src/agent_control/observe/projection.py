@@ -33,7 +33,13 @@ def _events_for_run(events: list[dict[str, Any]], run_id: str, session_id: str |
         sid = payload.get("session_id")
         if rid == run_id or (session_id and sid == session_id):
             matched.append(ev)
-    matched.sort(key=lambda e: (e.get("recorded_at") or "", e.get("event_id") or ""))
+    matched.sort(
+        key=lambda e: (
+            int(e.get("ledger_sequence") or 0) or 10**12,
+            e.get("recorded_at") or "",
+            e.get("event_id") or "",
+        )
+    )
     return matched
 
 
@@ -59,8 +65,10 @@ def build_observation_projection(
 
     sequenced: list[dict[str, Any]] = []
     for idx, ev in enumerate(timeline, start=1):
+        durable = ev.get("ledger_sequence")
         item = {
-            "sequence": idx,
+            "sequence": int(durable) if durable else idx,
+            "ledger_sequence": durable,
             "event_id": ev.get("event_id"),
             "type": ev.get("type"),
             "recorded_at": ev.get("recorded_at"),

@@ -29,14 +29,10 @@ def check_user_repo_permission(
     need: str = "read",
     settings: Settings | None = None,
 ) -> bool:
-    """Best-effort Gitea collaborator/permission check.
-
-    Fail-open for read when API unavailable (homelab webhook already allowlisted);
-    fail-closed for write when checking bot mutation capability if API says no.
-    """
+    """Gitea collaborator/permission check — fail closed when API unavailable."""
     settings = settings or get_settings()
     if not settings.gitea_bot_token or not username:
-        return need == "read"
+        return False
     try:
         from agent_control.gitea_client import GiteaClient
 
@@ -45,7 +41,7 @@ def check_user_repo_permission(
         return client.user_has_repo_permission(owner, repo, username, need=need)
     except Exception:
         logger.warning("repo_permission_check_failed project=%s user=%s need=%s", project, username, need)
-        return need == "read"
+        return False
 
 
 def evaluate_command_authorization(

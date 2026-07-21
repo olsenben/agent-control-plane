@@ -22,6 +22,7 @@ SessionDisplayStatus = Literal[
     "running",
     "waiting_for_ci",
     "completed",
+    "verified",
     "failed",
     "blocked",
     "cancelled",
@@ -30,19 +31,43 @@ SessionDisplayStatus = Literal[
     "needs_human",
 ]
 
-# Monotonic rank — terminal states share high rank; non-terminal increases.
-_STATUS_RANK: dict[str, int] = {
-    "queued": 10,
-    "running": 20,
-    "waiting_for_ci": 30,
-    "needs_human": 35,
-    "verification_missing": 36,
-    "verification_failed": 90,
-    "completed": 100,
-    "failed": 100,
-    "blocked": 100,
-    "cancelled": 100,
+# Explicit FSM — not a numeric ordering. Ledger sequence is the tie-breaker.
+_TERMINAL_STATUSES: frozenset[str] = frozenset(
+    {
+        "completed",
+        "verified",
+        "failed",
+        "blocked",
+        "cancelled",
+        "verification_failed",
+        "verification_missing",
+    }
+)
+
+_ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
+    "queued": frozenset({"running"}),
+    "running": frozenset(
+        {"waiting_for_ci", "completed", "verified", "failed", "blocked", "cancelled", "needs_human"}
+    ),
+    "waiting_for_ci": frozenset(
+        {"verified", "completed", "failed", "blocked", "verification_missing", "verification_failed"}
+    ),
+    "needs_human": frozenset({"running", "blocked", "cancelled", "failed"}),
 }
+
+
+def transition_allowed(prev: str | None, new: str) -> bool:
+    """Return True if status transition is allowed (terminals are absorbing)."""
+    if not prev:
+        return True
+    if prev == new:
+        return True
+    if prev in _TERMINAL_STATUSES:
+        return False
+    allowed = _ALLOWED_TRANSITIONS.get(prev)
+    if allowed is None:
+        return False
+    return new in allowed
 
 
 def display_status_from_session(session: AgentSession) -> SessionDisplayStatus:
@@ -52,6 +77,8 @@ def display_status_from_session(session: AgentSession) -> SessionDisplayStatus:
             return "verification_missing"
         if "verification" in code and "fail" in code:
             return "verification_failed"
+        if "verified" in code or code == "ci_verified":
+            return "verified"
         return "completed"
     if session.status.value == "failed":
         if "verification" in code:
@@ -74,6 +101,7 @@ def _status_heading(status: SessionDisplayStatus, command: str) -> str:
         "running": "Running",
         "waiting_for_ci": "Waiting for CI",
         "completed": "Completed",
+        "verified": "Verified",
         "failed": "Failed",
         "blocked": "Blocked",
         "cancelled": "Cancelled",
@@ -111,10 +139,11 @@ def render_session_comment_body(
 
 
 def _should_apply_update(session: AgentSession, *, event_sequence: int, display_status: str) -> bool:
+    """Ledger sequence wins; forbidden / terminal-regressing transitions are rejected."""
     if event_sequence <= (session.last_rendered_event_sequence or 0):
         return False
     prev = session.last_rendered_status or ""
-    if prev and _STATUS_RANK.get(display_status, 0) < _STATUS_RANK.get(prev, 0):
+    if prev and not transition_allowed(prev, display_status):
         return False
     return True
 
@@ -167,6 +196,8 @@ def project_session_comment(
     if issue is None:
         return session
 
+    from agent_control.gitea_client import GiteaHttpError
+
     comment_id = session.session_comment_id
     result: dict[str, Any] | None = None
     try:
@@ -174,6 +205,39 @@ def project_session_comment(
             result = patch_issue_comment(session.project, int(comment_id), body, settings=settings)
         else:
             result = post_issue_comment(session.project, int(issue), body, settings=settings)
+    except GiteaHttpError as exc:
+        # Do not advance last_rendered_event_sequence on transient/rate-limit failures.
+        if exc.deleted or exc.status_code == 404:
+            logger.warning(
+                "session_comment_deleted session=%s comment_id=%s — posting successor",
+                session.session_id,
+                comment_id,
+            )
+            return post_session_comment_successor(
+                session,
+                run_id=run_id,
+                command=command,
+                display_status=status,
+                reason=f"PATCH {exc.status_code}: {exc}",
+                settings=settings,
+                state_root=state_root,
+                event_sequence=seq,
+            )
+        if exc.retryable:
+            logger.warning(
+                "session_comment_projection_retryable session=%s status=%s code=%s",
+                session.session_id,
+                status,
+                exc.status_code,
+            )
+            return session
+        logger.exception(
+            "session_comment_projection_failed session=%s run=%s status=%s",
+            session.session_id,
+            run_id,
+            status,
+        )
+        return session
     except Exception:
         logger.exception(
             "session_comment_projection_failed session=%s run=%s status=%s",
@@ -229,6 +293,8 @@ def post_session_comment_successor(
     display_status: SessionDisplayStatus,
     reason: str,
     settings: Settings | None = None,
+    state_root: Any = None,
+    event_sequence: int | None = None,
 ) -> AgentSession:
     """Post successor comment when PATCH permanently fails; persist new comment id."""
     settings = settings or get_settings()
@@ -250,10 +316,15 @@ def post_session_comment_successor(
         return session
     if not result:
         return session
-    return session.model_copy(
+    seq = event_sequence if event_sequence is not None else (session.last_rendered_event_sequence or 0) + 1
+    updated = session.model_copy(
         update={
             "session_comment_id": int(result["id"]),
             "session_comment_version": (session.session_comment_version or 0) + 1,
             "last_rendered_status": display_status,
+            "last_rendered_event_sequence": seq,
         }
     )
+    if state_root is not None:
+        save_session(state_root, updated)
+    return updated

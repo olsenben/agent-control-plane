@@ -17,7 +17,7 @@ from agent_shared.models.injection_assessment import (
     MatchedRegion,
     RecommendedAction,
 )
-from agent_shared.models.trust import TRUSTED_AUTHORITY_CLASSES, TrustClass
+from agent_shared.models.trust import TrustClass
 
 
 @dataclass(frozen=True)
@@ -123,11 +123,8 @@ def _max_risk(hits: list[_Hit]) -> InjectionRisk:
 
 
 def _recommend(risk: InjectionRisk) -> RecommendedAction:
-    if risk == "high":
-        return "exclude"
-    if risk == "medium":
-        return "flag"
-    if risk == "low":
+    """Shadow mode: high/medium/low only flag for operator display — never exclude/block."""
+    if risk in ("high", "medium", "low"):
         return "flag"
     return "allow"
 
@@ -167,6 +164,30 @@ def assess_text_shadow(
     )
 
 
+def assessment_unavailable(
+    *,
+    reason: str,
+    content_ref: str = "content",
+    project: str = "",
+    run_id: str | None = None,
+    session_id: str | None = None,
+) -> InjectionAssessment:
+    """Scanner timeout / malformed / unavailable — visible event; control path unchanged."""
+    return InjectionAssessment(
+        risk="none",
+        categories=["assessment_unavailable"],
+        matched_regions=[],
+        recommended_action="allow",
+        authority_granted=False,
+        content_ref=content_ref,
+        detail={"mode": "shadow", "available": False, "reason": reason},
+        assessed_at=_now(),
+        run_id=run_id,
+        session_id=session_id,
+        project=project,
+    )
+
+
 def scanner_cannot_grant_authority(assessment: InjectionAssessment) -> bool:
     """Invariant: shadow scanner never upgrades trust / grants authority."""
     return assessment.authority_granted is False and assessment.mode == "shadow"
@@ -177,15 +198,6 @@ def apply_shadow_to_trust(
     current_trust: TrustClass | str,
     assessment: InjectionAssessment,
 ) -> TrustClass | str:
-    """High-risk may flag content as untrusted; never upgrade to trusted_*."""
+    """Shadow scanner never changes trust class (provenance/policy only)."""
     assert scanner_cannot_grant_authority(assessment)
-    if current_trust in TRUSTED_AUTHORITY_CLASSES:
-        return current_trust
-    if assessment.risk in ("high", "medium") and assessment.recommended_action in (
-        "flag",
-        "exclude",
-    ):
-        if current_trust in ("untrusted_issue_content", "untrusted_comment", "untrusted_log"):
-            return current_trust
-        return "untrusted_comment"
     return current_trust

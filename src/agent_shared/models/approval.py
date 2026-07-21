@@ -42,6 +42,7 @@ class WorkItemApproval(BaseModel):
     approval_command_text_hash: str | None = None
     approved_base_sha: str | None = None
     approved_base_ref: str | None = None
+    policy_source_sha: str | None = None
     reserved_at: str | None = None
     reserved_by_fix_run_id: str | None = None
     claimed_at: str | None = None
@@ -159,3 +160,4 @@ class FixAuthorizationBinding(BaseModel):
     ci_hints: list[str] = Field(default_factory=list)
     approved_base_sha: str | None = None
     approved_base_ref: str | None = None
+    policy_source_sha: str | None = None

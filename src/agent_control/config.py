@@ -101,6 +101,16 @@ class Settings(BaseSettings):
         alias="ENFORCE_PUBLIC_SURFACE_RESTRICTION",
         description="If true, only /healthz, /readyz, /webhooks/gitea are served",
     )
+    observe_require_auth: bool = Field(
+        default=True,
+        alias="OBSERVE_REQUIRE_AUTH",
+        description="V6 T03: require repo-read auth on all Observatory surfaces (fail closed)",
+    )
+    observe_shared_token: str | None = Field(
+        default=None,
+        alias="OBSERVE_SHARED_TOKEN",
+        description="Optional shared bearer token that grants Observatory read access",
+    )
     model_routing_policy: str = Field(
         default="fake",
         alias="MODEL_ROUTING_POLICY",

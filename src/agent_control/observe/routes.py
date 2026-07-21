@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from agent_control.config import Settings, get_settings
+from agent_control.observe.auth import require_observe_repo_read
 from agent_control.observe.projection import build_observation_projection
 from agent_shared.repo_identity import normalize_repo_full_name
 from agent_control.session.storage import load_session_by_run, sessions_dir
@@ -64,9 +65,22 @@ def _resolve_project_for_run(state_root: Path, run_id: str) -> str | None:
 
 
 @observe_ui.get("/observe/repos/{owner}/{repo}")
-def observe_repo_list(owner: str, repo: str, request: Request) -> dict[str, Any]:
+def observe_repo_list(
+    owner: str,
+    repo: str,
+    request: Request,
+    authorization: Annotated[str | None, Header()] = None,
+    x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
+) -> dict[str, Any]:
     settings = _settings(request)
     project = normalize_repo_full_name(f"{owner}/{repo}") or f"{owner}/{repo}"
+    require_observe_repo_read(
+        project,
+        request=request,
+        authorization=authorization,
+        x_gitea_token=x_gitea_token,
+        settings=settings,
+    )
     return {
         "project": project,
         "sessions": _repo_sessions(settings.agent_state_root, project),
@@ -74,11 +88,23 @@ def observe_repo_list(owner: str, repo: str, request: Request) -> dict[str, Any]
 
 
 @observe_ui.get("/observe/sessions/{run_id}")
-def observe_session_page(run_id: str, request: Request) -> HTMLResponse:
+def observe_session_page(
+    run_id: str,
+    request: Request,
+    authorization: Annotated[str | None, Header()] = None,
+    x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
+) -> HTMLResponse:
     settings = _settings(request)
     project = _resolve_project_for_run(settings.agent_state_root, run_id)
     if not project:
         raise HTTPException(status_code=404, detail="session not found")
+    require_observe_repo_read(
+        project,
+        request=request,
+        authorization=authorization,
+        x_gitea_token=x_gitea_token,
+        settings=settings,
+    )
     doc = build_observation_projection(settings.agent_state_root, project=project, run_id=run_id)
     events_json = json.dumps(doc.events, indent=2)
     html = f"""<!DOCTYPE html>
@@ -102,9 +128,18 @@ def observe_session_events(
     run_id: str,
     request: Request,
     project: str = Query(..., description="owner/repo"),
+    authorization: Annotated[str | None, Header()] = None,
+    x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
 ) -> dict[str, Any]:
     settings = _settings(request)
     repo_full = normalize_repo_full_name(project) or project
+    require_observe_repo_read(
+        repo_full,
+        request=request,
+        authorization=authorization,
+        x_gitea_token=x_gitea_token,
+        settings=settings,
+    )
     doc = build_observation_projection(settings.agent_state_root, project=repo_full, run_id=run_id)
     return doc.model_dump(mode="json")
 
@@ -114,9 +149,18 @@ def observe_session_artifacts(
     run_id: str,
     request: Request,
     project: str = Query(...),
+    authorization: Annotated[str | None, Header()] = None,
+    x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
 ) -> dict[str, Any]:
     settings = _settings(request)
     repo_full = normalize_repo_full_name(project) or project
+    require_observe_repo_read(
+        repo_full,
+        request=request,
+        authorization=authorization,
+        x_gitea_token=x_gitea_token,
+        settings=settings,
+    )
     session = load_session_by_run(settings.agent_state_root, repo_full, run_id)
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
@@ -134,13 +178,43 @@ async def observe_session_stream(
     request: Request,
     project: str = Query(...),
     after_sequence: int = Query(0, alias="after_sequence"),
+    authorization: Annotated[str | None, Header()] = None,
+    x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
+    last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
 ) -> StreamingResponse:
     settings = _settings(request)
     repo_full = normalize_repo_full_name(project) or project
+    require_observe_repo_read(
+        repo_full,
+        request=request,
+        authorization=authorization,
+        x_gitea_token=x_gitea_token,
+        settings=settings,
+    )
+    start_after = after_sequence
+    if last_event_id:
+        try:
+            start_after = max(start_after, int(last_event_id))
+        except ValueError:
+            pass
 
     async def event_generator():
-        last = after_sequence
+        last = start_after
         for _ in range(30):
+            if await request.is_disconnected():
+                break
+            # Re-check auth periodically (permission revocation).
+            try:
+                require_observe_repo_read(
+                    repo_full,
+                    request=request,
+                    authorization=authorization,
+                    x_gitea_token=x_gitea_token,
+                    settings=settings,
+                )
+            except HTTPException:
+                yield 'event: error\ndata: {"detail":"forbidden"}\n\n'
+                break
             doc = build_observation_projection(settings.agent_state_root, project=repo_full, run_id=run_id)
             for ev in doc.events:
                 seq = int(ev.get("sequence") or 0)

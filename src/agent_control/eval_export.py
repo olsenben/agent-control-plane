@@ -13,6 +13,10 @@ from agent_control.session.storage import load_session_by_run
 from agent_shared.models.eval_bundle import EvalBundle
 
 
+class EvalBundleError(ValueError):
+    """Export failed closed (missing artifact or incomplete inputs)."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -32,8 +36,12 @@ def build_eval_bundle(
     run_id: str,
     control_plane_commit: str | None = None,
     memory_namespace: str = "production",
+    require_artifacts_on_disk: bool = True,
 ) -> EvalBundle:
-    """Build a framework-neutral eval_bundle.v1 for a run (read-only)."""
+    """Build a framework-neutral eval_bundle.v1 for a run (read-only).
+
+    Integrity-protected via content hash; not authenticity-proven (no CT103 signature in V6).
+    """
     session = load_session_by_run(state_root, project, run_id)
     projection = build_observation_projection(state_root, project=project, run_id=run_id)
 
@@ -46,11 +54,17 @@ def build_eval_bundle(
             ("verification", session.verification),
         ):
             if ref is not None:
+                rel = getattr(ref, "relative_path", "") or ""
+                digest = getattr(ref, "digest", "") or ""
+                if require_artifacts_on_disk and rel:
+                    path = state_root / rel
+                    if not path.is_file():
+                        raise EvalBundleError(f"missing artifact on disk: {name} path={rel}")
                 artifact_refs.append(
                     {
                         "name": name,
-                        "relative_path": getattr(ref, "relative_path", "") or "",
-                        "digest": getattr(ref, "digest", "") or "",
+                        "relative_path": rel,
+                        "digest": digest,
                     }
                 )
 
@@ -78,8 +92,13 @@ def build_eval_bundle(
         "artifact_refs": artifact_refs,
         "observation_complete": projection.complete,
         "max_sequence": projection.max_sequence,
+        "projection_schema": "observation_projection.v1",
         "exported_at": _now(),
-        "redaction": {"secrets_stripped": True, "note": "payloads copied as stored; no live secret fetch"},
+        "authenticity": "integrity_only",
+        "redaction": {
+            "secrets_stripped": True,
+            "note": "payloads copied as stored; no live secret fetch",
+        },
     }
 
     body = {
@@ -88,7 +107,10 @@ def build_eval_bundle(
         "timeline": timeline,
         "stages": [s.model_dump(mode="json") for s in projection.stages],
     }
-    digest = _sha256_bytes(_canonical_json({"manifest": manifest, "timeline": timeline, "stages": body["stages"]}))
+    # Hash excludes eval_bundle_sha256 itself (digest over body fields only).
+    digest = _sha256_bytes(
+        _canonical_json({"manifest": manifest, "timeline": timeline, "stages": body["stages"]})
+    )
     return EvalBundle(
         manifest=manifest,
         timeline=timeline,

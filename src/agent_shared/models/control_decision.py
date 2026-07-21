@@ -15,6 +15,7 @@ ControlDecisionKind = Literal[
     "ci_verdict_accepted",
     "memory_governance_denied",
     "policy_denied",
+    "budget_exhausted",
     "other",
 ]
 

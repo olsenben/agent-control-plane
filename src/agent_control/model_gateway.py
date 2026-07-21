@@ -178,6 +178,7 @@ def chat_completion_with_failover(
     """Attempt completion across permitted routes under a shared attempt budget."""
     settings = settings or get_settings()
     tracker = budget or budget_from_env()
+    budget_key = run_id or session_id or f"role-{role}"
     complete = complete_fn or chat_completion
     candidates = _candidate_endpoints(role, project=project, settings=settings)
     attempts: list[RouteAttempt] = []
@@ -202,7 +203,29 @@ def chat_completion_with_failover(
 
     for idx, (label, endpoint, leaves) in enumerate(candidates):
         kind = "provider_route" if idx > 0 else "infrastructure"
-        if not tracker.consume(kind):
+        if state_root is not None:
+            from agent_control.model_attempt_budget_store import (
+                emit_budget_exhausted,
+                reserve_attempt,
+            )
+
+            ok, tracker = reserve_attempt(
+                state_root,
+                project=project,
+                budget_key=budget_key,
+                kind=kind,  # type: ignore[arg-type]
+                idempotency_key=f"{req_hash}:{idx}:{label}",
+            )
+            if not ok:
+                emit_budget_exhausted(
+                    state_root,
+                    project=project,
+                    run_id=run_id,
+                    session_id=session_id,
+                    tracker=tracker,
+                )
+                break
+        elif not tracker.consume(kind):
             break
         if state_root is not None:
             append_model_route_event(

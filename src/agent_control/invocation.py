@@ -46,6 +46,7 @@ def begin_invocation(
     invoked_by: str = "unknown",
     source_comment_id: int | None = None,
     source_delivery_id: str | None = None,
+    subject_number: int | None = None,
     intent: AgentIntent | None = None,
 ) -> InvocationRecord:
     now = _now()
@@ -61,6 +62,7 @@ def begin_invocation(
         status=status,
         source_comment_id=source_comment_id,
         source_delivery_id=source_delivery_id,
+        subject_number=subject_number,
         invoked_by=invoked_by,
         raw_text=raw_text,
         intent=intent,

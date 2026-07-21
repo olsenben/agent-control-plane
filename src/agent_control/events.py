@@ -71,11 +71,54 @@ class AgentEvent(BaseModel):
     recorded_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
     )
+    ledger_sequence: int | None = None
+    """Monotonic per-project append order. Authoritative for projection sort."""
+
+
+def _ledger_counter_path(state_root: Path, owner: str, repo: str) -> Path:
+    return state_root / "projects" / owner / repo / "events" / "ledger_seq.txt"
+
+
+def allocate_ledger_sequence(state_root: Path, owner: str, repo: str) -> int:
+    """Atomically allocate the next durable ledger sequence for a project."""
+    path = _ledger_counter_path(state_root, owner, repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_suffix(".lock")
+    # Simple exclusive create lock file (homelab single-writer CT103).
+    for _ in range(50):
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            break
+        except FileExistsError:
+            continue
+    else:
+        # Stale lock fallback — still proceed with best-effort counter.
+        pass
+    try:
+        current = 0
+        if path.is_file():
+            try:
+                current = int(path.read_text(encoding="utf-8").strip() or "0")
+            except ValueError:
+                current = 0
+        nxt = current + 1
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(str(nxt), encoding="utf-8")
+        os.replace(tmp, path)
+        return nxt
+    finally:
+        try:
+            lock_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def append_event(state_root: Path, event: AgentEvent) -> tuple[Path, bool]:
     """Append event JSON atomically; return (path, created)."""
     owner, repo = event.project.split("/", 1)
+    if event.ledger_sequence is None:
+        event = event.model_copy(update={"ledger_sequence": allocate_ledger_sequence(state_root, owner, repo)})
     path = event_storage_path(state_root, owner, repo, event.event_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
@@ -94,23 +137,30 @@ def append_event(state_root: Path, event: AgentEvent) -> tuple[Path, bool]:
 
 
 def load_project_events(state_root: Path, project: str) -> list[dict[str, Any]]:
-    """Load all event JSON files for a project, stable-sorted."""
+    """Load all event JSON files for a project, sorted by durable ledger_sequence."""
     owner, repo = project.split("/", 1)
     events_dir = state_root / "projects" / owner / repo / "events"
     if not events_dir.exists():
         return []
 
-    loaded: list[tuple[str, str, str, dict[str, Any]]] = []
+    loaded: list[tuple[int, str, str, str, dict[str, Any]]] = []
     for path in events_dir.rglob("*.json"):
-        if path.name.endswith(".tmp"):
+        if path.name.endswith(".tmp") or path.name == "ledger_seq.txt":
             continue
         data = json.loads(path.read_text(encoding="utf-8"))
+        seq_raw = data.get("ledger_sequence")
+        try:
+            seq = int(seq_raw) if seq_raw is not None else 0
+        except (TypeError, ValueError):
+            seq = 0
         recorded_at = data.get("recorded_at", "")
         event_id = data.get("event_id", "")
-        loaded.append((recorded_at, event_id, str(path), data))
+        # Events without durable sequence sort after sequenced ones by wall-clock.
+        sort_seq = seq if seq > 0 else 10**12
+        loaded.append((sort_seq, recorded_at, event_id, str(path), data))
 
-    loaded.sort(key=lambda item: (item[0], item[1], item[2]))
-    return [item[3] for item in loaded]
+    loaded.sort(key=lambda item: (item[0], item[1], item[2], item[3]))
+    return [item[4] for item in loaded]
 
 
 def write_verification_state(state_root: Path, project: str, state: LogicalState) -> Path:

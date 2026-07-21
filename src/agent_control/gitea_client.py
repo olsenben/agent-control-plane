@@ -17,6 +17,27 @@ logger = logging.getLogger(__name__)
 _DEFAULT_LOG_BYTE_LIMIT = 2_000_000
 
 
+class GiteaHttpError(Exception):
+    """Status-aware Gitea HTTP failure for comment projection / API calls."""
+
+    def __init__(
+        self,
+        status_code: int,
+        message: str,
+        *,
+        retryable: bool = False,
+        deleted: bool = False,
+        ambiguous: bool = False,
+        retry_after: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retryable = retryable
+        self.deleted = deleted
+        self.ambiguous = ambiguous
+        self.retry_after = retry_after
+
+
 class GiteaClient:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
@@ -54,6 +75,36 @@ class GiteaClient:
         with httpx.Client(timeout=60.0) as client:
             resp = client.put(url, json=body, headers=self._headers())
             resp.raise_for_status()
+            return resp.json()
+
+    def _patch(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        """PATCH with status-aware errors for comment projection (V6 T02)."""
+        url = f"{self.base_url}/api/v1{path}"
+        with httpx.Client(timeout=60.0) as client:
+            try:
+                resp = client.patch(url, json=body, headers=self._headers())
+            except httpx.TimeoutException as exc:
+                raise GiteaHttpError(0, "timeout", retryable=True, ambiguous=True) from exc
+            except httpx.TransportError as exc:
+                raise GiteaHttpError(0, f"transport: {exc}", retryable=True) from exc
+            if resp.status_code == 404:
+                raise GiteaHttpError(404, "comment not found", retryable=False, deleted=True)
+            if resp.status_code == 401 or resp.status_code == 403:
+                raise GiteaHttpError(resp.status_code, "auth failed", retryable=False)
+            if resp.status_code == 429:
+                retry_after = resp.headers.get("Retry-After")
+                raise GiteaHttpError(
+                    429,
+                    "rate limited",
+                    retryable=True,
+                    retry_after=int(retry_after) if retry_after and retry_after.isdigit() else None,
+                )
+            if resp.status_code >= 500:
+                raise GiteaHttpError(resp.status_code, resp.text[:200], retryable=True)
+            if resp.status_code >= 400:
+                raise GiteaHttpError(resp.status_code, resp.text[:200], retryable=False)
+            if not resp.content:
+                return {}
             return resp.json()
 
     def patch_issue_comment(
@@ -104,9 +155,7 @@ class GiteaClient:
                 resp.raise_for_status()
                 data = resp.json()
         except Exception:
-            if need_l == "write":
-                return False
-            return True
+            return False
         perm = str(data.get("permission") or data.get("role_name") or "").lower()
         if need_l == "write":
             return perm in {"admin", "write", "owner"}

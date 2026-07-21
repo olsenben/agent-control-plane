@@ -91,6 +91,7 @@ def build_fix_authorization_binding(
         ci_hints=list(plan.ci_hints),
         approved_base_sha=approval.approved_base_sha,
         approved_base_ref=approval.approved_base_ref,
+        policy_source_sha=approval.policy_source_sha,
     )
 
 

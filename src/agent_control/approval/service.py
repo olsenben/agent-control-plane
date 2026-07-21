@@ -60,9 +60,18 @@ def build_approval_from_plan(
     source_event_id: str | None = None,
     source_url: str | None = None,
     command_text: str | None = None,
+    policy_source_sha: str | None = None,
 ) -> WorkItemApproval:
     approval_id = f"appr-{uuid.uuid4().hex[:16]}"
     approved_base_ref, approved_base = resolve_approval_base_refs(record.project)
+    pin_sha = policy_source_sha
+    if not pin_sha:
+        try:
+            from agent_control.project_registry import resolve_policy_source_pin
+
+            pin_sha = resolve_policy_source_pin(record.project).policy_source_sha
+        except Exception:
+            pin_sha = None
     return WorkItemApproval(
         approval_id=approval_id,
         approval_target_id=record.approval_target_id,
@@ -79,6 +88,7 @@ def build_approval_from_plan(
         status="approved",
         approved_base_ref=approved_base_ref,
         approved_base_sha=approved_base,
+        policy_source_sha=pin_sha,
         source_comment_id=source_comment_id,
         source_event_id=source_event_id,
         source_url=source_url,
@@ -240,6 +250,26 @@ def evaluate_fix_request(
             approval=approval,
             plan_record=record,
         )
+    # QA F-11: bind policy_source_sha when present on the approval.
+    if approval.policy_source_sha:
+        try:
+            from agent_control.project_registry import resolve_policy_source_pin
+
+            current_pin = resolve_policy_source_pin(project).policy_source_sha
+        except Exception:
+            return FixEvaluation(
+                policy_decision="blocked",
+                reason="Policy source pin unavailable — fail closed",
+                approval=approval,
+                plan_record=record,
+            )
+        if current_pin and current_pin != approval.policy_source_sha:
+            return FixEvaluation(
+                policy_decision="blocked",
+                reason="Policy source SHA mismatch — re-approve required",
+                approval=approval,
+                plan_record=record,
+            )
 
     # V5 T02: memory-as-governance (after approval checks; before authorize)
     from agent_control.memory.governance import (
