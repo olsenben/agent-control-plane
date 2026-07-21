@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Header, HTTPException, Request
@@ -11,6 +12,10 @@ from fastapi import Header, HTTPException, Request
 from agent_control.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
+
+# Optional hot-reload file under agent_state_root for mid-SSE shared-token rotation
+# without restarting the control-plane process (V8 T03).
+OBSERVE_SHARED_TOKEN_FILENAME = ".observe_shared_token"
 
 
 def extract_bearer_token(
@@ -22,6 +27,26 @@ def extract_bearer_token(
     if authorization and authorization.lower().startswith("bearer "):
         return authorization[7:].strip() or None
     return None
+
+
+def resolve_observe_shared_token(settings: Settings) -> str:
+    """Return the active Observatory shared bearer.
+
+    Prefer ``<agent_state_root>/.observe_shared_token`` when present so operators
+    (and V8 T03 proof) can rotate the shared token mid-stream without a restart.
+    Falls back to ``OBSERVE_SHARED_TOKEN`` / settings.
+    """
+    root = getattr(settings, "agent_state_root", None)
+    if root is not None:
+        path = Path(root) / OBSERVE_SHARED_TOKEN_FILENAME
+        try:
+            if path.is_file():
+                val = path.read_text(encoding="utf-8").strip()
+                if val:
+                    return val
+        except OSError:
+            logger.warning("observe_shared_token_file_unreadable path=%s", path)
+    return (settings.observe_shared_token or "").strip()
 
 
 def _token_has_repo_read(project: str, token: str, settings: Settings) -> bool:
@@ -74,7 +99,7 @@ def require_observe_repo_read(
     if not token:
         raise HTTPException(status_code=401, detail="observatory authentication required")
 
-    shared = (settings.observe_shared_token or "").strip()
+    shared = resolve_observe_shared_token(settings)
     if shared and hmac.compare_digest(token, shared):
         return
 

@@ -203,19 +203,25 @@ async def observe_session_stream(
         for _ in range(30):
             if await request.is_disconnected():
                 break
-            # Re-check auth periodically (permission revocation).
+            # Re-check auth periodically (shared-token rotation / permission revoke).
+            # Reload settings each tick so app.state.settings mutations and the
+            # .observe_shared_token hot-reload file are observed mid-stream.
             try:
+                live_settings = _settings(request)
                 require_observe_repo_read(
                     repo_full,
                     request=request,
                     authorization=authorization,
                     x_gitea_token=x_gitea_token,
-                    settings=settings,
+                    settings=live_settings,
                 )
             except HTTPException:
                 yield 'event: error\ndata: {"detail":"forbidden"}\n\n'
                 break
-            doc = build_observation_projection(settings.agent_state_root, project=repo_full, run_id=run_id)
+            live_settings = _settings(request)
+            doc = build_observation_projection(
+                live_settings.agent_state_root, project=repo_full, run_id=run_id
+            )
             for ev in doc.events:
                 seq = int(ev.get("sequence") or 0)
                 if seq > last:
