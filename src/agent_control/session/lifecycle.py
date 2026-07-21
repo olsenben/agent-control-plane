@@ -368,7 +368,23 @@ def finalize_session(
             reason_code=reason_value,
             reason=detail,
         )
+    _project_terminal_comment(state_root, updated, run_id=run_id)
     return updated
+
+
+def _project_terminal_comment(state_root: Path, session: AgentSession, *, run_id: str) -> None:
+    try:
+        from agent_control.observe.comment_projection import project_session_comment
+
+        project_session_comment(
+            state_root,
+            session,
+            run_id=run_id,
+            command=session.command_kind,
+            event_sequence=(session.last_rendered_event_sequence or 0) + 1,
+        )
+    except Exception:
+        logger.exception("terminal_comment_projection session=%s", session.session_id)
 
 
 def finalize_session_blocked(

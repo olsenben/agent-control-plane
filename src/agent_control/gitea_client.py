@@ -56,6 +56,18 @@ class GiteaClient:
             resp.raise_for_status()
             return resp.json()
 
+    def patch_issue_comment(
+        self,
+        owner: str,
+        repo: str,
+        comment_id: int,
+        body: str,
+    ) -> dict[str, Any]:
+        return self._patch(
+            f"/repos/{owner}/{repo}/issues/comments/{comment_id}",
+            {"body": body},
+        )
+
     def get_repo(self, owner: str, repo: str) -> dict[str, Any]:
         return self._get(f"/repos/{owner}/{repo}")
 

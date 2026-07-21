@@ -165,7 +165,6 @@ def maybe_dispatch_rlm_root(
     from agent_control.invocation_ack import (
         format_invocation_started,
         format_invocation_terminal,
-        identity_audit_from_session,
         invoker_fields_from_trigger,
     )
     from agent_control.queue import enqueue_rlm_root
@@ -287,21 +286,21 @@ def maybe_dispatch_rlm_root(
             result["memory_preflight_digest"] = job.memory_preflight_digest
         if job.context_packet_digest:
             result["context_packet_digest"] = job.context_packet_digest
-        audit = identity_audit_from_session(session, run_id=job.run_id, settings=settings)
-        _post_ack(
-            format_invocation_started(
-                command=kind,
-                run_id=job.run_id,
-                invoked_by=audit.invoked_by,
-                session_id=session.session_id,
-                queue=QUEUE_RLM_ROOT,
-                host="ct104",
-                invoked_by_id=audit.invoked_by_id,
-                source_comment_id=audit.source_comment_id,
-                source_delivery_id=audit.source_delivery_id,
-                settings=settings,
-            )
+        from agent_control.observe.comment_projection import project_session_comment
+
+        updated = project_session_comment(
+            settings.agent_state_root,
+            session,
+            run_id=job.run_id,
+            command=kind,
+            display_status="queued",
+            event_sequence=1,
+            issue_number=issue_number,
+            settings=settings,
         )
+        if updated.session_id == session.session_id:
+            session = updated
+            result["session_id"] = session.session_id
     else:
         _post_ack(
             format_invocation_started(

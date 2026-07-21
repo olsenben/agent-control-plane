@@ -1,7 +1,6 @@
 # Slice V6 T01 — Trace, provenance, and observation contract
 
-**Status:** In Progress  
-**Date:** 2026-07-21  
+**Status:** Done — deploy verify PASS tip `ae4f5e4` (2026-07-21)  
 **Epic ticket:** T01  
 **Deps:** —
 

@@ -10,11 +10,11 @@ Epic supervisor state. Boss reads **this file first** for post-V5 work. Prior ep
 | **Status doc** | This ledger + per-slice `docs/slice-v6-*.md` |
 | **Integration branch** | `main` |
 | **Epic status** | in progress |
-| **Tickets done (count)** | 0 / 8 |
-| **Next ticket** | T01 |
-| **Latest handoff** | — |
-| **Coordinator waves completed** | 0 |
-| **Last boss action** | 2026-07-21 — ledger created; Wave 0 scaffold |
+| **Tickets done (count)** | 1 / 8 |
+| **Next ticket** | T02 |
+| **Latest handoff** | [coordinator-handoff-010.md](coordinator-handoff-010.md) |
+| **Coordinator waves completed** | 1 |
+| **Last boss action** | 2026-07-21 — T01 DEPLOY_VERIFY PASS `ae4f5e4` |
 | **Lanes** | main only (serial waves) |
 | **Environment constraints** | Same as V4/V5: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth |
 
@@ -32,7 +32,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 
 | ID | Slice | Deps | Deploy smoke (minimum) | Status |
 |----|-------|------|------------------------|--------|
-| **T01** | Trace, provenance, observation contract | — | `trace_id` on session; provenance on context pack; projection sequence monotonic; session completes with OTel down | Todo |
+| **T01** | Trace, provenance, observation contract | — | `trace_id` on session; provenance on context pack; projection sequence monotonic; session completes with OTel down | Done |
 | **T02** | Session status reducer + Gitea comment projection | T01 | Single upserted comment; no stale overwrite; invocation-rejected matrix | Todo |
 | **T03** | Agent Observatory + replay | T02 | `/observe/sessions/{run_id}` loads; SSE event; Observe link in comment | Todo |
 | **T04** | LiteLLM gateway + bounded failover | T01 | Chaos test proves fallback or visible failure; attempt budget enforced | Todo |
@@ -60,6 +60,7 @@ T04 and T05 may dual-lane after T01 only if explicitly opened; default is serial
 | Wave | Date (UTC) | Handoff file | Next ticket | Notes |
 |------|------------|--------------|-------------|-------|
 | 0 | 2026-07-21 | — | T01 | Ledger + slice stubs created |
+| 1 | 2026-07-21 | [coordinator-handoff-010.md](coordinator-handoff-010.md) | T02 | T01 Done tip `ae4f5e4`; Actions green; V6_T01_SMOKE_OK |
 
 ## Boss prompt skeleton
 

@@ -98,6 +98,10 @@ class AgentSession(BaseModel):
     recursive_context: SessionArtifactRef | None = None
     qwen_loop: SessionArtifactRef | None = None
     verification: SessionArtifactRef | None = None
+    session_comment_id: int | None = None
+    session_comment_version: int = 0
+    last_rendered_event_sequence: int = 0
+    last_rendered_status: str | None = None
 
     @model_validator(mode="after")
     def _session_id_distinct_from_runs(self) -> AgentSession:
