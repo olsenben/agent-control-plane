@@ -10,11 +10,11 @@ Epic supervisor state. Boss reads **this file first** for post-V5 work. Prior ep
 | **Status doc** | This ledger + per-slice `docs/slice-v6-*.md` |
 | **Integration branch** | `main` |
 | **Epic status** | in progress |
-| **Tickets done (count)** | 5 / 8 |
-| **Next ticket** | T06 |
-| **Latest handoff** | [coordinator-handoff-013.md](coordinator-handoff-013.md) |
-| **Coordinator waves completed** | 5 |
-| **Last boss action** | 2026-07-21 — T05 DEPLOY_VERIFY PASS `1dff508` |
+| **Tickets done (count)** | 6 / 8 |
+| **Next ticket** | T07 |
+| **Latest handoff** | [coordinator-handoff-014.md](coordinator-handoff-014.md) |
+| **Coordinator waves completed** | 6 |
+| **Last boss action** | 2026-07-21 — T06 DEPLOY_VERIFY PASS `6cc8264` |
 | **Lanes** | main only (serial waves) |
 | **Environment constraints** | Same as V4/V5: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth |
 
@@ -37,7 +37,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T03** | Agent Observatory + replay | T02 | `/observe/sessions/{run_id}` loads; SSE event; Observe link in comment | Done |
 | **T04** | LiteLLM gateway + bounded failover | T01 | Chaos test proves fallback or visible failure; attempt budget enforced | Done |
 | **T05** | Authorization decisions + attribution | T01 | Separate predicate checks; pre-publish recheck; commit trailers | Done |
-| **T06** | Injection scanner shadow | T01, T03 | Shadow assessment in Observatory; no authority grant from scanner | Todo |
+| **T06** | Injection scanner shadow | T01, T03 | Shadow assessment in Observatory; no authority grant from scanner | Done |
 | **T07** | NL invocation + clarification lifecycle | T05, T06 | `@agent` resolves; `/agent` unchanged; invocation_id FSM | Todo |
 | **T08** | Frozen eval export + V7 handoff | T03–T07 | Content-addressed `eval_bundle_sha256`; production memory unchanged | Todo |
 
@@ -46,8 +46,6 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 ```text
 Scaffold → T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08
 ```
-
-T04 and T05 may dual-lane after T01 only if explicitly opened; default is serial.
 
 ### Out of scope
 
@@ -63,6 +61,7 @@ T04 and T05 may dual-lane after T01 only if explicitly opened; default is serial
 | 2 | 2026-07-21 | [coordinator-handoff-011.md](coordinator-handoff-011.md) | T03 | T02 Done tip `66f885e`; V6_T02_SMOKE_OK |
 | 4 | 2026-07-21 | [coordinator-handoff-012.md](coordinator-handoff-012.md) | T05 | T04 Done tip `d5e4e93`; V6_T04_SMOKE_OK |
 | 5 | 2026-07-21 | [coordinator-handoff-013.md](coordinator-handoff-013.md) | T06 | T05 Done tip `1dff508`; V6_T05_SMOKE_OK |
+| 6 | 2026-07-21 | [coordinator-handoff-014.md](coordinator-handoff-014.md) | T07 | T06 Done tip `6cc8264`; V6_T06_SMOKE_OK |
 
 ## Boss prompt skeleton
 

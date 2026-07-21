@@ -152,4 +152,30 @@ def parse_command_intent(body: str) -> CommandIntent:
             confidence=1.0,
         )
 
+    # V6 T07 — bare ``@agent`` natural language (not ``@agent-role``).
+    from agent_control.nl_intent import (
+        confidence_allows_dispatch,
+        extract_agent_intent,
+        is_bare_at_agent,
+    )
+
+    if is_bare_at_agent(text):
+        agent_intent = extract_agent_intent(text)
+        if confidence_allows_dispatch(agent_intent) and agent_intent.kind:
+            return CommandIntent(
+                activated=True,
+                activation="@agent",
+                kind=agent_intent.kind,
+                natural_language_task=agent_intent.natural_language_task,
+                confidence=agent_intent.confidence,
+            )
+        # Ambiguous / low confidence — visible as inactive for dispatch; FSM owns clarification.
+        return CommandIntent(
+            activated=False,
+            activation="@agent",
+            kind=agent_intent.kind,
+            natural_language_task=agent_intent.natural_language_task,
+            confidence=agent_intent.confidence,
+        )
+
     return CommandIntent(activated=False, confidence=0.0)
