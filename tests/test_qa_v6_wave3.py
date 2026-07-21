@@ -204,6 +204,60 @@ def test_n06_duplicate_grant_idempotent(tmp_path: Path, monkeypatch: pytest.Monk
     assert created is False
 
 
+def test_n07_approver_revoked_before_publish(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hermetic N07: publish recheck denies when recorded approver loses repo write."""
+    from agent_control.authorization import recheck_publish_authorization
+    from agent_control.config import Settings
+
+    settings = Settings(
+        GITEA_BOT_TOKEN="tok",
+        GITEA_APPROVER_LOGINS="temp-approver",
+        GITEA_ACTING_IDENTITY="agent-bot",
+    )
+    calls: list[tuple[str, str]] = []
+
+    def _perm(project: str, username: str, *, need: str = "read", settings=None) -> bool:
+        calls.append((username, need))
+        if username == "agent-bot":
+            return True
+        if username == "temp-approver" and need == "write":
+            return False  # collaborator revoked
+        return username == "invoker"
+
+    monkeypatch.setattr("agent_control.authorization.check_user_repo_permission", _perm)
+
+    denied = recheck_publish_authorization(
+        project="ai-sdlc-lab/demo-app",
+        invoker_login="invoker",
+        approver_login="temp-approver",
+        source_sha="abc123",
+        approval_valid=True,
+        run_id="run-n07",
+        settings=settings,
+    )
+    assert denied.decision == "deny"
+    assert denied.approver_check.allowed is False
+    assert "approver" in (denied.approver_check.reason or "").lower()
+    assert ("temp-approver", "write") in calls
+
+    # Control: same principal still authoritative when write remains.
+    def _perm_ok(project: str, username: str, *, need: str = "read", settings=None) -> bool:
+        return True
+
+    monkeypatch.setattr("agent_control.authorization.check_user_repo_permission", _perm_ok)
+    allowed = recheck_publish_authorization(
+        project="ai-sdlc-lab/demo-app",
+        invoker_login="invoker",
+        approver_login="temp-approver",
+        source_sha="abc123",
+        approval_valid=True,
+        run_id="run-n07b",
+        settings=settings,
+    )
+    assert allowed.decision == "allow"
+    assert allowed.approver_check.allowed is True
+
+
 def test_n08_policy_pin_unavailable_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "agent_control.approval.service.resolve_plan_for_target",

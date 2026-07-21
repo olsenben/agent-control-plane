@@ -1,0 +1,3 @@
+N07_LIVE_STATUS=WaitingHuman
+N07_LIVE_REASON=DISPOSABLE_APPROVER unset
+N07_LIVE_PROJECT=ai-sdlc-lab/demo-app

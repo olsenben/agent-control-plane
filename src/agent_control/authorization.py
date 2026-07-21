@@ -77,6 +77,13 @@ def evaluate_command_authorization(
         if effective_approver
         else False
     )
+    # Publish recheck (N07): configured/owner authority is not enough if the
+    # recorded approver lost live repo write (collaborator/team revoke).
+    if kind == "publish" and effective_approver and approver_is_authority:
+        if not check_user_repo_permission(
+            project, effective_approver, need="write", settings=settings
+        ):
+            approver_is_authority = False
     return evaluate_authorization(
         command_kind=kind,
         project=project,

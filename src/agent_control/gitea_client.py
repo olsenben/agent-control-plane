@@ -137,7 +137,8 @@ class GiteaClient:
 
         Uses Gitea collaborator permission API when available; falls back to
         repository ``permissions`` for the authenticated bot when username
-        matches acting identity.
+        matches acting identity. A 404 for any other user means no access
+        (N07: collaborator revoke must deny).
         """
         need_l = (need or "read").lower()
         encoded_user = quote(username, safe="")
@@ -145,11 +146,14 @@ class GiteaClient:
             f"{self.base_url}/api/v1/repos/{owner}/{repo}/collaborators/"
             f"{encoded_user}/permission"
         )
+        acting = (self.settings.gitea_acting_identity or "agent-bot").strip().lower()
         try:
             with httpx.Client(timeout=15.0) as client:
                 resp = client.get(url, headers=self._headers())
                 if resp.status_code == 404:
-                    # Not a collaborator — owners may still have access via org.
+                    if str(username).strip().lower() != acting:
+                        return False
+                    # Acting bot may not appear as collaborator — use token repo perms.
                     repo_data = self.get_repo(owner, repo)
                     perms = repo_data.get("permissions") or {}
                     if need_l == "write":
