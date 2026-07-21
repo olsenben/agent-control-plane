@@ -32,7 +32,7 @@ Fork/reset bake-off memory namespaces via `memory_namespace` metadata so profile
 
 | Field | Value |
 |-------|-------|
-| Tip SHA | _(set after push)_ |
+| Tip SHA | `47cde2b` |
 | Verdict | pending (separate deploy agents) |
-| Smoke | `scripts/_v7_t04_smoke.sh` |
+| Smoke | `scripts/_v7_t04_smoke.sh 47cde2b` |
 | CT103 / CT104 | pending |
