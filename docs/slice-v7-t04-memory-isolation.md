@@ -1,6 +1,6 @@
 # Slice V7 T04 — Memory isolation (bake-off namespaces)
 
-**Status:** Code complete — deploy verify pending  
+**Status:** Done — DEPLOY_VERIFY: PASS  
 **Date:** 2026-07-21  
 **Epic ticket:** T04  
 **Deps:** T01  
@@ -32,7 +32,8 @@ Fork/reset bake-off memory namespaces via `memory_namespace` metadata so profile
 
 | Field | Value |
 |-------|-------|
-| Tip SHA | `47cde2b` |
-| Verdict | pending (separate deploy agents) |
-| Smoke | `scripts/_v7_t04_smoke.sh 47cde2b` |
-| CT103 / CT104 | pending |
+| Tip SHA | `47724d1` (feature `47cde2b`) |
+| Verdict | DEPLOY_VERIFY: PASS |
+| Smoke | `scripts/_v7_t04_smoke.sh 47724d1` → `V7_T04_SMOKE_OK namespaces 4` |
+| CT103 / CT104 | both `47724d1` |
+| Evidence | [deploy-verify-v7-t04-20260721.md](handoff/deploy-verify-v7-t04-20260721.md) |
