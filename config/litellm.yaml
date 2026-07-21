@@ -1,0 +1,53 @@
+# Illustrative LiteLLM Proxy config (V6 T04).
+# Built for the pinned LiteLLM image; verify fallback behavior against that version.
+# Deterministic context fallback is NOT a model entry — CT103 owns that policy.
+
+model_list:
+  - model_name: ollama-3080-qwen
+    litellm_params:
+      model: openai/qwen2.5-coder
+      api_base: os.environ/OLLAMA_3080_URL
+      api_key: "ollama"
+
+  - model_name: ollama-2070-controller
+    litellm_params:
+      model: openai/qwen2.5
+      api_base: os.environ/OLLAMA_2070_URL
+      api_key: "ollama"
+
+  - model_name: backup-api-coding-model
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_base: os.environ/BACKUP_API_BASE
+      api_key: os.environ/BACKUP_API_KEY
+
+  - model_name: backup-api-small-model
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_base: os.environ/BACKUP_API_BASE
+      api_key: os.environ/BACKUP_API_KEY
+
+  - model_name: primary-generator
+    litellm_params:
+      model: openai/qwen2.5-coder
+      api_base: os.environ/OLLAMA_3080_URL
+      api_key: "ollama"
+
+  - model_name: context-controller
+    litellm_params:
+      model: openai/qwen2.5
+      api_base: os.environ/OLLAMA_2070_URL
+      api_key: "ollama"
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  timeout: 120
+  fallbacks:
+    - primary-generator: [backup-api-coding-model]
+    - context-controller: [backup-api-small-model]
+    - ollama-3080-qwen: [backup-api-coding-model]
+    - ollama-2070-controller: [backup-api-small-model]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

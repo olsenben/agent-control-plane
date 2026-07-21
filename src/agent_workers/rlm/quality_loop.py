@@ -107,14 +107,25 @@ def run_quality_gated_attempts(
     call_model: Callable[[WorkerResolvedEndpoint, str], str],
     parse_and_finalize: Callable[[str, Any], tuple[str, PlanResult | FixResult, list[str]]],
 ) -> tuple[RLMResult | None, QualityAttemptResult | None]:
-    """Run GPU retry + optional external fallback. Returns failed RLMResult or None with success attempt."""
+    """Run GPU retry + optional external fallback. Returns failed RLMResult or None with success attempt.
+
+    Shares ``model_attempt_budget.v1`` so quality retries cannot multiply unbounded
+    with gateway infrastructure attempts.
+    """
+    from agent_shared.models.model_attempt_budget import budget_from_env
+
     all_reasons: list[str] = []
     fallback_attempted = False
     artifact_path = Path(artifact_dir) if artifact_dir else None
+    budget = budget_from_env()
 
     for attempt_idx, (label, endpoint, suffix) in enumerate(_attempts_for_kind(kind), start=1):
         if endpoint is None or not endpoint.base_url:
             continue
+        kind_budget = "quality_retry" if attempt_idx > 1 else "infrastructure"
+        if not budget.consume(kind_budget):
+            all_reasons.append("model_attempt_budget exhausted")
+            break
         if label == "external_fallback":
             fallback_attempted = True
         raw = call_model(endpoint, suffix)

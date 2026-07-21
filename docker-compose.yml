@@ -138,5 +138,27 @@ services:
       redis:
         condition: service_healthy
 
+  # V6 T04 — optional LiteLLM Proxy (profile: model-gateway)
+  # CT104 workers should set MODEL_GATEWAY_BASE_URL=http://litellm:4000/v1
+  # and must not carry external provider API keys when this is enabled.
+  litellm:
+    profiles: [model-gateway]
+    image: ghcr.io/berriai/litellm:main-latest
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-homelab}
+      OLLAMA_3080_URL: ${MODEL_3080_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_2070_URL: ${MODEL_2070_BASE_URL:-http://host.docker.internal:11435}
+      BACKUP_API_BASE: ${MODEL_3080_FALLBACK_BASE_URL:-}
+      BACKUP_API_KEY: ${MODEL_3080_FALLBACK_API_KEY:-}
+    volumes:
+      - ./config/litellm.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   redis-data:

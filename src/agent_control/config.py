@@ -69,6 +69,27 @@ class Settings(BaseSettings):
         description="Comma-separated roles that prefer external tier endpoints when configured",
     )
     model_fallback_enabled: bool = Field(default=True, alias="MODEL_FALLBACK_ENABLED")
+    model_gateway_base_url: str = Field(
+        default="",
+        alias="MODEL_GATEWAY_BASE_URL",
+        description="CT103 LiteLLM proxy OpenAI-compatible base URL; CT104 should call this only",
+    )
+    model_gateway_api_key: str = Field(default="", alias="MODEL_GATEWAY_API_KEY")
+    model_gateway_model_map: str = Field(
+        default="",
+        alias="MODEL_GATEWAY_MODEL_MAP",
+        description="Optional role=alias map, e.g. planner=primary-generator,worker=context-controller",
+    )
+    repo_external_model_policy: str = Field(
+        default="",
+        alias="REPO_EXTERNAL_MODEL_POLICY",
+        description="Comma-separated owner/repo allowlist for external model egress; empty=deny all",
+    )
+    model_code_handling_roles: str = Field(
+        default="fixer,rlm",
+        alias="MODEL_CODE_HANDLING_ROLES",
+        description="Roles allowed to send code-bearing prompts to external providers when egress permits",
+    )
     model_health_timeout_seconds: float = Field(default=3.0, alias="MODEL_HEALTH_TIMEOUT_SECONDS")
     model_health_required_for_readyz: bool = Field(
         default=False,

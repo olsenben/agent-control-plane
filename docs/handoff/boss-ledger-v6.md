@@ -10,11 +10,11 @@ Epic supervisor state. Boss reads **this file first** for post-V5 work. Prior ep
 | **Status doc** | This ledger + per-slice `docs/slice-v6-*.md` |
 | **Integration branch** | `main` |
 | **Epic status** | in progress |
-| **Tickets done (count)** | 2 / 8 |
-| **Next ticket** | T03 |
+| **Tickets done (count)** | 3 / 8 |
+| **Next ticket** | T04 |
 | **Latest handoff** | [coordinator-handoff-011.md](coordinator-handoff-011.md) |
-| **Coordinator waves completed** | 2 |
-| **Last boss action** | 2026-07-21 — T02 DEPLOY_VERIFY PASS `66f885e`; T03 in flight |
+| **Coordinator waves completed** | 3 |
+| **Last boss action** | 2026-07-21 — T03 DEPLOY_VERIFY PASS `a3dc2b7`; T04 in flight |
 | **Lanes** | main only (serial waves) |
 | **Environment constraints** | Same as V4/V5: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth |
 
@@ -34,8 +34,8 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 |----|-------|------|------------------------|--------|
 | **T01** | Trace, provenance, observation contract | — | `trace_id` on session; provenance on context pack; projection sequence monotonic; session completes with OTel down | Done |
 | **T02** | Session status reducer + Gitea comment projection | T01 | Single upserted comment; no stale overwrite; invocation-rejected matrix | Done |
-| **T03** | Agent Observatory + replay | T02 | `/observe/sessions/{run_id}` loads; SSE event; Observe link in comment | In Progress |
-| **T04** | LiteLLM gateway + bounded failover | T01 | Chaos test proves fallback or visible failure; attempt budget enforced | Todo |
+| **T03** | Agent Observatory + replay | T02 | `/observe/sessions/{run_id}` loads; SSE event; Observe link in comment | Done |
+| **T04** | LiteLLM gateway + bounded failover | T01 | Chaos test proves fallback or visible failure; attempt budget enforced | In Progress |
 | **T05** | Authorization decisions + attribution | T01 | Separate predicate checks; pre-publish recheck; commit trailers | Todo |
 | **T06** | Injection scanner shadow | T01, T03 | Shadow assessment in Observatory; no authority grant from scanner | Todo |
 | **T07** | NL invocation + clarification lifecycle | T05, T06 | `@agent` resolves; `/agent` unchanged; invocation_id FSM | Todo |
