@@ -192,6 +192,51 @@ def maybe_dispatch_rlm_root(
     )
     issue_number = job.trigger_context.issue_number
 
+    from agent_control.authorization import (
+        append_authorization_decision,
+        evaluate_command_authorization,
+    )
+
+    if kind in ("review", "plan", "inspect"):
+        auth = evaluate_command_authorization(
+            command_kind=kind,
+            project=job.project,
+            invoker_login=invoker["invoked_by"],
+            source_sha=job.target_sha or "",
+            policy_source_sha=job.policy_source_sha or "",
+            run_id=job.run_id,
+            settings=settings,
+        )
+        append_authorization_decision(settings.agent_state_root, auth)
+        if auth.decision == "deny":
+            if issue_number is not None:
+                try:
+                    post_issue_comment(
+                        job.project,
+                        int(issue_number),
+                        format_invocation_terminal(
+                            outcome="blocked",
+                            command=kind,
+                            run_id=job.run_id,
+                            invoked_by=invoker["invoked_by"],
+                            reason=auth.invoker_check.reason or "authorization_denied",
+                            reason_code="authorization_denied",
+                            invoked_by_id=invoker["invoked_by_id"],
+                            source_comment_id=invoker["source_comment_id"],
+                            source_delivery_id=invoker["source_delivery_id"],
+                            settings=settings,
+                        ),
+                        settings=settings,
+                    )
+                except Exception:
+                    pass
+            return {
+                "dispatched": False,
+                "reason": "authorization_denied",
+                "run_id": job.run_id,
+                "authorization": auth.model_dump(mode="json"),
+            }
+
     def _post_ack(body: str) -> None:
         if issue_number is None:
             return

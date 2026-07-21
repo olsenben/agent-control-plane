@@ -11,9 +11,13 @@ def build_commit_message(
     run_id: str,
     binding: FixAuthorizationBinding,
     approved_base_sha: str | None,
+    invoked_by: str | None = None,
+    session_id: str | None = None,
+    approved_by: str | None = None,
 ) -> str:
     subject = f"agent(fix): {binding.approval_target_id} ({run_id})"
     trailers = [
+        f"Agent-Run: {run_id}",
         f"Agent-Run-ID: {run_id}",
         f"Approval-ID: {binding.approval_id}",
         f"Approval-Target: {binding.approval_target_id}",
@@ -22,6 +26,12 @@ def build_commit_message(
         f"Blast-Radius-Hash: {binding.blast_radius_hash}",
         "Diff-Gate-Result: passed",
     ]
+    if session_id:
+        trailers.append(f"Agent-Session: {session_id}")
+    if invoked_by:
+        trailers.append(f"Invoked-By: {invoked_by}")
+    if approved_by:
+        trailers.append(f"Approved-By: {approved_by}")
     if approved_base_sha:
         trailers.append(f"Approved-Base-SHA: {approved_base_sha}")
     return subject + "\n\n" + "\n".join(trailers)

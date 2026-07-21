@@ -210,6 +210,8 @@ def enqueue_fix_after_authorization(
     )
 
     settings = settings or get_settings()
+    from agent_control.invocation_ack import invoker_fields_from_trigger
+
     job = build_fix_rlm_job(
         trigger_event=trigger_event,
         evaluation_approval=approval,
@@ -221,6 +223,12 @@ def enqueue_fix_after_authorization(
     if job.target_sha != frozen_sha:
         job = job.model_copy(update={"target_sha": frozen_sha})
 
+    invoker = invoker_fields_from_trigger(
+        job.trigger_context,
+        delivery_id=job.trigger_delivery_id,
+        fallback_login=approval.approved_by_login,
+    )
+    # Fix requester is the invoker; approver is recorded separately (do not conflate).
     try:
         prepared = prepare_typed_rlm_dispatch(
             state_root,
@@ -229,7 +237,8 @@ def enqueue_fix_after_authorization(
             changed_files=list(approval.allowed_files),
             subject_kind="issue",
             subject_number=approval.issue_id,
-            invoked_by=approval.approved_by_login,
+            invoked_by=invoker["invoked_by"],
+            approved_by=approval.approved_by_login,
         )
     except PreflightFatalError as exc:
         return {

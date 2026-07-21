@@ -126,6 +126,7 @@ def prepare_typed_rlm_dispatch(
     subject_kind: str | None = None,
     subject_number: int | None = None,
     invoked_by: str | None = None,
+    approved_by: str | None = None,
     ensure_context_pack: bool = True,
 ) -> PreparedTypedDispatch:
     """Session → preflight → pack → packet → identity-checked job.
@@ -154,6 +155,7 @@ def prepare_typed_rlm_dispatch(
         subject_number=subject_number,
         invoked_by=invoked_by,
         source_delivery_id=job.trigger_delivery_id,
+        approved_by=approved_by,
     )
     # Ensure policy_source_sha is recorded even on idempotent session reuse.
     if (session.policy_source_sha or "") != policy_sha and not session.policy_source_sha:

@@ -20,7 +20,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0014 | Adequacy profiles scope verification claims | proposed | 2026-07-20 | fixed_verified only when profile passes; agent tests scoped_only by default |
 | ADR-0015 | Orbit dual-graph edges carry provenance | proposed | 2026-07-20 | Provenanced code+SDLC edges; coverage CLI; blast-radius stays fail-soft |
 | ADR-0016 | Conditional recursive context worker on 2070 | proposed | 2026-07-20 | Invoke only when preflight requires; read-only tools; skip path no 2070 |
-| ADR-0017 | Split acting_identity from human invoked_by | proposed | 2026-07-20 | Bot acting_identity vs human invoked_by; started+terminal ack by run_id |
+| ADR-0017 | Split acting_identity from human invoked_by | accepted | 2026-07-20 | Bot acting_identity vs human invoked_by/approved_by; separate auth predicates; started+terminal ack by run_id |
 | ADR-0018 | Bounded recursive Qwen loop with CI-grounded evidence selection | proposed | 2026-07-20 | Finite CI-fail retries with evidence-selected context; no unbounded loop; no 6F.2 enable |
 | ADR-0019 | Flag-gated patch tournaments and reward logging default off | proposed | 2026-07-20 | experiments.yaml flags off; judge CI-passers only; rewards JSONL |
 | ADR-0020 | AgentFacts-lite content-hash integrity with optional HMAC | proposed | 2026-07-20 | agent-facts.json digest + source hashes; optional HMAC; sync MD↔JSON |
@@ -56,6 +56,7 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0015 proposed: T05/8a Orbit dual-graph provenance + coverage; blast-radius fail-soft
 - 2026-07-20 — ADR-0016 proposed: T07/8c conditional recursive context worker; skip path preserves no-2070
 - 2026-07-20 — ADR-0017 proposed: T10 acting_identity vs invoked_by + invocation ack
+- 2026-07-21 — ADR-0017 accepted: V6 T05 separate authorization predicates + pre-publish recheck + commit trailers
 - 2026-07-20 — ADR-0018 proposed: T08 bounded recursive Qwen loop; CI-grounded retries; no 6F.2 enable
 - 2026-07-20 — ADR-0019 proposed: T13 flag-gated patch tournaments + reward logging; defaults off
 - 2026-07-20 — ADR-0020 proposed: V5 T01 AgentFacts-lite content-hash integrity + optional HMAC

@@ -13,6 +13,10 @@ from agent_control.approval.service import (
     record_fix_request,
     reject_approval,
 )
+from agent_control.authorization import (
+    append_authorization_decision,
+    evaluate_command_authorization,
+)
 from agent_control.config import Settings, get_settings
 from agent_control.gitea_comments import (
     format_approval_granted,
@@ -123,6 +127,26 @@ def handle_approval_commands(
     comment_id = _comment_id(trigger_event)
     target = intent.approval_target
 
+    if intent.kind in ("approve", "reject"):
+        auth = evaluate_command_authorization(
+            command_kind=intent.kind,
+            project=project,
+            invoker_login=str(author),
+            approver_login=str(author),
+            run_id=None,
+            settings=settings,
+        )
+        append_authorization_decision(state_root, auth)
+        if auth.decision == "deny":
+            post_issue_comment(project, issue_id, format_non_owner_approval(), settings=settings)
+            return {
+                "handled": True,
+                "kind": intent.kind,
+                "created": False,
+                "authorization": auth.model_dump(mode="json"),
+                "message": "authorization_denied",
+            }
+
     if intent.kind == "approve":
         approval, message, created = grant_approval(
             state_root,
@@ -174,6 +198,34 @@ def handle_approval_commands(
         return {"handled": True, "kind": "reject", "created": created, "ok": ok, "message": message}
 
     if intent.kind == "fix":
+        fix_auth = evaluate_command_authorization(
+            command_kind="fix",
+            project=project,
+            invoker_login=str(author),
+            policy_permits=True,
+            settings=settings,
+        )
+        append_authorization_decision(state_root, fix_auth)
+        if fix_auth.decision == "deny":
+            post_issue_comment(
+                project,
+                issue_id,
+                format_fix_blocked(
+                    target=target,
+                    reason=fix_auth.invoker_check.reason or "authorization_denied",
+                    audit=identity_audit_from_parts(
+                        invoked_by=str(author),
+                        settings=settings,
+                    ),
+                ),
+                settings=settings,
+            )
+            return {
+                "handled": True,
+                "kind": "fix",
+                "authorization": fix_auth.model_dump(mode="json"),
+                "reason": "authorization_denied",
+            }
         evaluation = evaluate_fix_request(
             state_root,
             project=project,

@@ -89,6 +89,7 @@ def append_session_started(
         invoked_by=session.invoked_by,
         invoked_by_id=session.invoked_by_id,
         acting_identity=session.acting_identity,
+        approved_by=session.approved_by,
         source_comment_id=session.source_comment_id,
         source_delivery_id=session.source_delivery_id,
     )

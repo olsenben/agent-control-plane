@@ -328,6 +328,16 @@ def publish_fix_branch_and_pr(
             run_id=job.run_id,
             binding=binding,
             approved_base_sha=approved_base,
+            invoked_by=(
+                job.trigger_context.author
+                if job.trigger_context and getattr(job.trigger_context, "author", None)
+                else None
+            ),
+            session_id=(
+                job.session_id
+                if getattr(job, "session_id", None) and str(job.session_id).startswith("sess-")
+                else None
+            ),
         )
         commit = _git_run(
             repo_workspace,

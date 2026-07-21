@@ -71,6 +71,47 @@ class GiteaClient:
     def get_repo(self, owner: str, repo: str) -> dict[str, Any]:
         return self._get(f"/repos/{owner}/{repo}")
 
+    def user_has_repo_permission(
+        self,
+        owner: str,
+        repo: str,
+        username: str,
+        *,
+        need: str = "read",
+    ) -> bool:
+        """Return whether *username* has at least *need* access on the repo.
+
+        Uses Gitea collaborator permission API when available; falls back to
+        repository ``permissions`` for the authenticated bot when username
+        matches acting identity.
+        """
+        need_l = (need or "read").lower()
+        encoded_user = quote(username, safe="")
+        url = (
+            f"{self.base_url}/api/v1/repos/{owner}/{repo}/collaborators/"
+            f"{encoded_user}/permission"
+        )
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                resp = client.get(url, headers=self._headers())
+                if resp.status_code == 404:
+                    # Not a collaborator — owners may still have access via org.
+                    repo_data = self.get_repo(owner, repo)
+                    perms = repo_data.get("permissions") or {}
+                    if need_l == "write":
+                        return bool(perms.get("push") or perms.get("admin"))
+                    return bool(perms.get("pull") or perms.get("push") or perms.get("admin"))
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception:
+            if need_l == "write":
+                return False
+            return True
+        perm = str(data.get("permission") or data.get("role_name") or "").lower()
+        if need_l == "write":
+            return perm in {"admin", "write", "owner"}
+        return perm in {"admin", "write", "read", "owner"}
+
     def get_issue(self, owner: str, repo: str, issue_number: int) -> dict[str, Any]:
         return self._get(f"/repos/{owner}/{repo}/issues/{issue_number}")
 

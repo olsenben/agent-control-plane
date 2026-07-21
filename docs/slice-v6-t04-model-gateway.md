@@ -1,6 +1,6 @@
 # Slice V6 T04 — LiteLLM gateway and bounded completion failover
 
-**Status:** In Progress  
+**Status:** Done — deploy verify PASS tip `d5e4e93` (2026-07-21)  
 **Date:** 2026-07-21  
 **Epic ticket:** T04  
 **Deps:** T01 Done  
@@ -11,15 +11,15 @@ Put a real model gateway path between CT103/CT104 and local/remote endpoints wit
 
 ## Acceptance
 
-| Check | Expected |
-|-------|----------|
-| Attempt budget | `model_attempt_budget.v1` shared across infra/route/quality |
-| Completion failover | Failed chat completion retries permitted fallback under budget |
-| Egress | External route requires repo policy + role allowlist |
-| CT104 | `MODEL_GATEWAY_BASE_URL` preferred; no external keys when gateway set |
-| Events | `agent.model_route_*` / `agent.model_all_routes_failed` |
-| Context policy | `deterministic_only` when controller unavailable |
-| Chaos | Script proves fallback or visible all-routes-failed |
+| Check | Expected | Result |
+|-------|----------|--------|
+| Attempt budget | `model_attempt_budget.v1` shared across infra/route/quality | pass |
+| Completion failover | Failed chat completion retries permitted fallback under budget | pass |
+| Egress | External route requires repo policy + role allowlist | pass |
+| CT104 | `MODEL_GATEWAY_BASE_URL` preferred; no external keys when gateway set | pass |
+| Events | `agent.model_route_*` / `agent.model_all_routes_failed` | pass |
+| Context policy | `deterministic_only` when controller unavailable | pass |
+| Chaos | Script proves fallback or visible all-routes-failed | pass `V6_T04_SMOKE_OK` |
 
 ## Artifacts
 
@@ -35,4 +35,8 @@ Put a real model gateway path between CT103/CT104 and local/remote endpoints wit
 
 ## Deploy verification
 
-Filled after DEPLOY_VERIFY gate.
+| Field | Value |
+|-------|-------|
+| Tip SHA | `d5e4e93` |
+| Verdict | **DEPLOY_VERIFY: PASS** |
+| Smoke | `V6_T04_SMOKE_OK` |

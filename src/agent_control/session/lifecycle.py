@@ -143,6 +143,7 @@ def create_session_record(
     invoked_by: str | None = None,
     source_delivery_id: str | None = None,
     acting_identity: str | None = None,
+    approved_by: str | None = None,
 ) -> AgentSession:
     """Build a new agent_session.v1 (not yet persisted)."""
     if command_kind not in TYPED_SESSION_COMMANDS:
@@ -199,6 +200,7 @@ def create_session_record(
         invoked_by=invoker["invoked_by"],
         invoked_by_id=invoker["invoked_by_id"],
         acting_identity=acting,
+        approved_by=approved_by,
         source_comment_id=invoker["source_comment_id"],
         source_delivery_id=invoker["source_delivery_id"],
         created_at=now,
@@ -221,6 +223,7 @@ def begin_typed_session(
     invoked_by: str | None = None,
     source_delivery_id: str | None = None,
     acting_identity: str | None = None,
+    approved_by: str | None = None,
 ) -> AgentSession:
     """Persist session + index + session_started + subject_context_resolved.
 
@@ -244,6 +247,7 @@ def begin_typed_session(
         invoked_by=invoked_by,
         source_delivery_id=source_delivery_id,
         acting_identity=acting_identity,
+        approved_by=approved_by,
     )
     session = apply_status_transition(
         session,

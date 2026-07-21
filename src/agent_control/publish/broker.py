@@ -273,10 +273,80 @@ def broker_publish_fix(
     agent_branch = f"agent/{run_id}"
     base_ref = approval.approved_base_ref or "main"
 
+    from agent_control.authorization import (
+        append_authorization_decision,
+        recheck_publish_authorization,
+    )
+    from agent_control.session.storage import load_session_by_run
+
+    session = load_session_by_run(state_root, project, run_id)
+    invoker_login = (
+        (session.invoked_by if session else None)
+        or approval.approved_by_login
+        or "unknown"
+    )
+    session_id = session.session_id if session else None
+    approved_by = (session.approved_by if session else None) or approval.approved_by_login
+
+    approval_valid = True
+    approval_reason = ""
+    try:
+        client = GiteaClient(settings)
+        remote_sha = client.get_branch_sha(owner, repo, base_ref)
+        if remote_sha and trusted_sha and remote_sha != trusted_sha:
+            approval_valid = False
+            approval_reason = (
+                f"source_sha_drift approved={trusted_sha[:12]} remote={remote_sha[:12]}"
+            )
+    except Exception as exc:
+        # Fail closed on publish when we cannot confirm base SHA.
+        approval_valid = False
+        approval_reason = f"source_sha_recheck_failed: {exc}"
+
+    auth = recheck_publish_authorization(
+        project=project,
+        invoker_login=invoker_login,
+        approver_login=approved_by,
+        source_sha=trusted_sha or "",
+        policy_source_sha=(session.policy_source_sha if session else "") or "",
+        approval_valid=approval_valid,
+        approval_reason=approval_reason,
+        run_id=run_id,
+        session_id=session_id,
+        settings=settings,
+    )
+    append_authorization_decision(state_root, auth)
+    if auth.decision == "deny":
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="fix",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="failed_terminal",
+            messages=[f"authorization_denied: {auth.approval_scope.reason or auth.decision}"],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="authorization_denied",
+            detail=[auth.approval_scope.reason or auth.acting_identity_check.reason],
+        )
+        return {
+            "ok": False,
+            "reason": "authorization_denied",
+            "authorization": auth.model_dump(mode="json"),
+        }
+
     commit_msg = build_commit_message(
         run_id=run_id,
         binding=binding,
         approved_base_sha=trusted_sha,
+        invoked_by=invoker_login,
+        session_id=session_id,
+        approved_by=approved_by,
     )
 
     try:

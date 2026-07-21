@@ -27,6 +27,7 @@ class IdentityAudit:
     acting_identity: str
     invoked_by: str
     invoked_by_id: int | None = None
+    approved_by: str | None = None
     source_comment_id: int | None = None
     source_delivery_id: str | None = None
     run_id: str | None = None
@@ -38,6 +39,8 @@ class IdentityAudit:
             f"acting_identity: `{self.acting_identity}`",
             f"invoked_by: `{self.invoked_by}`",
         ]
+        if self.approved_by:
+            lines.append(f"approved_by: `{self.approved_by}`")
         if self.invoked_by_id is not None:
             lines.append(f"invoked_by_id: `{self.invoked_by_id}`")
         if self.source_comment_id is not None:
@@ -104,6 +107,7 @@ def identity_audit_from_session(
         acting_identity=str(acting),
         invoked_by=str(getattr(session, "invoked_by", None) or "unknown"),
         invoked_by_id=getattr(session, "invoked_by_id", None),
+        approved_by=getattr(session, "approved_by", None),
         source_comment_id=getattr(session, "source_comment_id", None),
         source_delivery_id=getattr(session, "source_delivery_id", None),
         run_id=rid,
@@ -117,6 +121,7 @@ def identity_audit_from_parts(
     run_id: str | None = None,
     session_id: str | None = None,
     invoked_by_id: int | None = None,
+    approved_by: str | None = None,
     source_comment_id: int | None = None,
     source_delivery_id: str | None = None,
     settings: Settings | None = None,
@@ -125,6 +130,7 @@ def identity_audit_from_parts(
         acting_identity=resolve_acting_identity(settings),
         invoked_by=invoked_by or "unknown",
         invoked_by_id=invoked_by_id,
+        approved_by=approved_by,
         source_comment_id=source_comment_id,
         source_delivery_id=source_delivery_id,
         run_id=run_id,

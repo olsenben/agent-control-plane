@@ -86,6 +86,7 @@ class AgentSession(BaseModel):
     invoked_by: str
     invoked_by_id: int | None = None
     acting_identity: str | None = None
+    approved_by: str | None = None
     source_comment_id: int | None = None
     source_delivery_id: str | None = None
     created_at: str
@@ -220,6 +221,7 @@ class SessionStartedPayload(SessionEventCorrelation):
     invoked_by: str
     invoked_by_id: int | None = None
     acting_identity: str | None = None
+    approved_by: str | None = None
     source_comment_id: int | None = None
     source_delivery_id: str | None = None
 
