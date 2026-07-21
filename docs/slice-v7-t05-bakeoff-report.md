@@ -1,6 +1,6 @@
 # Slice V7 T05 — Bake-off report
 
-**Status:** Implement complete — deploy verify pending (boss / deploy agent)  
+**Status:** Done — DEPLOY_VERIFY PASS  
 **Date:** 2026-07-21  
 **Epic ticket:** T05  
 **Deps:** T02–T04 Done  
@@ -18,7 +18,7 @@ Emit `bakeoff_report.v1` comparing profiles A–D longitudinally, with negative-
 | Gates | `unbounded_recursion=false`; shadow ≠ authority | pass (unit) |
 | Memory | `production_memory_touched=false`; namespaces under `bakeoff/*` | pass (unit) |
 | CLI | `agentctl eval bakeoff-report --bundle …` | pass |
-| Epic ledger | Not marked Done / complete by implement agent | honor |
+| Epic ledger | T05 Done; epic complete after deploy verify | pass |
 
 ## Implementation
 
@@ -31,7 +31,8 @@ Emit `bakeoff_report.v1` comparing profiles A–D longitudinally, with negative-
 
 | Field | Value |
 |-------|-------|
-| Tip SHA | *(pending deploy pin)* |
-| Verdict | pending |
-| Smoke | `scripts/_v7_t05_smoke.sh <tip>` |
-| CT103 / CT104 | pending |
+| Tip SHA | `573a777` (feature `fc446b6`) |
+| Verdict | DEPLOY_VERIFY PASS |
+| Smoke | `scripts/_v7_t05_smoke.sh 573a777` → `V7_T05_SMOKE_OK profiles 4 gates_ok True` |
+| CT103 / CT104 | both `573a777` |
+| Evidence | [deploy-verify-v7-t05-20260721.md](handoff/deploy-verify-v7-t05-20260721.md) |

@@ -9,12 +9,12 @@ Epic supervisor state. Boss reads **this file first** for post-V6 work. Prior ep
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) |
 | **Status doc** | This ledger + per-slice `docs/slice-v7-*.md` |
 | **Integration branch** | `main` |
-| **Epic status** | in progress |
-| **Tickets done (count)** | 4 / 5 |
-| **Next ticket** | T05 |
-| **Latest handoff** | [coordinator-handoff-020.md](coordinator-handoff-020.md) |
-| **Coordinator waves completed** | 4 |
-| **Last boss action** | 2026-07-21 — T04 DEPLOY_VERIFY PASS tip `47724d1`; next T05 |
+| **Epic status** | complete |
+| **Tickets done (count)** | 5 / 5 |
+| **Next ticket** | EPIC_COMPLETE |
+| **Latest handoff** | [coordinator-handoff-021.md](coordinator-handoff-021.md) |
+| **Coordinator waves completed** | 5 |
+| **Last boss action** | 2026-07-21 — T05 DEPLOY_VERIFY PASS tip `573a777`; epic complete |
 | **Lanes** | main only (serial waves) |
 | **Environment constraints** | Same as V4–V6: WSL SSH; `docker compose exec -T … </dev/null`; CT103 publish-broker; CT102 CI truth; **no production memory mutation during bake-off** |
 
@@ -26,6 +26,7 @@ All tickets **T01–T05** `Done` with deploy verify PASS. Bake-off can import V6
 
 - V6 complete tip `a9917b8` — [boss-ledger-v6.md](boss-ledger-v6.md)
 - QA V6 SIGNED OFF tip `28292c0` — [qa-v6-ledger.md](qa-v6-ledger.md), [deploy-verify-qa-v6-20260721.md](deploy-verify-qa-v6-20260721.md)
+- V7 complete tip `573a777` — this ledger; [deploy-verify-v7-t05-20260721.md](deploy-verify-v7-t05-20260721.md)
 
 ## Remaining tickets (dependency order)
 
@@ -37,7 +38,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | **T02** | **Profiles A–D** — controller / context strategy ablation configs | T01 | Four named profiles selectable; each runs against same fixture bundle | Done |
 | **T03** | **Metrics** — CT102 success, repair iters, fallback, policy violations, tokens/cost/time | T01 | Metrics JSON emitted per profile run; fields documented | Done |
 | **T04** | **Memory isolation** — fork/reset namespaces via `memory_namespace` metadata | T01 | Profile runs cannot see each other's writebacks; prod namespace untouched | Done |
-| **T05** | **Bake-off report** — longitudinal compare + negative-transfer notes; production gates | T02–T04 | Report artifact; unbounded recursion still off; shadow ≠ authority | Todo |
+| **T05** | **Bake-off report** — longitudinal compare + negative-transfer notes; production gates | T02–T04 | Report artifact; unbounded recursion still off; shadow ≠ authority | Done |
 
 ### Parallelism policy
 
@@ -60,6 +61,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 | 2 | 2026-07-21 | [coordinator-handoff-018.md](coordinator-handoff-018.md) | T03 | T02 Done tip `234e248` |
 | 3 | 2026-07-21 | [coordinator-handoff-019.md](coordinator-handoff-019.md) | T04 | T03 Done tip `198eabf` |
 | 4 | 2026-07-21 | [coordinator-handoff-020.md](coordinator-handoff-020.md) | T05 | T04 Done tip `47724d1`; [deploy-verify-v7-t04-20260721.md](deploy-verify-v7-t04-20260721.md) |
+| 5 | 2026-07-21 | [coordinator-handoff-021.md](coordinator-handoff-021.md) | EPIC_COMPLETE | T05 Done tip `573a777`; [deploy-verify-v7-t05-20260721.md](deploy-verify-v7-t05-20260721.md); epic complete |
 
 ## Boss prompt skeleton
 
