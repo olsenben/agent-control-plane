@@ -208,7 +208,7 @@ def run_profile_against_bundle(
         "ran_at": datetime.now(timezone.utc).isoformat(),
         "notes": (
             "Bake-off dry-run with isolated bakeoff/* memory namespaces and "
-            "bakeoff_metrics.v1; live controller invocation deferred to T05."
+            "bakeoff_metrics.v1; longitudinal compare via bakeoff_report.v1 (T05)."
         ),
     }
     run_doc = attach_metrics_to_bakeoff_run(run_doc, metrics)

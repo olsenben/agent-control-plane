@@ -1421,6 +1421,67 @@ def eval_bakeoff_metrics_cmd(bundle_path: Path, output_dir: Path | None) -> None
     )
 
 
+@eval_group.command("bakeoff-report")
+@click.option(
+    "--bundle",
+    "bundle_path",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Path to verified eval_bundle.v1 JSON",
+)
+@click.option(
+    "--out",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output directory (default: cwd/bakeoff-reports)",
+)
+def eval_bakeoff_report_cmd(bundle_path: Path, output_dir: Path | None) -> None:
+    """Emit bakeoff_report.v1 comparing profiles A–D (V7 T05)."""
+    from agent_control.bakeoff_memory import BakeoffMemoryError
+    from agent_control.bakeoff_profiles import BakeoffProfileError
+    from agent_control.bakeoff_report import BakeoffReportError, emit_bakeoff_report_for_bundle
+    from agent_control.inspect_adapter import InspectAdaptError
+
+    out_dir = output_dir or Path.cwd() / "bakeoff-reports"
+    try:
+        report, path, _ = emit_bakeoff_report_for_bundle(bundle_path, output_dir=out_dir)
+    except (
+        BakeoffReportError,
+        BakeoffProfileError,
+        InspectAdaptError,
+        BakeoffMemoryError,
+    ) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(
+        json.dumps(
+            {
+                "path": str(path),
+                "schema_version": report.get("schema_version"),
+                "report_id": report.get("report_id"),
+                "profiles_compared": report.get("profiles_compared"),
+                "dry_run_metric_parity": report.get("dry_run_metric_parity"),
+                "negative_transfer_detected": report.get("negative_transfer_detected"),
+                "production_gates": {
+                    "unbounded_recursion": report.get("production_gates", {}).get(
+                        "unbounded_recursion"
+                    ),
+                    "injection_shadow_is_authority": report.get("production_gates", {}).get(
+                        "injection_shadow_is_authority"
+                    ),
+                    "production_memory_touched": report.get("production_gates", {}).get(
+                        "production_memory_touched"
+                    ),
+                    "all_passed": report.get("production_gates", {}).get("all_passed"),
+                },
+                "production_memory_touched": report.get("production_memory_touched"),
+                "recommendation": report.get("recommendation"),
+            },
+            indent=2,
+        )
+    )
+
+
 @main.group()
 def memory() -> None:
     """Trajectory memory (CT103 SQLite)."""
