@@ -7,7 +7,7 @@
 | Handoff ID | 025 |
 | Date (UTC) | 2026-07-21 |
 | Slice / ticket ID | V8 T04 |
-| Tip SHA (ACP) | *(set after commit)* |
+| Tip SHA (ACP) | `4c16f5d` |
 | Epic | V8 residual QA |
 | `stopped_reason` | `waiting_human` |
 
