@@ -1,7 +1,6 @@
 # Slice V9 T06 -- OBSERVE_PUBLIC_BASE_URL fail-closed Observe links + Gitea extra_tabs
 
-**Status:** Deploy gate -- 2026-07-21 (code + docs + tests landed; CT103/CT104
-deploy-verify owed before Done, per the established wave pattern)
+**Status:** Done -- 2026-07-22 (deploy verify [deploy-verify-v9-t06-20260722.md](handoff/deploy-verify-v9-t06-20260722.md), tip `4a4998a`)
 **Epic:** V9 Agent Observatory ([boss-ledger-v9.md](handoff/boss-ledger-v9.md))
 **Handoff:** [coordinator-handoff-031.md](handoff/coordinator-handoff-031.md)
 **Depends on:** T04 (done, tip `8fb905d`)
