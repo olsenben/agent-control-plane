@@ -9,9 +9,9 @@ Epic supervisor state. Prior: [boss-ledger-v8.md](boss-ledger-v8.md) (residual Q
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) |
 | **Integration branch** | `main` |
 | **Epic status** | in progress |
-| **Tickets done** | 0 / 8 |
-| **Next ticket** | T01 |
-| **Latest handoff** | — |
+| **Tickets done** | 0 / 8 (T01 Deploy gate) |
+| **Next ticket** | T02 (blocked on T01 deploy verification / human sign-off) |
+| **Latest handoff** | [coordinator-handoff-026.md](coordinator-handoff-026.md) |
 | **Lanes** | main only |
 | **Env** | WSL SSH; CT103 `192.168.4.62` / CT104 `192.168.4.63`; `docker compose exec -T … </dev/null` |
 
@@ -27,7 +27,7 @@ Only **T07 ∥ T08** may run in parallel (after T03 Done).
 
 | ID | Slice | Deps | Status | Tip |
 |----|-------|------|--------|-----|
-| **T01** | observe_event.v1 + safe-display + producer inventory | — | Todo | |
+| **T01** | observe_event.v1 + safe-display + producer inventory | — | Deploy gate | `4dc32e5` |
 | **T02** | observe.sqlite idempotent display-safe projection; fail-open async | T01 | Todo | |
 | **T05** | Gitea OAuth shell + 401/redirect/403/503; mount protected routes | T02 | Todo | |
 | **T03** | Protected SSE subscribe-first + Redis id-notify + Last-Event-ID | T05 | Todo | |
@@ -45,3 +45,4 @@ H1 safe-display before store/stream/UI · H2 auth before public routes · H3 pro
 | Wave | Date | Handoff | Next | Notes |
 |------|------|---------|------|-------|
 | 0 | 2026-07-22 | — | T01 | Ledger opened; gap audit vs tip `2471b31` |
+| 1 | 2026-07-22 | [026](coordinator-handoff-026.md) | T02 | T01 code landed + pushed, tip `4dc32e5`; ruff clean, pytest 685 passed; Deploy gate — CT102 Actions / homelab deploy verification still owed before Done |
