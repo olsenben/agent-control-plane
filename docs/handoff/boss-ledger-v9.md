@@ -9,10 +9,10 @@ Epic supervisor state. Prior: [boss-ledger-v8.md](boss-ledger-v8.md) (residual Q
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) |
 | **Integration branch** | `main` |
 | **Epic status** | in progress |
-| **Tickets done** | 4 / 8 |
-| **Next ticket** | T04 |
-| **Latest handoff** | [coordinator-handoff-030.md](coordinator-handoff-030.md) |
-| **Last boss action** | 2026-07-22 — T04 code landed + pushed, tip `b914d30`; ruff clean, pytest 773 passed; five-panel Jinja+HTMX UI text-safe; CT102 Actions / homelab deploy verification still owed before Done |
+| **Tickets done** | 5 / 8 |
+| **Next ticket** | T06 |
+| **Latest handoff** | [deploy-verify-v9-t04-20260722.md](deploy-verify-v9-t04-20260722.md) |
+| **Last boss action** | 2026-07-22 — T04 DEPLOY_VERIFY PASS tip `8fb905d`; five-panel UI + no-JS timeline smoke OK; next T06 |
 | **Lanes** | main only |
 | **Env** | WSL SSH; CT103 `192.168.4.62` / CT104 `192.168.4.63`; `docker compose exec -T … </dev/null` |
 
@@ -32,7 +32,7 @@ Only **T07 ∥ T08** may run in parallel (after T03 Done).
 | **T02** | observe.sqlite idempotent display-safe projection; fail-open async | T01 | Done | `6a67233` |
 | **T05** | Gitea OAuth shell + 401/redirect/403/503; mount protected routes | T02 | Done | `1f71bf6` |
 | **T03** | Protected SSE subscribe-first + Redis id-notify + Last-Event-ID | T05 | Done | `dae78e3` |
-| **T04** | Jinja+HTMX five-panel UI; text-safe; no-JS timeline | T03 | Deploy gate | `b914d30` |
+| **T04** | Jinja+HTMX five-panel UI; text-safe; no-JS timeline | T03 | Done | `8fb905d` |
 | **T06** | Gitea extra_tabs + OBSERVE_PUBLIC_BASE_URL fail-closed links | T04 | Todo | |
 | **T07** | Decisions + artifact dispositions | T03 | Todo | |
 | **T08** | CT102 CI into observe stream; no terminal regression | T03 | Todo | |
@@ -55,3 +55,4 @@ H1 safe-display before store/stream/UI · H2 auth before public routes · H3 pro
 | 7 | 2026-07-22 | [029](coordinator-handoff-029.md) | T04 | T03 code landed + pushed, tip `23f8457`; ruff clean, pytest 756 passed; H4 subscribe-first/Redis id-notify/Last-Event-ID shipped; NPM `proxy_buffering` step documented, not live-smoked (no NPM access); CT102 Actions / homelab deploy verification still owed before Done |
 | 8 | 2026-07-22 | [deploy-verify-v9-t03-20260722.md](deploy-verify-v9-t03-20260722.md) | T04 | T03 Done; CT103+CT104 tip `dae78e3`; `/readyz` redis+state ok; smoke `V9_T03_SMOKE_OK` (401 unauth SSE, history ids 1–2, live notify id 3, shared token) |
 | 9 | 2026-07-22 | [030](coordinator-handoff-030.md) | T06 | T04 code landed + pushed, tip `b914d30`; ruff clean, pytest 773 passed; five-panel Jinja+HTMX UI (current state / decision timeline / decisions placeholder / live logs SSE+HTMX-poll / artifacts placeholder), text-safe (HTML/ANSI/Markdown escape as text, no raw/prohibited payload in page/HTMX/SSE), no-JS timeline pagination; ADR-0031 accepted; CT102 Actions / homelab deploy verification still owed before Done |
+| 10 | 2026-07-22 | [deploy-verify-v9-t04-20260722.md](deploy-verify-v9-t04-20260722.md) | T06 | T04 Done; CT103+CT104 tip `8fb905d`; `/readyz` redis+state ok; smoke `V9_T04_SMOKE_OK` (five panels auth shared token, no-JS timeline pagination, unauth HTML 302 redirect) |
