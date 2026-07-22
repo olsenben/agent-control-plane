@@ -9,6 +9,7 @@ import redis
 
 from agent_control.config import Settings
 from agent_control.model_health import probe_model
+from agent_control.observe_links import observe_public_base_url_configured
 
 
 def check_redis(redis_url: str) -> dict[str, str]:
@@ -45,6 +46,12 @@ def build_readiness_report(settings: Settings, *, strict: bool = False) -> tuple
         checks["state_dir_detail"] = state_result
 
     core_ok = checks.get("redis") == "ok" and checks.get("state_dir") == "ok"
+
+    # V9 T06 (H8): informational only -- never gates readiness. Unset is a
+    # valid, fail-closed steady state (Observe links are simply omitted).
+    checks["observe_public_base_url"] = (
+        "configured" if observe_public_base_url_configured(settings) else "unset"
+    )
 
     model_checks: list[tuple[str, dict[str, Any]]] = []
     if settings.model_3080_base_url:

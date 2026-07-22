@@ -57,10 +57,18 @@ def verify_hmac(secret: str, body: bytes, signature: str) -> bool:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
+    from agent_control.observe_links import observe_config_warning
     from agent_control.telemetry import init_telemetry
 
     init_telemetry(service_name="agent-control-plane")
     app = FastAPI(title="agent-control-plane")
+
+    # V9 T06 (H8): one-time startup log, not per-request -- OBSERVE_PUBLIC_BASE_URL
+    # unset is a valid fail-closed steady state, surfaced here and in /readyz's
+    # checks (never a blocking condition).
+    startup_warning = observe_config_warning(settings)
+    if startup_warning:
+        logger.warning("observe_public_base_url_unset detail=%s", startup_warning)
 
     @app.middleware("http")
     async def restrict_public_surface(request: Request, call_next):

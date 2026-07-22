@@ -253,6 +253,18 @@ class Settings(BaseSettings):
         alias="OBSERVE_SQLITE_SIZE_WARNING_MB",
         description="V9 T02: log/report a size warning once observe.sqlite exceeds this many MiB",
     )
+    observe_public_base_url: str | None = Field(
+        default=None,
+        alias="OBSERVE_PUBLIC_BASE_URL",
+        description=(
+            "V9 T06 (H8): externally reachable scheme+host[:port] for Observatory "
+            "session links embedded in Gitea comments and the extra_tabs custom "
+            "template (e.g. https://control.ham-sup-lo.com). No path/query/"
+            "fragment. Unset by default -- fail closed (omit Observe links "
+            "entirely) rather than guess a LAN/HTTP address. Must be https when "
+            "OBSERVE_COOKIE_SECURE=true (public/secure mode)."
+        ),
+    )
 
     @property
     def memory_db_path(self) -> Path:
@@ -334,6 +346,41 @@ class Settings(BaseSettings):
 
         parse_repair_allowlist(self.fix_ci_repair_allowed_repos)
         parse_repair_classes(self.fix_ci_repair_allowed_classes)
+        return self
+
+    @model_validator(mode="after")
+    def validate_observe_public_base_url(self) -> Settings:
+        """V9 T06 (H8): fail closed at startup on a malformed/insecure value.
+
+        An *unset* value is always fine (Observe links are simply omitted
+        downstream, see ``agent_control.observe_links``). A *set* value must
+        be an absolute ``http``/``https`` URL with no path/query/fragment,
+        and must be ``https`` whenever ``OBSERVE_COOKIE_SECURE`` is true
+        (public/secure mode) -- never a plain-HTTP public link.
+        """
+        raw = (self.observe_public_base_url or "").strip()
+        if not raw:
+            return self
+        from urllib.parse import urlsplit
+
+        parsed = urlsplit(raw)
+        if not parsed.scheme or not parsed.netloc or parsed.scheme not in ("http", "https"):
+            raise ValueError(
+                "OBSERVE_PUBLIC_BASE_URL must be an absolute http(s) scheme+host "
+                f"URL (got {raw!r})"
+            )
+        if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+            raise ValueError(
+                "OBSERVE_PUBLIC_BASE_URL must be scheme+host only, no path/"
+                f"query/fragment (got {raw!r})"
+            )
+        if self.observe_cookie_secure and parsed.scheme != "https":
+            raise ValueError(
+                "OBSERVE_PUBLIC_BASE_URL must be https when "
+                "OBSERVE_COOKIE_SECURE=true (public/secure mode); set "
+                "OBSERVE_COOKIE_SECURE=false only for local plain-HTTP dev "
+                f"(got {raw!r})"
+            )
         return self
 
 

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from agent_control.config import Settings, get_settings
+from agent_control.observe_links import observe_link_line
 from agent_shared.constants import QUEUE_RLM_ROOT
 
 DEFAULT_ACTING_IDENTITY = "agent-bot"
@@ -168,6 +169,7 @@ def format_invocation_started(
     settings: Settings | None = None,
 ) -> str:
     """Visible started ack posted on accept (webhook → enqueue succeeded)."""
+    resolved_settings = settings or get_settings()
     title = command.strip().lower() or "command"
     lines = [
         f"## Agent started (`{title}`)",
@@ -180,6 +182,12 @@ def format_invocation_started(
         lines.append(f"Queue: `{queue}`")
     if host:
         lines.append(f"Host: `{host}`")
+    # V9 T06 (H8): only present when OBSERVE_PUBLIC_BASE_URL is configured
+    # and run_id is URL-safe -- omitted entirely otherwise, never a guessed
+    # LAN address or an unvalidated run_id interpolated into a URL.
+    observe_line = observe_link_line(run_id, settings=resolved_settings)
+    if observe_line:
+        lines.append(observe_line)
     if extra_lines:
         lines.append("")
         lines.extend(extra_lines)

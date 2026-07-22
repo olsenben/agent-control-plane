@@ -14,6 +14,7 @@ from agent_control.invocation import (
     save_invocation,
 )
 from agent_control.nl_intent import extract_agent_intent, is_bare_at_agent
+from agent_control.observe_links import observe_link_line
 from agent_shared.models.invocation import InvocationRecord
 
 logger = logging.getLogger(__name__)
@@ -136,18 +137,21 @@ def handoff_invocation_to_session(
         state_root, record, session_id=session_id, run_id=run_id
     )
     if settings and record.subject_number is not None:
-        stub = "\n".join(
-            [
-                "## Agent invocation — session created",
-                "",
-                f"Invocation: `{record.invocation_id}`",
-                f"Run: `{run_id}`",
-                f"Session: `{session_id}`",
-                f"Observe: `/observe/sessions/{run_id}`",
-                "",
-                "Further status updates use the session comment.",
-            ]
-        )
+        stub_lines = [
+            "## Agent invocation — session created",
+            "",
+            f"Invocation: `{record.invocation_id}`",
+            f"Run: `{run_id}`",
+            f"Session: `{session_id}`",
+        ]
+        # V9 T06 (H8): only present when OBSERVE_PUBLIC_BASE_URL is configured
+        # and run_id is URL-safe -- omitted entirely otherwise (fail-closed,
+        # no bare relative-path fallback).
+        observe_line = observe_link_line(run_id, settings=settings)
+        if observe_line:
+            stub_lines.append(observe_line)
+        stub_lines.extend(["", "Further status updates use the session comment."])
+        stub = "\n".join(stub_lines)
         try:
             result = post_issue_comment(
                 project, int(record.subject_number), stub, settings=settings

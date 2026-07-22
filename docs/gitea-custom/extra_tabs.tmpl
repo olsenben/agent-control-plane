@@ -1,0 +1,24 @@
+{{/*
+  Agent Observatory repo tab (V9 T06).
+
+  Install as $GITEA_CUSTOM/templates/custom/extra_tabs.tmpl on CT100 (Gitea),
+  then restart Gitea. See docs/gitea-custom/README.md for the version-pinned
+  spike this was verified against and the full install/upgrade checklist.
+
+  BEFORE INSTALLING:
+  1. Confirm OBSERVE_PUBLIC_BASE_URL is set on CT103 (agent-control-plane
+     .env) -- do NOT install this file while it is unset (H8 fail-closed: no
+     Observe tab is safer than a tab pointing at an inert/wrong host).
+  2. Replace OBSERVE_PUBLIC_BASE_URL_PLACEHOLDER below with that exact
+     literal value (scheme+host, no trailing slash, e.g.
+     https://control.ham-sup-lo.com). Gitea's Go templates cannot read the
+     control-plane's environment -- this is a one-time static substitution
+     performed by a human, not a live lookup.
+  3. If OBSERVE_PUBLIC_BASE_URL is ever unset or changed on CT103, this file
+     must be edited (or removed) here and Gitea restarted to match; a stale
+     value here is a dangling/incorrect link, not a functional break in
+     agent-control-plane itself.
+*/}}
+<a class="item" href="OBSERVE_PUBLIC_BASE_URL_PLACEHOLDER/observe/repos/{{.Repository.OwnerName}}/{{.Repository.Name}}" target="_blank" rel="noopener noreferrer">
+	{{svg "octicon-pulse"}} Observatory
+</a>

@@ -12,6 +12,7 @@ from agent_control.invocation_ack import (
     append_identity_footer,
     identity_audit_from_session,
 )
+from agent_control.observe_links import observe_link_line
 from agent_control.session.storage import save_session
 from agent_shared.models.agent_session import AgentSession
 
@@ -121,6 +122,7 @@ def render_session_comment_body(
     detail_lines: list[str] | None = None,
     settings: Settings | None = None,
 ) -> str:
+    resolved_settings = settings or get_settings()
     lines = [
         _status_heading(display_status, command),
         "",
@@ -128,8 +130,13 @@ def render_session_comment_body(
         f"Command: `/agent {command}`",
         f"Status: **{display_status}**",
         f"Invoker: `{session.invoked_by}`",
-        f"Observe: `/observe/sessions/{run_id}`",
     ]
+    # V9 T06 (H8): only present when OBSERVE_PUBLIC_BASE_URL is configured
+    # and run_id is URL-safe -- omitted entirely otherwise (fail-closed, no
+    # bare relative-path fallback).
+    observe_line = observe_link_line(run_id, settings=resolved_settings)
+    if observe_line:
+        lines.append(observe_line)
     if session.terminal_reason:
         lines.append(f"Reason: {session.terminal_reason}")
     if detail_lines:
