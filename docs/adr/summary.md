@@ -30,6 +30,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0024 | SARIF findings attach as graph security evidence without Risk 2 expansion | proposed | 2026-07-20 | SARIF→finding/tool_run edges; Risk 0/1 evidence only; no fix-gate coupling |
 | ADR-0025 | Gated self-improvement proposals land only as Gitea PRs | proposed | 2026-07-20 | Prompt/workflow/`.agent` changes via PR only; deny in-prod self-edit |
 | ADR-0026 | Prompt-injection scanner stays shadow-only | accepted | 2026-07-21 | Shadow assessments only; never grant authority; blocking needs new ADR |
+| ADR-0027 | Observe event safe-display contract precedes storage/streaming/UI | accepted | 2026-07-22 | observe_event.v1 four-tier field classification; unknown types never expose payload values; wired into projection.py before T02/T03/T04 |
 
 ## Review log
 
@@ -67,3 +68,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-20 — ADR-0024 proposed: V5 T05 SARIF → graph security evidence; Risk 0/1 only
 - 2026-07-20 — ADR-0025 proposed: V5 T06 gated self-improvement PRs; deny in-prod self-edit
 - 2026-07-21 — ADR-0026 accepted: V6 T06 injection scanner shadow-only; never grants authority
+- 2026-07-22 — ADR-0027 accepted: V9 T01 observe_event.v1 safe-display contract; H1 gate before T02 sqlite / T03 SSE / T04 UI

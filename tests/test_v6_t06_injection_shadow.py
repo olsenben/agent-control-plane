@@ -115,5 +115,10 @@ def test_injection_assessment_in_observation_projection(tmp_path: Path) -> None:
     assert "agent.injection_assessment" in types
     inj_stage = next(s for s in doc.stages if s.name == "injection_shadow")
     assert inj_stage.status == "present"
-    payload = next(e["payload"] for e in doc.events if e.get("type") == "agent.injection_assessment")
-    assert payload.get("authority_granted") is False
+    # V9 T01: observation timeline is display-safe (observe_event.v1) --
+    # `authority_granted` is allowlisted for agent.injection_assessment, so it
+    # is still visible under display_fields; there is no raw `payload` key.
+    display_fields = next(
+        e["display_fields"] for e in doc.events if e.get("type") == "agent.injection_assessment"
+    )
+    assert display_fields.get("authority_granted") is False

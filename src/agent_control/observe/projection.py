@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_control.events import load_project_events
+from agent_control.observe.safe_display import safe_display_event
 from agent_control.session.storage import load_session, load_session_by_run
 from agent_shared.models.observation_projection import ObservationProjection, ObservationStage
 
@@ -63,18 +64,16 @@ def build_observation_projection(
     all_events = load_project_events(state_root, project)
     timeline = _events_for_run(all_events, rid or "", sid) if rid or sid else []
 
+    # H1 hard gate: the observation timeline never embeds raw ledger payloads.
+    # Every event is normalized through safe_display_event (observe_event.v1)
+    # before it becomes part of this projection -- API, SSE and UI surfaces all
+    # read from `sequenced`, so display-safety is enforced once, here.
     sequenced: list[dict[str, Any]] = []
     for idx, ev in enumerate(timeline, start=1):
         durable = ev.get("ledger_sequence")
-        item = {
-            "sequence": int(durable) if durable else idx,
-            "ledger_sequence": durable,
-            "event_id": ev.get("event_id"),
-            "type": ev.get("type"),
-            "recorded_at": ev.get("recorded_at"),
-            "payload": ev.get("payload"),
-        }
-        sequenced.append(item)
+        sequence = int(durable) if durable else idx
+        display = safe_display_event({**ev, "sequence": sequence, "project": project})
+        sequenced.append(display.model_dump(mode="json"))
 
     stages: list[ObservationStage] = []
     types_present = {ev.get("type") for ev in timeline}

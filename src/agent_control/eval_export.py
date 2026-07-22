@@ -68,13 +68,18 @@ def build_eval_bundle(
                     }
                 )
 
+    # V9 T01: projection.events is now display-safe (observe_event.v1) -- the
+    # `payload` key here is the safe_display display_fields dict, never the
+    # raw ledger payload. Callers needing the raw ledger record for offline
+    # eval must read it directly via agent_control.events.load_project_events,
+    # not through this projection.
     timeline = [
         {
             "sequence": e.get("sequence"),
             "type": e.get("type"),
             "recorded_at": e.get("recorded_at"),
             "event_id": e.get("event_id"),
-            "payload": e.get("payload"),
+            "payload": e.get("display_fields"),
         }
         for e in projection.events
     ]
