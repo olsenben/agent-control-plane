@@ -41,6 +41,25 @@ def _allow_repo_permissions_in_unit_tests(
     )
 
 
+@pytest.fixture(autouse=True)
+def _reset_observe_notify_circuit_breaker() -> None:
+    """V9 T03: ``agent_control.observe.notify`` keeps a module-level,
+    per-``redis_url`` circuit breaker (skip-on-recent-failure) so a
+    genuinely down Redis doesn't pay a repeated DNS/connect timeout on
+    every ledger append. That state is process-global and persists across
+    tests; without resetting it, one test's real (unreachable-host)
+    connection failure can leave the breaker open long enough (default
+    cooldown 30s) to make an unrelated *later* test's mocked
+    ``redis.Redis.from_url`` never even get called -- the route/projector
+    would see the circuit already open and skip straight to the degraded
+    path. Reset before every test so notify/SSE behavior is only ever a
+    function of that test's own mocking, never suite ordering or timing.
+    """
+    from agent_control.observe import notify as _notify_mod
+
+    _notify_mod._last_failure_at.clear()
+
+
 @pytest.fixture
 def control_plane_root() -> Path:
     return Path(__file__).resolve().parents[1]

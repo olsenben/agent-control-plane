@@ -125,23 +125,75 @@ def project_event_fail_open(
     *,
     project: str,
     db_path: Path | None = None,
+    redis_url: str | None = None,
 ) -> None:
     """H7 -- never let an observe.sqlite failure affect the caller.
 
     Cheap early-out for the common case (no run_id) avoids opening a
     connection at all for event types outside the run/session-scoped
     projection (approvals, CI matrix events, etc.).
+
+    On a genuinely new row (not an idempotent replay), also fires the V9
+    T03 Redis ids-only notify (H4 step 2: "commit SQLite then publish
+    Redis") -- ``rebuild_observe_db`` calls :func:`project_ledger_event`
+    directly and deliberately skips this, so a full rescan never floods
+    live SSE subscribers with a backlog of historical notifies.
     """
-    if resolve_run_id(event) is None:
+    run_id = resolve_run_id(event)
+    if run_id is None:
         return
     try:
         store = ObserveStore(db_path or observe_db_path(state_root))
-        project_ledger_event(store, event, project=project, state_root=state_root)
+        sequence = project_ledger_event(store, event, project=project, state_root=state_root)
     except Exception:
         logger.warning(
             "observe_sqlite_projection_failed event_id=%s type=%s project=%s",
             event.get("event_id"),
             event.get("type"),
             project,
+            exc_info=True,
+        )
+        return
+
+    if sequence is None:
+        # Idempotent replay -- no new row, nothing to notify.
+        return
+
+    _notify_new_row(store, run_id=run_id, sequence=sequence, redis_url=redis_url)
+
+
+def _notify_new_row(
+    store: ObserveStore,
+    *,
+    run_id: str,
+    sequence: int,
+    redis_url: str | None,
+) -> None:
+    """Best-effort V9 T03 notify; isolated from the projection try/except above
+    so a Redis failure is never logged/counted as an ``observe.sqlite``
+    projection failure (they are different subsystems with different failure
+    semantics -- see :mod:`agent_control.observe.notify`).
+    """
+    try:
+        from agent_control.observe.notify import publish_projection_notify
+
+        row = store.get_event_by_sequence(run_id, sequence)
+        observation_id = int(row["id"]) if row is not None else sequence
+        resolved_redis_url = redis_url
+        if resolved_redis_url is None:
+            from agent_control.config import get_settings
+
+            resolved_redis_url = get_settings().redis_url
+        publish_projection_notify(
+            resolved_redis_url,
+            run_id=run_id,
+            projection_sequence=sequence,
+            observation_id=observation_id,
+        )
+    except Exception:
+        logger.warning(
+            "observe_notify_hook_failed run_id=%s projection_sequence=%s",
+            run_id,
+            sequence,
             exc_info=True,
         )

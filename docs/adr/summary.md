@@ -33,6 +33,8 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0027 | Observe event safe-display contract precedes storage/streaming/UI | accepted | 2026-07-22 | observe_event.v1 four-tier field classification; unknown types never expose payload values; wired into projection.py before T02/T03/T04 |
 | ADR-0028 | observe.sqlite is a fail-open, display-safe secondary projection | accepted | 2026-07-22 | UNIQUE(run_id,source_kind,source_event_id)+UNIQUE(run_id,projection_sequence) identity; fail-open after primary ledger write; session_observation mirrors live AgentSession; per-project transactional rebuild; no new routes |
 | ADR-0029 | Observatory OAuth session shell with 503-vs-403 permission-check distinction | accepted | 2026-07-22 | Identity (401/redirect) split from repo-read authorize (403/503); Gitea-unreachable maps to 503 never 403; state+session-cookie binding defeats replay/fixation; fail-closed when oauth env unset; run_id routes derive repo server-side, not from client `project` hint |
+| ADR-0030 | Protected SSE is subscribe-first with Redis ids-only notify over an authoritative SQLite read | accepted | 2026-07-22 | Subscribe before history read closes the race by dedupe-not-timing; Redis notify payload ids-only, never trusted as display data; observe.sqlite stays sole system of record, Redis outage degrades live tailing only; Last-Event-ID/`?after_sequence=` both mean projection_sequence, higher of the two wins |
+| ADR-0030 | Protected SSE is subscribe-first over observe.sqlite with Redis ids-only notify | accepted | 2026-07-22 | Subscribe before history read (H4); Redis carries ids only, never display data; durable projection_sequence cursor via Last-Event-ID/?after_sequence=; Redis outage degrades live tailing only, history stays complete; mid-stream auth revoke (V8 T03) preserved |
 
 ## Review log
 
@@ -73,3 +75,5 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-07-22 — ADR-0027 accepted: V9 T01 observe_event.v1 safe-display contract; H1 gate before T02 sqlite / T03 SSE / T04 UI
 - 2026-07-22 — ADR-0028 accepted: V9 T02 observe.sqlite fail-open display-safe projection; H3/H6/H7
 - 2026-07-22 — ADR-0029 accepted: V9 T05 Observatory OAuth session shell; 503-vs-403 split; state/session anti-fixation; server-derived repo for run_id routes
+- 2026-07-22 — ADR-0030 accepted: V9 T03 protected SSE subscribe-first + Redis ids-only notify; observe.sqlite stays sole system of record; Last-Event-ID/`?after_sequence=` both mean projection_sequence
+- 2026-07-22 — ADR-0030 accepted: V9 T03 protected SSE subscribe-first + Redis ids-only notify; H4; mid-stream auth revoke (V8 T03) preserved on the new cadence

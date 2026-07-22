@@ -290,6 +290,22 @@ class ObserveStore:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_event_by_sequence(self, run_id: str, projection_sequence: int) -> dict[str, Any] | None:
+        """Fetch exactly one row by its durable ``(run_id, projection_sequence)`` identity.
+
+        Used by the protected SSE stream (V9 T03, H4 step 5) to fetch the
+        authoritative row after a Redis ids-only notify -- the notify
+        payload itself is never treated as display data, only as a signal
+        to re-read this store.
+        """
+        self.init_schema()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM observe_events WHERE run_id = ? AND projection_sequence = ?",
+                (run_id, projection_sequence),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
     def get_project_for_run(self, run_id: str) -> str | None:
         """Canonical repo for *run_id* per the projected event rows (V9 T05).
 

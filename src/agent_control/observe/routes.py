@@ -18,6 +18,7 @@ from agent_control.observe.auth import (
     require_observe_identity,
     require_observe_repo_read,
 )
+from agent_control.observe.notify import is_circuit_open, notify_channel, record_publish_failure
 from agent_control.observe.projection import build_observation_projection
 from agent_control.observe.store import ObserveStore
 from agent_shared.repo_identity import normalize_repo_full_name
@@ -221,6 +222,46 @@ def observe_session_artifacts(
     return {"session_id": session.session_id, "run_id": run_id, "artifacts": refs}
 
 
+def _format_sse_row(row: dict[str, Any]) -> str:
+    """One ``observe_events`` row -> one SSE frame.
+
+    H4 cursor contract: the SSE ``id:`` (and the embedded event's
+    ``sequence`` field) is always the durable, per-run
+    ``projection_sequence`` from observe.sqlite (H3) -- never a timestamp,
+    and never whatever stale ``sequence`` value happened to be baked into
+    ``observe_event_json`` when it was first written (T01/T02 write that
+    JSON from the raw ledger event, which carries no meaningful per-run
+    sequence of its own).
+    """
+    seq = int(row["projection_sequence"])
+    try:
+        event_dict = json.loads(row["observe_event_json"])
+    except (TypeError, ValueError):
+        event_dict = {}
+    if not isinstance(event_dict, dict):
+        event_dict = {}
+    event_dict["sequence"] = seq
+    return f"id: {seq}\ndata: {json.dumps(event_dict)}\n\n"
+
+
+def _drain_new_rows(store: ObserveStore, run_id: str, after: int):
+    """Yield every ``observe_events`` row for *run_id* with
+    ``projection_sequence > after``, paging until exhausted (H4 step 3/5:
+    the authoritative source is always this store, however many pages that
+    takes -- never a single trusted row from a notify payload alone).
+    """
+    cursor = after
+    while True:
+        rows = store.list_events_for_run(run_id, after_sequence=cursor, limit=500)
+        if not rows:
+            return
+        for row in rows:
+            cursor = int(row["projection_sequence"])
+            yield row
+        if len(rows) < 500:
+            return
+
+
 async def observe_session_stream(
     run_id: str,
     request: Request,
@@ -230,14 +271,36 @@ async def observe_session_stream(
     x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
     last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
 ) -> StreamingResponse:
+    """Protected SSE stream over the observe.sqlite projection (V9 T03).
+
+    Implements the H4 protected-SSE contract in order:
+
+    1. Authorize before the stream (below, synchronous, before
+       ``StreamingResponse`` is ever constructed -- an unauthorized caller
+       gets a plain 401/403/503, never a 200 stream with an error event).
+    2. Subscribe to this run's Redis notify channel FIRST, before reading
+       any SQLite history, so an event projected in the gap between
+       "subscribe" and "read history" can never be missed (it lands in the
+       history read below and/or arrives again as a live notify --
+       harmless either way, since both paths dedupe by projection_sequence).
+    3. Emit every observe.sqlite row with ``projection_sequence > after``
+       (``after`` = ``Last-Event-ID`` / ``?after_sequence=``, whichever is
+       higher).
+    4. Drain Redis notifications for as long as the client stays connected.
+    5. For each notification: never trust its payload as display data --
+       re-read observe.sqlite for anything newer than the last sequence
+       already sent, and dedupe by projection_sequence.
+
+    Redis outage degrades live tailing only: if the initial subscribe
+    fails, step 3's history is still complete and correct (observe.sqlite
+    is the system of record for this endpoint), the stream says so via an
+    ``event: degraded`` frame and ends; the client's ``EventSource`` will
+    keep retrying with ``Last-Event-ID`` and gets a fully caught-up history
+    on every retry even while Redis stays down.
+    """
     settings = _settings(request)
-    # Identity (401) before resource existence (404), same as the other
-    # run_id-keyed routes -- and, per H4 / V9 T05, all of this (identity,
-    # existence, and the repo-read authorize call) happens BEFORE the
-    # StreamingResponse (and its 200 status line) is ever constructed. An
-    # unauthorized caller gets a plain 401/403/503 response, never a 200
-    # stream that merely emits an error event. This is synchronous code
-    # above, not inside, `event_generator`.
+    # H4 step 1 -- identity (401) before resource existence (404), same as
+    # the other run_id-keyed routes.
     identity = require_observe_identity(
         request=request,
         authorization=authorization,
@@ -248,6 +311,11 @@ async def observe_session_stream(
     if not canonical_project:
         raise HTTPException(status_code=404, detail="session not found")
     authorize_repo_read(identity, canonical_project, settings)
+
+    # Cursor: Last-Event-ID (what the client's EventSource actually
+    # consumed on a prior attempt) and ?after_sequence= (explicit alias for
+    # non-browser callers) both name the same durable projection_sequence
+    # cursor -- take the higher of the two when both are present.
     start_after = after_sequence
     if last_event_id:
         try:
@@ -255,39 +323,132 @@ async def observe_session_stream(
         except ValueError:
             pass
 
+    store = ObserveStore(settings.observe_db_path)
+    redis_url = settings.redis_url
+
     async def event_generator():
         last = start_after
-        for _ in range(30):
-            if await request.is_disconnected():
-                break
-            # Re-check auth periodically (shared-token rotation / permission revoke).
-            # Reload settings each tick so app.state.settings mutations and the
-            # .observe_shared_token hot-reload file are observed mid-stream.
-            try:
-                live_settings = _settings(request)
-                require_observe_repo_read(
-                    canonical_project,
-                    request=request,
-                    authorization=authorization,
-                    x_gitea_token=x_gitea_token,
-                    settings=live_settings,
-                )
-            except (HTTPException, ObserveAuthRedirect):
-                yield 'event: error\ndata: {"detail":"forbidden"}\n\n'
-                break
-            live_settings = _settings(request)
-            doc = build_observation_projection(
-                live_settings.agent_state_root, project=canonical_project, run_id=run_id
-            )
-            for ev in doc.events:
-                seq = int(ev.get("sequence") or 0)
-                if seq > last:
-                    last = seq
-                    yield f"id: {seq}\ndata: {json.dumps(ev)}\n\n"
-            await asyncio.sleep(2)
-        yield "event: end\ndata: {}\n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+        # H4 step 2 -- subscribe FIRST, before any SQLite read. Skip the
+        # attempt entirely (and its DNS/connect cost) if a very recent
+        # publish or subscribe already proved this redis_url unreachable --
+        # see agent_control.observe.notify's shared per-process breaker.
+        pubsub = None
+        redis_client = None
+        degraded = is_circuit_open(redis_url)
+        if not degraded:
+            try:
+                import redis as redis_lib
+
+                redis_client = redis_lib.Redis.from_url(
+                    redis_url, socket_connect_timeout=2.0, socket_timeout=2.5
+                )
+                pubsub = redis_client.pubsub()
+                pubsub.subscribe(notify_channel(run_id))
+            except Exception:
+                logger.warning("observe_sse_redis_subscribe_failed run_id=%s", run_id, exc_info=True)
+                record_publish_failure(redis_url)
+                degraded = True
+
+        # H4 step 3 -- durable SQLite history, projection_sequence > after.
+        for row in _drain_new_rows(store, run_id, last):
+            last = int(row["projection_sequence"])
+            yield _format_sse_row(row)
+
+        if degraded:
+            # Redis outage: degrade live tailing only -- history above is
+            # complete and authoritative regardless.
+            yield (
+                "event: degraded\n"
+                'data: {"detail":"redis unavailable; live updates paused, history is complete"}\n\n'
+            )
+            yield "event: end\ndata: {}\n\n"
+            if redis_client is not None:
+                try:
+                    redis_client.close()
+                except Exception:
+                    pass
+            return
+
+        try:
+            # H4 step 4 -- drain Redis notifications while connected.
+            # Bounded duration (like the prior polling loop) so a single
+            # SSE connection can't run forever; the client's EventSource
+            # reconnects transparently with Last-Event-ID.
+            for _ in range(150):
+                if await request.is_disconnected():
+                    break
+                # Re-check auth periodically (shared-token rotation /
+                # permission revoke / OAuth session expiry mid-stream).
+                try:
+                    live_settings = _settings(request)
+                    require_observe_repo_read(
+                        canonical_project,
+                        request=request,
+                        authorization=authorization,
+                        x_gitea_token=x_gitea_token,
+                        settings=live_settings,
+                    )
+                except (HTTPException, ObserveAuthRedirect):
+                    yield 'event: error\ndata: {"detail":"forbidden"}\n\n'
+                    break
+
+                try:
+                    # Blocking redis call -- run off the event loop so an
+                    # idle stream (no notify for up to 2s) never stalls
+                    # other concurrent requests in this process.
+                    message = await asyncio.to_thread(pubsub.get_message, timeout=2.0)
+                except Exception:
+                    logger.warning("observe_sse_redis_drain_failed run_id=%s", run_id, exc_info=True)
+                    record_publish_failure(redis_url)
+                    yield (
+                        "event: degraded\n"
+                        'data: {"detail":"redis unavailable; live updates paused"}\n\n'
+                    )
+                    break
+                if message is None or message.get("type") != "message":
+                    continue
+
+                # H4 step 5 -- the notify payload names a run_id/sequence;
+                # it is never itself trusted as display data. Re-read
+                # observe.sqlite for anything newer than `last` and dedupe
+                # by projection_sequence there, not from this payload.
+                try:
+                    notify = json.loads(message["data"])
+                except (TypeError, ValueError):
+                    notify = {}
+                if not isinstance(notify, dict) or notify.get("run_id") != run_id:
+                    continue
+
+                for row in _drain_new_rows(store, run_id, last):
+                    last = int(row["projection_sequence"])
+                    yield _format_sse_row(row)
+            yield "event: end\ndata: {}\n\n"
+        finally:
+            if pubsub is not None:
+                try:
+                    pubsub.close()
+                except Exception:
+                    pass
+            if redis_client is not None:
+                try:
+                    redis_client.close()
+                except Exception:
+                    pass
+
+    response = StreamingResponse(event_generator(), media_type="text/event-stream")
+    # NPM (nginx/Nginx Proxy Manager) buffers proxied responses by default,
+    # which silently defeats SSE live delivery (the client sees nothing
+    # until the connection closes) even though this endpoint streams
+    # correctly end to end. `X-Accel-Buffering: no` disables nginx's
+    # response buffering for this response; NPM's own proxy host config
+    # additionally needs "Block Common Exploits" left off / a custom
+    # `proxy_buffering off;` location snippet for this path -- see
+    # docs/slice-v9-t03-protected-sse-redis-notify.md for the exact steps
+    # and why that could not be smoke-tested from this environment.
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 # V9 T05: mount the same handlers on both the legacy unversioned prefix
