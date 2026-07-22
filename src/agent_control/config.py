@@ -126,6 +126,29 @@ class Settings(BaseSettings):
         alias="OBSERVE_OAUTH_REDIRECT_URI",
         description="V8 T04: registered redirect URI (e.g. http://192.168.4.62:8080/observe/oauth/callback)",
     )
+    observe_oauth_scope: str = Field(
+        default="",
+        alias="OBSERVE_OAUTH_SCOPE",
+        description="V9 T05: optional Gitea OAuth `scope` param; empty omits scope from the authorize URL",
+    )
+    observe_cookie_secure: bool = Field(
+        default=True,
+        alias="OBSERVE_COOKIE_SECURE",
+        description=(
+            "V9 T05: Secure flag on Observatory session/oauth-state cookies. "
+            "Disable only for plain-HTTP local dev/tests, never in production."
+        ),
+    )
+    observe_session_ttl_seconds: int = Field(
+        default=43200,
+        alias="OBSERVE_SESSION_TTL_SECONDS",
+        description="V9 T05: Observatory OAuth session cookie/server-record lifetime (default 12h)",
+    )
+    observe_oauth_state_ttl_seconds: int = Field(
+        default=600,
+        alias="OBSERVE_OAUTH_STATE_TTL_SECONDS",
+        description="V9 T05: OAuth `state` nonce lifetime before a callback is rejected as expired",
+    )
     model_routing_policy: str = Field(
         default="fake",
         alias="MODEL_ROUTING_POLICY",
@@ -238,6 +261,10 @@ class Settings(BaseSettings):
     @property
     def observe_db_path(self) -> Path:
         return self.agent_state_root / "observe" / "observe.sqlite"
+
+    @property
+    def observe_sessions_db_path(self) -> Path:
+        return self.agent_state_root / "observe" / "observe_sessions.sqlite"
 
     @property
     def observe_sqlite_size_warning_bytes(self) -> int:

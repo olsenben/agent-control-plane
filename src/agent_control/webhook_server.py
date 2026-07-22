@@ -20,6 +20,15 @@ logger = logging.getLogger(__name__)
 
 PUBLIC_ALLOWED_PATHS = {"/healthz", "/readyz", "/webhooks/gitea"}
 
+# V9 T05: when ENFORCE_PUBLIC_SURFACE_RESTRICTION=true, the only paths served
+# besides PUBLIC_ALLOWED_PATHS are the Observatory's own oauth login/callback/
+# logout routes and the (auth-gated) observe UI/API/static surface itself --
+# every one of those routes enforces its own auth via
+# `agent_control.observe.auth.require_observe_repo_read` (redirect/401/403/503),
+# so exposing the path is not exposing the data. FastAPI's auto-generated
+# `/docs`, `/redoc`, `/openapi.json` are deliberately *not* in either allowlist
+# and stay 404'd when the flag is on (see test_v9_t05_* regression coverage).
+
 ALLOWED_EVENTS = {
     "issues",
     "issue_comment",
@@ -135,6 +144,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "accepted", "event_id": event_id, "path": str(path)}
 
     app.state.settings = settings
+
+    from agent_control.observe.session_store import ObserveSessionStore
+
+    app.state.observe_sessions = ObserveSessionStore(settings.observe_sessions_db_path)
+
     from agent_control.observe.routes import register_observe_routes
 
     register_observe_routes(app)

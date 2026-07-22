@@ -290,6 +290,21 @@ class ObserveStore:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_project_for_run(self, run_id: str) -> str | None:
+        """Canonical repo for *run_id* per the projected event rows (V9 T05).
+
+        Used as a fallback when the run has no live session-index file (e.g.
+        archived/pruned) but was already projected here -- callers must never
+        derive the authorization-relevant repo from client input alone.
+        """
+        self.init_schema()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT project FROM observe_events WHERE run_id = ? LIMIT 1",
+                (run_id,),
+            ).fetchone()
+        return row["project"] if row is not None else None
+
     def count_events_for_run(self, run_id: str) -> int:
         self.init_schema()
         with self._connect() as conn:
