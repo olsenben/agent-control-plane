@@ -1,6 +1,6 @@
 # Slice V9 T03 -- Protected SSE subscribe-first + Redis id-notify + Last-Event-ID
 
-**Status:** Deploy gate -- 2026-07-22
+**Status:** Done -- 2026-07-22 (deploy verify [deploy-verify-v9-t03-20260722.md](handoff/deploy-verify-v9-t03-20260722.md), tip `dae78e3`)
 **Epic:** V9 Agent Observatory ([boss-ledger-v9.md](handoff/boss-ledger-v9.md))
 **Handoff:** [coordinator-handoff-029.md](handoff/coordinator-handoff-029.md)
 **ADR:** [0030-protected-sse-redis-id-notify.md](adr/0030-protected-sse-redis-id-notify.md)
