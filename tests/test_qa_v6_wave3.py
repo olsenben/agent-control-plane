@@ -444,9 +444,22 @@ def test_dur_08_abandoned_invocation_listable(tmp_path: Path) -> None:
 
 
 def test_observe_invalid_shared_token_403(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Invalid bearer token, Gitea reachable and denying -> 403.
+
+    Per V9 T05 response matrix, a 403 must only be returned when Gitea was
+    actually reachable and *checked* the permission (and denied it) -- a
+    permission check that could not be performed (Gitea unreachable/DNS
+    down) must map to 503 instead (see
+    ``test_v9_t05_oauth_shell.py`` and ``agent_control.observe.auth``
+    module docstring). Mock Gitea as reachable-but-denying here so this
+    test exercises the 403 branch deterministically, independent of
+    whether the sandbox running CI has DNS access to the real Gitea host.
+    """
     monkeypatch.setenv("AGENT_STATE_ROOT", str(tmp_path))
     monkeypatch.setenv("OBSERVE_REQUIRE_AUTH", "true")
     monkeypatch.setenv("OBSERVE_SHARED_TOKEN", "good-token")
+    from unittest.mock import patch as mock_patch
+
     from agent_control.config import Settings
     from fastapi import HTTPException
 
@@ -455,12 +468,20 @@ def test_observe_invalid_shared_token_403(tmp_path, monkeypatch: pytest.MonkeyPa
         OBSERVE_REQUIRE_AUTH=True,
         OBSERVE_SHARED_TOKEN="good-token",
     )
-    with pytest.raises(HTTPException) as ei:
-        require_observe_repo_read(
-            "ai-sdlc-lab/demo-app",
-            authorization="Bearer bad-token",
-            settings=settings,
-        )
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"permissions": {"pull": False, "push": False, "admin": False}}
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_client.get.return_value = mock_resp
+
+    with mock_patch("httpx.Client", return_value=mock_client):
+        with pytest.raises(HTTPException) as ei:
+            require_observe_repo_read(
+                "ai-sdlc-lab/demo-app",
+                authorization="Bearer bad-token",
+                settings=settings,
+            )
     assert ei.value.status_code == 403
 
 
