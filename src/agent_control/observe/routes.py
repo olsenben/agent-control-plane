@@ -7,6 +7,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
@@ -21,6 +22,13 @@ from agent_control.observe.auth import (
 from agent_control.observe.notify import is_circuit_open, notify_channel, record_publish_failure
 from agent_control.observe.projection import build_observation_projection
 from agent_control.observe.store import ObserveStore
+from agent_control.observe.ui import (
+    artifacts_view,
+    current_state_view,
+    live_log_view,
+    templates,
+    timeline_page_view,
+)
 from agent_shared.repo_identity import normalize_repo_full_name
 from agent_control.session.storage import load_session_by_run, sessions_dir
 
@@ -137,9 +145,22 @@ def observe_session_page(
     run_id: str,
     request: Request,
     project: str | None = Query(default=None, description="deprecated hint; canonical repo is derived from run_id"),
+    after_sequence: int = Query(0, alias="after_sequence", description="decision timeline pagination cursor"),
     authorization: Annotated[str | None, Header()] = None,
     x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
 ) -> HTMLResponse:
+    """Five-panel Observatory session detail page (V9 T04).
+
+    Panels: 1) current state from ``session_observation`` (H6, =
+    ``AgentSession``); 2) decision timeline paginated over ``observe.sqlite``
+    (safe-display payloads only, H1); 3) decisions placeholder (T07);
+    4) live logs via the protected SSE stream (T03), cookie-auth friendly
+    for ``EventSource``, with an HTMX poll fallback that renders identically
+    with JavaScript disabled; 5) artifacts, metadata-only until T07's
+    dispositions ship. Every panel is server-rendered on this same request
+    -- panel 2 (the "basic timeline") needs no JavaScript at all, only plain
+    ``<a href>`` pagination links.
+    """
     settings = _settings(request)
     # Identity (401/redirect) must be checked before resource existence, so
     # an unauthenticated caller never learns whether a run_id exists.
@@ -153,22 +174,55 @@ def observe_session_page(
     if not canonical_project:
         raise HTTPException(status_code=404, detail="session not found")
     authorize_repo_read(identity, canonical_project, settings)
-    doc = build_observation_projection(settings.agent_state_root, project=canonical_project, run_id=run_id)
-    events_json = json.dumps(doc.events, indent=2)
-    html = f"""<!DOCTYPE html>
-<html><head><title>Observe {run_id}</title></head>
-<body>
-<h1>Agent Observatory</h1>
-<p>Run: <code>{run_id}</code> | Session: <code>{doc.session_id or ''}</code> |
-Trace: <code>{doc.trace_id or ''}</code> | Status: {doc.status or ''}</p>
-<p><a href="/api/observe/v1/sessions/{run_id}/events">Events JSON</a></p>
-<pre id="events">{events_json}</pre>
-<script>
-const es = new EventSource('/api/observe/v1/sessions/{run_id}/stream');
-es.onmessage = (m) => {{ document.getElementById('events').textContent += '\\n' + m.data; }};
-</script>
-</body></html>"""
-    return HTMLResponse(html)
+
+    session = load_session_by_run(settings.agent_state_root, canonical_project, run_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    store = ObserveStore(settings.observe_db_path)
+    context = {
+        "run_id": run_id,
+        "run_id_urlsafe": quote(run_id, safe=""),
+        "current_state": current_state_view(session, store),
+        "timeline": timeline_page_view(store, run_id, after_sequence=after_sequence),
+        "live_log": live_log_view(store, run_id),
+        "artifacts": artifacts_view(session),
+    }
+    return templates.TemplateResponse(request, "session_detail.html", context)
+
+
+@observe_ui.get("/observe/sessions/{run_id}/live-fragment")
+def observe_session_live_fragment(
+    run_id: str,
+    request: Request,
+    project: str | None = Query(default=None, description="deprecated hint; canonical repo is derived from run_id"),
+    authorization: Annotated[str | None, Header()] = None,
+    x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
+) -> HTMLResponse:
+    """Panel 4 HTMX-poll fallback fragment (V9 T04).
+
+    Returns the same safe-display "latest events" snapshot
+    (:func:`agent_control.observe.ui.live_log_view`) the full page embeds on
+    initial load, re-fetched on an ``hx-trigger="every 5s"`` interval. Never
+    a substitute for the SSE stream's authorization -- this route runs the
+    exact same 401/redirect/403/503 checks as every other run_id-keyed
+    route, re-checked on every poll.
+    """
+    settings = _settings(request)
+    identity = require_observe_identity(
+        request=request,
+        authorization=authorization,
+        x_gitea_token=x_gitea_token,
+        settings=settings,
+    )
+    canonical_project = _resolve_canonical_project(settings, run_id, project)
+    if not canonical_project:
+        raise HTTPException(status_code=404, detail="session not found")
+    authorize_repo_read(identity, canonical_project, settings)
+
+    store = ObserveStore(settings.observe_db_path)
+    context = {"live_log": live_log_view(store, run_id)}
+    return templates.TemplateResponse(request, "_live_log_rows.html", context)
 
 
 def observe_session_events(
@@ -470,6 +524,18 @@ def register_observe_routes(app) -> None:
     from agent_control.observe.oauth import observe_oauth_router
 
     app.include_router(observe_oauth_router)
+
+    # V9 T04: vendored, unauthenticated static assets (htmx.min.js) for the
+    # five-panel UI -- not a display surface itself (no session/observation
+    # data), so it is exempt from the observe auth gate the same way
+    # /observe/oauth/* already is. Path is under /observe/static, which the
+    # ENFORCE_PUBLIC_SURFACE_RESTRICTION allowlist already exempts wholesale
+    # via its "/observe" prefix check (see webhook_server.py).
+    from starlette.staticfiles import StaticFiles
+
+    from agent_control.observe.ui import STATIC_DIR
+
+    app.mount("/observe/static", StaticFiles(directory=str(STATIC_DIR)), name="observe-static")
 
     @app.exception_handler(ObserveAuthRedirect)
     async def _observe_auth_redirect_handler(_request: Request, exc: ObserveAuthRedirect):

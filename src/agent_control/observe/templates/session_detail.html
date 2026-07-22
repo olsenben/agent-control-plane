@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Observe {{ run_id }}</title>
+<script src="/observe/static/htmx.min.js" defer></script>
+<style>
+  body { font-family: monospace, monospace; margin: 1.5rem; color: #1a1a1a; }
+  h1 { font-size: 1.15rem; }
+  h2 { font-size: 1rem; border-bottom: 1px solid #ccc; margin-top: 2rem; padding-bottom: 0.25rem; }
+  .panel { margin-bottom: 1.25rem; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #ddd; padding: 0.25rem 0.5rem; text-align: left; vertical-align: top; }
+  .field-name { color: #555; }
+  .field-prohibited { color: #a00; font-style: italic; }
+  .placeholder { color: #666; font-style: italic; }
+  #live-log { max-height: 16rem; overflow-y: auto; border: 1px solid #ddd; padding: 0.5rem; }
+  .live-log-row { border-bottom: 1px dotted #eee; padding: 0.15rem 0; }
+  .live-log-seq { color: #888; margin-right: 0.5rem; }
+  .live-log-type { font-weight: bold; margin-right: 0.5rem; }
+</style>
+</head>
+<body>
+<h1>Agent Observatory</h1>
+<p>
+  Run: <code>{{ run_id }}</code>
+  | Session: <code>{{ current_state.session_id or "" }}</code>
+  | Repo: <code>{{ current_state.repo or current_state.project or "" }}</code>
+</p>
+
+<section class="panel" id="panel-current-state">
+  <h2>1. Current state</h2>
+  <table>
+    <tbody>
+      <tr><th>Status</th><td>{{ current_state.status or "" }}</td></tr>
+      <tr><th>Command</th><td>{{ current_state.command_kind or "" }}</td></tr>
+      <tr><th>Risk level</th><td>{{ current_state.risk_level or "" }}</td></tr>
+      <tr><th>Risk tags</th><td>{{ current_state.risk_tags | display_value }}</td></tr>
+      <tr><th>Invoked by</th><td>{{ current_state.invoked_by or "" }}</td></tr>
+      <tr><th>Acting identity</th><td>{{ current_state.acting_identity or "" }}</td></tr>
+      <tr><th>Trace</th><td>{{ current_state.trace_id or "" }}</td></tr>
+      <tr><th>Correlation</th><td>{{ current_state.correlation_id or "" }}</td></tr>
+      <tr><th>Created</th><td>{{ current_state.created_at or "" }}</td></tr>
+      <tr><th>Updated</th><td>{{ current_state.updated_at or "" }}</td></tr>
+      <tr><th>Finished</th><td>{{ current_state.finished_at or "" }}</td></tr>
+      <tr>
+        <th>Terminal reason</th>
+        <td>
+          {% if current_state.terminal_reason_redacted %}<span class="placeholder">&lt;redacted&gt;</span> {% endif -%}
+          {{ current_state.terminal_reason_code or "" }}
+        </td>
+      </tr>
+      <tr><th>Run ids</th><td>{{ current_state.run_ids | display_value }}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="panel" id="panel-timeline">
+  <h2>2. Decision timeline</h2>
+  <p>{{ timeline.total }} event(s) recorded in observe.sqlite for this run.</p>
+  {% if timeline.events %}
+  <table>
+    <thead><tr><th>#</th><th>Recorded</th><th>Type</th><th>Summary</th><th>Fields</th></tr></thead>
+    <tbody>
+      {% for event in timeline.events %}
+      <tr>
+        <td>{{ event.sequence }}</td>
+        <td>{{ event.recorded_at or "" }}</td>
+        <td>{{ event.type }}{% if not event.known_type %} (unrecognized){% endif %}</td>
+        <td>{{ event.summary }}</td>
+        <td>
+          <details>
+            <summary>{{ event.display_fields|length }} field(s)</summary>
+            {% if event.display_fields %}
+            <ul>
+              {% for name, value in event.display_fields.items() %}
+              <li><span class="field-name">{{ name }}</span>: {{ value | display_value }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if event.redacted_field_names %}
+            <p class="placeholder">redacted: {{ event.redacted_field_names | display_value }}</p>
+            {% endif %}
+            {% if event.prohibited_field_names %}
+            <p class="field-prohibited">withheld: {{ event.prohibited_field_names | display_value }}</p>
+            {% endif %}
+          </details>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">No events recorded yet for this run.</p>
+  {% endif %}
+  <p>
+    {% if timeline.after_sequence %}<a href="?after_sequence=0">&laquo; back to start</a>{% endif %}
+    {% if timeline.has_more %} <a href="?after_sequence={{ timeline.next_after_sequence }}">older &raquo;</a>{% endif %}
+  </p>
+</section>
+
+<section class="panel" id="panel-decisions">
+  <h2>3. Decisions and evidence</h2>
+  <p class="placeholder">
+    Structured decision + evidence view ships in T07. In the meantime, see
+    the Decision timeline above for recorded <code>agent.control_decision</code>
+    events.
+  </p>
+</section>
+
+<section class="panel" id="panel-live-log">
+  <h2>4. Live logs</h2>
+  <div id="live-log"
+       data-stream-url="/api/observe/v1/sessions/{{ run_id_urlsafe }}/stream"
+       hx-get="/observe/sessions/{{ run_id_urlsafe }}/live-fragment"
+       hx-trigger="load, every 5s"
+       hx-swap="innerHTML">
+    {% include "_live_log_rows.html" %}
+  </div>
+  <script>
+  (function () {
+    if (!window.EventSource) { return; }
+    var container = document.getElementById("live-log");
+    if (!container) { return; }
+    var url = container.getAttribute("data-stream-url");
+    if (!url) { return; }
+    try {
+      var es = new EventSource(url);
+      es.onmessage = function (message) {
+        var data = {};
+        try { data = JSON.parse(message.data); } catch (err) { data = {}; }
+        var seq = (data && data.sequence != null) ? data.sequence : "?";
+        var type = (data && data.type) ? data.type : "";
+        var summary = (data && data.summary) ? data.summary : "";
+        var row = document.createElement("div");
+        row.className = "live-log-row";
+        row.textContent = "#" + seq + " " + type + " -- " + summary;
+        container.insertBefore(row, container.firstChild);
+      };
+    } catch (err) {
+      /* EventSource is a progressive enhancement only; the HTMX poll
+         above already renders the same safe-display data on a fixed
+         interval, so a failure here never leaves this panel empty. */
+    }
+  })();
+  </script>
+</section>
+
+<section class="panel" id="panel-artifacts">
+  <h2>5. Artifacts</h2>
+  {% if artifacts.artifacts %}
+  <table>
+    <thead><tr><th>Kind</th><th>Disposition</th><th>Digest</th><th>Size</th><th>Path</th><th>Created</th></tr></thead>
+    <tbody>
+      {% for artifact in artifacts.artifacts %}
+      <tr>
+        <td>{{ artifact.kind }}</td>
+        <td>{{ artifact.disposition }}</td>
+        <td>{{ artifact.digest }}</td>
+        <td>{{ artifact.byte_size }}</td>
+        <td>{{ artifact.relative_path }}</td>
+        <td>{{ artifact.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">No artifacts recorded for this run yet.</p>
+  {% endif %}
+  <p class="placeholder">Metadata-only until T07 adds redacted/downloadable dispositions.</p>
+</section>
+</body>
+</html>
