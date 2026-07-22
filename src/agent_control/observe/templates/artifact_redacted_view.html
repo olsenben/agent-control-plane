@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Observe {{ run_id }} -- {{ artifact_kind }} (redacted)</title>
+<style>
+  body { font-family: monospace, monospace; margin: 1.5rem; color: #1a1a1a; }
+  h1 { font-size: 1.1rem; }
+  .placeholder { color: #666; font-style: italic; }
+  pre { white-space: pre-wrap; word-break: break-word; border: 1px solid #ddd; padding: 0.75rem; }
+</style>
+</head>
+<body>
+<h1>Artifact: {{ artifact_kind }} ({{ artifact_type }})</h1>
+<p>
+  Run: <code>{{ run_id }}</code> |
+  <a href="/observe/sessions/{{ run_id_urlsafe }}">back to session</a>
+</p>
+<p class="placeholder">
+  Redacted text view -- secret-shaped fields are replaced with
+  <code>&lt;redacted&gt;</code> and long strings are truncated. This is
+  never the original artifact file.
+</p>
+<pre>{{ artifact_text }}</pre>
+</body>
+</html>

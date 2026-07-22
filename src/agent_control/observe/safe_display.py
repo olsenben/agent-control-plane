@@ -25,6 +25,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from agent_control.observe.ci_channel import (
+    build_ci_deep_link,
+    ci_log_category,
+    flatten_observation_fields,
+)
 from agent_shared.models.observe_event import FieldClassification, ObserveEventV1
 
 # --- Layer 1: global keyword filter (name-based, classification-independent) ---
@@ -99,6 +104,26 @@ _SESSION_CORRELATION_FIELDS: dict[str, FieldClassification] = {
 
 def _with_common(*extra: dict[str, FieldClassification]) -> dict[str, FieldClassification]:
     merged = dict(_SESSION_CORRELATION_FIELDS)
+    for table in extra:
+        merged.update(table)
+    return merged
+
+
+# CT102 CI channel (V9 T08): agent.fix_ci_* fields shared by every event in
+# agent_shared.models.ci -- none of these carry the session-correlation
+# fields above (_SESSION_CORRELATION_FIELDS), they key by fix_run_id/
+# repository instead (see agent_control.observe.ci_channel).
+_CI_COMMON_FIELDS: dict[str, FieldClassification] = {
+    "schema_version": "allowlisted",
+    "fix_run_id": "allowlisted",
+    "repository": "allowlisted",
+    "expected_head_commit_sha": "allowlisted",
+    "pr_number": "allowlisted",
+}
+
+
+def _with_ci_common(*extra: dict[str, FieldClassification]) -> dict[str, FieldClassification]:
+    merged = dict(_CI_COMMON_FIELDS)
     for table in extra:
         merged.update(table)
     return merged
@@ -302,6 +327,99 @@ _TYPE_FIELD_CLASSIFICATIONS: dict[str, dict[str, FieldClassification]] = {
         "bundle_kind": "allowlisted",
         "worker_result": "allowlisted",
     },
+    # --- CT102 CI channel (V9 T08, agent_shared.models.ci) ---
+    "agent.fix_ci_observed": _with_ci_common(
+        {
+            "delivery_id": "allowlisted",
+            # "observation" (the raw nested WorkflowObservation blob) is
+            # deliberately absent from this table -- default-deny means it
+            # is withheld (name-only); ci_channel.flatten_observation_fields
+            # already promoted its known-safe scalars to the
+            # "observation_*" keys below before classification ran.
+            "observation_workflow_id": "allowlisted",
+            "observation_path": "allowlisted",
+            "observation_display_name": "allowlisted",
+            "observation_workflow_run_id": "allowlisted",
+            "observation_run_attempt": "allowlisted",
+            "observation_status": "allowlisted",
+            "observation_conclusion": "allowlisted",
+            "observation_head_sha": "allowlisted",
+            "observation_pr_number": "allowlisted",
+            "observation_api_verification_status": "allowlisted",
+            "observation_observed_at": "allowlisted",
+        }
+    ),
+    "agent.fix_ci_verdict_changed": _with_ci_common(
+        {
+            "previous_verdict": "allowlisted",
+            "verdict": "allowlisted",
+            "verdict_revision": "allowlisted",
+            "reason_codes": "allowlisted",
+            "evaluated_at": "allowlisted",
+        }
+    ),
+    "agent.fix_ci_failure_evidence_collected": _with_ci_common(
+        {
+            "evidence_observation_id": "allowlisted",
+            "workflow_run_id": "allowlisted",
+            "workflow_run_attempt": "allowlisted",
+            "status": "allowlisted",
+            "failure_class": "allowlisted",
+            "has_terminal_failed_job": "allowlisted",
+        }
+    ),
+    "agent.fix_ci_failure_evidence_unavailable": _with_ci_common(
+        {
+            "evidence_observation_id": "allowlisted",
+            "workflow_run_id": "allowlisted",
+            "workflow_run_attempt": "allowlisted",
+            "status": "allowlisted",
+            "reason_codes": "allowlisted",
+        }
+    ),
+    "agent.fix_ci_repair_requested": _with_ci_common(
+        {
+            "evidence_observation_id": "allowlisted",
+            "repair_attempt": "allowlisted",
+            "repair_key": "allowlisted",
+        }
+    ),
+    "agent.fix_ci_repair_blocked": _with_ci_common(
+        {
+            "reason_codes": "allowlisted",
+            "label": "allowlisted",
+        }
+    ),
+    "agent.fix_ci_repair_started": _with_ci_common(
+        {
+            "repair_attempt": "allowlisted",
+            "repair_key": "allowlisted",
+        }
+    ),
+    "agent.fix_ci_repair_pushed": {
+        "schema_version": "allowlisted",
+        "fix_run_id": "allowlisted",
+        "repository": "allowlisted",
+        "previous_head_commit_sha": "allowlisted",
+        "new_head_commit_sha": "allowlisted",
+        "pr_number": "allowlisted",
+        "repair_attempt": "allowlisted",
+        "repair_key": "allowlisted",
+    },
+    "agent.fix_ci_repair_exhausted": _with_ci_common(
+        {
+            "repair_attempt": "allowlisted",
+            "max_attempts": "allowlisted",
+        }
+    ),
+    "agent.fix_ci_repair_stale": _with_ci_common(
+        {
+            "repair_attempt": "allowlisted",
+            "repair_key": "allowlisted",
+            "reason": "allowlisted",
+            "observed_head_commit_sha": "allowlisted",
+        }
+    ),
 }
 
 
@@ -385,6 +503,40 @@ _SUMMARY_BUILDERS: dict[str, Callable[[dict[str, Any]], str]] = {
         lambda f: f"Injection assessment: risk={f.get('risk', 'none')} action={f.get('recommended_action', 'allow')}"
     ),
     "agent.run_completed": lambda f: f"Run completed: {f.get('status', f.get('terminal_status', '?'))}",
+    "agent.fix_ci_observed": (
+        lambda f: (
+            f"CT102 CI observed: {f.get('observation_status', '?')}"
+            f"/{f.get('observation_conclusion', '?')}"
+            f" (run {f.get('observation_workflow_run_id', '?')})"
+        )
+    ),
+    "agent.fix_ci_verdict_changed": (
+        lambda f: (
+            f"CT102 CI verdict: {f.get('previous_verdict', '?')} -> {f.get('verdict', '?')}"
+            f" (rev {f.get('verdict_revision', '?')})"
+        )
+    ),
+    "agent.fix_ci_failure_evidence_collected": (
+        lambda f: f"CI failure evidence collected: {f.get('failure_class', '?')}"
+    ),
+    "agent.fix_ci_failure_evidence_unavailable": lambda f: "CI failure evidence unavailable",
+    "agent.fix_ci_repair_requested": (
+        lambda f: f"CI repair requested (attempt {f.get('repair_attempt', '?')})"
+    ),
+    "agent.fix_ci_repair_blocked": (
+        lambda f: f"CI repair blocked: {f.get('label', 'agent:blocked')}"
+    ),
+    "agent.fix_ci_repair_started": (
+        lambda f: f"CI repair started (attempt {f.get('repair_attempt', '?')})"
+    ),
+    "agent.fix_ci_repair_pushed": lambda f: "CI repair pushed new commit",
+    "agent.fix_ci_repair_exhausted": (
+        lambda f: (
+            f"CI repair exhausted (attempt {f.get('repair_attempt', '?')}"
+            f"/{f.get('max_attempts', '?')})"
+        )
+    ),
+    "agent.fix_ci_repair_stale": lambda f: f"CI repair stale: {f.get('reason', '?')}",
 }
 
 
@@ -410,6 +562,12 @@ def safe_display_event(event: dict[str, Any]) -> ObserveEventV1:
     Unknown event types (``type`` not in the classification registry) never
     expose any payload field value -- only field names are retained.
     """
+    # V9 T08: agent.fix_ci_observed carries a nested WorkflowObservation;
+    # promote its known-safe scalars to top-level "observation_*" keys
+    # before classification, which only ever operates on top-level payload
+    # keys (see agent_control.observe.ci_channel.flatten_observation_fields).
+    # A no-op for every other event type.
+    event = flatten_observation_fields(event)
     event_type = str(event.get("type") or "")
     payload = event.get("payload")
     known = is_known_event_type(event_type)
@@ -447,6 +605,20 @@ def safe_display_event(event: dict[str, Any]) -> ObserveEventV1:
         else f"Unrecognized event type: {event_type or 'unknown'}"
     )
 
+    # V9 T08: CT102 Actions deep link, built only from the trusted
+    # structured "repository"/"observation_workflow_run_id" fields that
+    # already passed allowlisted classification above -- never the
+    # webhook's own raw "html_url" (agent_control.observe.ci_channel never
+    # even reads that field). Omitted entirely (no key) when either field
+    # is absent/unsafe or GITEA_BASE_URL is unset/malformed.
+    if event_type == "agent.fix_ci_observed":
+        deep_link = build_ci_deep_link(
+            repository=display_fields.get("repository"),
+            workflow_run_id=display_fields.get("observation_workflow_run_id"),
+        )
+        if deep_link:
+            display_fields["ci_deep_link"] = deep_link
+
     return ObserveEventV1(
         event_id=event.get("event_id"),
         type=event_type,
@@ -456,6 +628,7 @@ def safe_display_event(event: dict[str, Any]) -> ObserveEventV1:
         project=event.get("project"),
         source=event.get("source"),
         known_type=known,
+        category=ci_log_category(event_type),
         summary=summary,
         display_fields=display_fields,
         metadata_only_field_names=metadata_only_names,

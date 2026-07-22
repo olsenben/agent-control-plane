@@ -20,6 +20,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from agent_control.observe.ci_channel import FIX_CI_EVENT_TYPES, resolve_ci_run_id, resolve_ci_session_id
 from agent_control.observe.safe_display import safe_display_event
 from agent_control.observe.session_snapshot import build_session_observation_row
 from agent_control.observe.store import ObserveStore, observe_db_path
@@ -33,7 +34,12 @@ def resolve_run_id(event: dict[str, Any]) -> str | None:
     if not isinstance(payload, dict):
         payload = {}
     rid = payload.get("run_id") or event.get("run_id")
-    return rid if isinstance(rid, str) and rid else None
+    if isinstance(rid, str) and rid:
+        return rid
+    # V9 T08: agent.fix_ci_* events key by fix_run_id, not run_id -- see
+    # agent_control.observe.ci_channel for why that is the same run_id.
+    ci_rid = resolve_ci_run_id(event)
+    return ci_rid if isinstance(ci_rid, str) and ci_rid else None
 
 
 def resolve_session_id(event: dict[str, Any]) -> str | None:
@@ -69,6 +75,12 @@ def project_ledger_event(
     session_id = resolve_session_id(event)
     source_kind = str(event.get("source") or "unknown")
     event_type = str(event.get("type") or "")
+
+    if session_id is None and event_type in FIX_CI_EVENT_TYPES:
+        # V9 T08: agent.fix_ci_* events never carry session_id -- best-effort
+        # resolve it from the underlying fix/repair session so H6's
+        # session_observation refresh below still fires for this run.
+        session_id = resolve_ci_session_id(state_root, project, run_id)
 
     ledger_sequence_raw = event.get("ledger_sequence")
     try:

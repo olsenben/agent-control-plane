@@ -10,9 +10,11 @@ from typing import Annotated, Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 
 from agent_control.config import Settings, get_settings
+from agent_control.observe import artifacts as observe_artifacts
+from agent_control.observe import decisions as observe_decisions
 from agent_control.observe.auth import (
     ObserveAuthRedirect,
     authorize_repo_read,
@@ -23,7 +25,6 @@ from agent_control.observe.notify import is_circuit_open, notify_channel, record
 from agent_control.observe.projection import build_observation_projection
 from agent_control.observe.store import ObserveStore
 from agent_control.observe.ui import (
-    artifacts_view,
     current_state_view,
     live_log_view,
     templates,
@@ -149,16 +150,21 @@ def observe_session_page(
     authorization: Annotated[str | None, Header()] = None,
     x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
 ) -> HTMLResponse:
-    """Five-panel Observatory session detail page (V9 T04).
+    """Five-panel Observatory session detail page (V9 T04; T07 decisions + artifacts).
 
     Panels: 1) current state from ``session_observation`` (H6, =
     ``AgentSession``); 2) decision timeline paginated over ``observe.sqlite``
-    (safe-display payloads only, H1); 3) decisions placeholder (T07);
+    (safe-display payloads only, H1); 3) structured ``observe_decision.v1``
+    decisions (T07, :mod:`agent_control.observe.decisions`), falling back to
+    a placeholder pointing at panel 2 when none have been recorded yet;
     4) live logs via the protected SSE stream (T03), cookie-auth friendly
     for ``EventSource``, with an HTMX poll fallback that renders identically
-    with JavaScript disabled; 5) artifacts, metadata-only until T07's
-    dispositions ship. Every panel is server-rendered on this same request
-    -- panel 2 (the "basic timeline") needs no JavaScript at all, only plain
+    with JavaScript disabled; 5) artifacts with real dispositions (T07,
+    :mod:`agent_control.observe.artifacts`, H5) -- ``metadata_only`` always
+    listed, plus a redacted-view/redacted-download link only when every
+    trust gate (path/symlink/size/MIME/hash) passes for that artifact right
+    now. Every panel is server-rendered on this same request -- panel 2
+    (the "basic timeline") needs no JavaScript at all, only plain
     ``<a href>`` pagination links.
     """
     settings = _settings(request)
@@ -183,12 +189,107 @@ def observe_session_page(
     context = {
         "run_id": run_id,
         "run_id_urlsafe": quote(run_id, safe=""),
-        "current_state": current_state_view(session, store),
+        "current_state": current_state_view(session, store, state_root=settings.agent_state_root),
         "timeline": timeline_page_view(store, run_id, after_sequence=after_sequence),
+        "decisions": observe_decisions.decisions_panel_view(
+            settings.agent_state_root, project=canonical_project, run_id=run_id
+        ),
         "live_log": live_log_view(store, run_id),
-        "artifacts": artifacts_view(session),
+        "artifacts": {"artifacts": observe_artifacts.artifact_disposition_rows(session, settings.agent_state_root)},
     }
     return templates.TemplateResponse(request, "session_detail.html", context)
+
+
+@observe_ui.get("/observe/sessions/{run_id}/artifacts/{artifact_id}/view")
+def observe_artifact_redacted_view(
+    run_id: str,
+    artifact_id: str,
+    request: Request,
+    project: str | None = Query(default=None, description="deprecated hint; canonical repo is derived from run_id"),
+    authorization: Annotated[str | None, Header()] = None,
+    x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
+) -> HTMLResponse:
+    """``redacted_text_view`` artifact disposition (V9 T07, H5).
+
+    ``artifact_id`` is opaque (:func:`agent_control.observe.artifacts.artifact_id_for`)
+    -- this route never accepts, and the artifacts module never derives, a
+    filesystem path from the request. Runs the same auth matrix as every
+    other run_id-keyed route, then re-runs every trust gate (path/symlink/
+    size/MIME/hash) fresh on this request; any gate failure or unknown
+    ``artifact_id`` renders identically as a 404, never distinguishing the
+    two to the caller.
+    """
+    settings = _settings(request)
+    identity = require_observe_identity(
+        request=request,
+        authorization=authorization,
+        x_gitea_token=x_gitea_token,
+        settings=settings,
+    )
+    canonical_project = _resolve_canonical_project(settings, run_id, project)
+    if not canonical_project:
+        raise HTTPException(status_code=404, detail="session not found")
+    authorize_repo_read(identity, canonical_project, settings)
+
+    session = load_session_by_run(settings.agent_state_root, canonical_project, run_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    view = observe_artifacts.get_redacted_text_view(session, settings.agent_state_root, artifact_id)
+    if view is None:
+        raise HTTPException(status_code=404, detail="artifact not available")
+
+    context = {
+        "run_id": run_id,
+        "run_id_urlsafe": quote(run_id, safe=""),
+        "artifact_kind": view.kind,
+        "artifact_type": view.artifact_type,
+        "artifact_text": view.text,
+    }
+    return templates.TemplateResponse(request, "artifact_redacted_view.html", context)
+
+
+@observe_ui.get("/observe/sessions/{run_id}/artifacts/{artifact_id}/download")
+def observe_artifact_download(
+    run_id: str,
+    artifact_id: str,
+    request: Request,
+    project: str | None = Query(default=None, description="deprecated hint; canonical repo is derived from run_id"),
+    authorization: Annotated[str | None, Header()] = None,
+    x_gitea_token: Annotated[str | None, Header(alias="X-Gitea-Token")] = None,
+) -> Response:
+    """``downloadable_redacted_copy`` artifact disposition (V9 T07, H5).
+
+    Always serves a freshly re-serialized, redacted JSON document -- never
+    the original artifact bytes (default no raw download). Same auth
+    matrix and opaque-``artifact_id`` contract as the redacted text view
+    above.
+    """
+    settings = _settings(request)
+    identity = require_observe_identity(
+        request=request,
+        authorization=authorization,
+        x_gitea_token=x_gitea_token,
+        settings=settings,
+    )
+    canonical_project = _resolve_canonical_project(settings, run_id, project)
+    if not canonical_project:
+        raise HTTPException(status_code=404, detail="session not found")
+    authorize_repo_read(identity, canonical_project, settings)
+
+    session = load_session_by_run(settings.agent_state_root, canonical_project, run_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    download = observe_artifacts.get_redacted_download(session, settings.agent_state_root, artifact_id)
+    if download is None:
+        raise HTTPException(status_code=404, detail="artifact not available")
+
+    return Response(
+        content=download.content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{download.filename}"'},
+    )
 
 
 @observe_ui.get("/observe/sessions/{run_id}/live-fragment")

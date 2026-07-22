@@ -51,6 +51,16 @@
         </td>
       </tr>
       <tr><th>Run ids</th><td>{{ current_state.run_ids | display_value }}</td></tr>
+      <tr>
+        <th>CI verification</th>
+        <td>
+          {% if current_state.ci_phase %}
+          {{ current_state.ci_phase.phase }} (rev {{ current_state.ci_phase.verdict_revision }})
+          {% else %}
+          <span class="placeholder">no CT102 CI verification recorded for this session</span>
+          {% endif %}
+        </td>
+      </tr>
     </tbody>
   </table>
 </section>
@@ -66,7 +76,7 @@
       <tr>
         <td>{{ event.sequence }}</td>
         <td>{{ event.recorded_at or "" }}</td>
-        <td>{{ event.type }}{% if not event.known_type %} (unrecognized){% endif %}</td>
+        <td>{{ event.type }}{% if not event.known_type %} (unrecognized){% endif %}{% if event.category %} [{{ event.category }}]{% endif %}</td>
         <td>{{ event.summary }}</td>
         <td>
           <details>
@@ -101,11 +111,41 @@
 
 <section class="panel" id="panel-decisions">
   <h2>3. Decisions and evidence</h2>
+  {% if decisions.decisions %}
+  <table>
+    <thead>
+      <tr>
+        <th>Kind</th><th>Decision</th><th>Why</th><th>Evidence</th>
+        <th>Alternatives rejected</th><th>Remaining uncertainty</th><th>Recorded</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in decisions.decisions %}
+      <tr class="decision-row">
+        <td class="decision-kind">{{ d.kind }}</td>
+        <td class="decision-summary">{{ d.decision }}</td>
+        <td class="decision-why">{{ d.why or "" }}</td>
+        <td class="decision-evidence">{{ d.evidence | display_value }}</td>
+        <td class="decision-alternatives">{{ d.alternatives_rejected | display_value }}</td>
+        <td class="decision-uncertainty">{{ d.remaining_uncertainty or "" }}</td>
+        <td class="decision-recorded">{{ d.recorded_at or "" }}</td>
+      </tr>
+      {% if d.withheld_metadata_field_names %}
+      <tr class="decision-row">
+        <td class="decision-kind"></td>
+        <td colspan="6" class="field-prohibited">withheld: {{ d.withheld_metadata_field_names | display_value }}</td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
   <p class="placeholder">
     Structured decision + evidence view ships in T07. In the meantime, see
     the Decision timeline above for recorded <code>agent.control_decision</code>
     events.
   </p>
+  {% endif %}
 </section>
 
 <section class="panel" id="panel-live-log">
@@ -150,7 +190,11 @@
   <h2>5. Artifacts</h2>
   {% if artifacts.artifacts %}
   <table>
-    <thead><tr><th>Kind</th><th>Disposition</th><th>Digest</th><th>Size</th><th>Path</th><th>Created</th></tr></thead>
+    <thead>
+      <tr>
+        <th>Kind</th><th>Disposition</th><th>Digest</th><th>Size</th><th>Path</th><th>Created</th><th>Redacted view</th>
+      </tr>
+    </thead>
     <tbody>
       {% for artifact in artifacts.artifacts %}
       <tr>
@@ -160,6 +204,19 @@
         <td>{{ artifact.byte_size }}</td>
         <td>{{ artifact.relative_path }}</td>
         <td>{{ artifact.created_at }}</td>
+        <td>
+          {% if artifact.text_view_available %}
+          <a href="/observe/sessions/{{ run_id_urlsafe }}/artifacts/{{ artifact.artifact_id }}/view">view (redacted)</a>
+          {% else %}
+          <span class="placeholder">view unavailable</span>
+          {% endif %}
+          |
+          {% if artifact.download_available %}
+          <a href="/observe/sessions/{{ run_id_urlsafe }}/artifacts/{{ artifact.artifact_id }}/download">download (redacted)</a>
+          {% else %}
+          <span class="placeholder">download unavailable</span>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -167,7 +224,12 @@
   {% else %}
   <p class="placeholder">No artifacts recorded for this run yet.</p>
   {% endif %}
-  <p class="placeholder">Metadata-only until T07 adds redacted/downloadable dispositions.</p>
+  <p class="placeholder">
+    Default disposition is metadata-only for every artifact; a redacted text
+    view or a redacted download copy becomes available above only once the
+    session's own file currently passes every trust gate (path/symlink/
+    size/MIME/hash) -- the original artifact bytes are never downloadable.
+  </p>
 </section>
 </body>
 </html>

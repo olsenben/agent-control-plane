@@ -2,7 +2,7 @@
   {% for event in live_log.events %}
   <div class="live-log-row">
     <span class="live-log-seq">#{{ event.sequence }}</span>
-    <span class="live-log-type">{{ event.type }}{% if not event.known_type %} (unrecognized){% endif %}</span>
+    <span class="live-log-type">{{ event.type }}{% if not event.known_type %} (unrecognized){% endif %}{% if event.category %} [{{ event.category }}]{% endif %}</span>
     <span class="live-log-summary">{{ event.summary }}</span>
   </div>
   {% endfor %}

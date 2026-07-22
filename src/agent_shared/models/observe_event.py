@@ -71,6 +71,12 @@ class ObserveEventV1(BaseModel):
     project: str | None = None
     source: str | None = None
     known_type: bool = False
+    # V9 T08: optional Observatory log-category tag (for example "ci" for
+    # the CT102 fix_ci_*/verification_* channel --
+    # agent_control.observe.ci_channel.ci_log_category). Additive and
+    # informational only; every field-value display-safety guarantee above
+    # is unaffected by whether this is set.
+    category: str | None = None
     summary: str = ""
     display_fields: dict[str, Any] = Field(default_factory=dict)
     metadata_only_field_names: list[str] = Field(default_factory=list)

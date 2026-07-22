@@ -88,7 +88,12 @@ def _load_json_list(raw: str | None) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
-def current_state_view(session: AgentSession, store: ObserveStore) -> dict[str, Any]:
+def current_state_view(
+    session: AgentSession,
+    store: ObserveStore,
+    *,
+    state_root: Path | None = None,
+) -> dict[str, Any]:
     """Panel 1: current state, sourced from ``session_observation`` (H6).
 
     ``session_observation`` is T02's canonical, redacted mirror of the
@@ -97,11 +102,17 @@ def current_state_view(session: AgentSession, store: ObserveStore) -> dict[str, 
     back to the same curated/redacted builder the projector itself uses
     (:func:`build_session_observation_row`) so the two code paths can never
     disagree about which fields are display-safe.
+
+    ``ci_phase`` (V9 T08) is additive and optional -- only populated when
+    *state_root* is given -- and is read directly from the canonical
+    verification lifecycle (:func:`agent_control.observe.ci_channel.current_ci_phase_view`),
+    never re-derived from raw CI event replay order (see that function's
+    docstring for why a late/duplicate CI verdict cannot regress it).
     """
     row = store.get_session_observation(session.session_id)
     if row is None:
         row = build_session_observation_row(session)
-    return {
+    view = {
         "session_id": row.get("session_id"),
         "project": row.get("project"),
         "repo": row.get("repo"),
@@ -119,7 +130,16 @@ def current_state_view(session: AgentSession, store: ObserveStore) -> dict[str, 
         "terminal_reason_code": row.get("terminal_reason_code"),
         "terminal_reason_redacted": bool(row.get("terminal_reason_redacted")),
         "run_ids": _load_json_list(row.get("run_ids_json")),
+        "ci_phase": None,
     }
+    if state_root is not None:
+        from agent_control.observe.ci_channel import current_ci_phase_view
+
+        project = row.get("project") or session.project
+        view["ci_phase"] = current_ci_phase_view(
+            state_root, project=project, session_id=session.session_id
+        )
+    return view
 
 
 def _parse_event_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -140,6 +160,10 @@ def _parse_event_row(row: dict[str, Any]) -> dict[str, Any]:
         "sequence": int(row["projection_sequence"]),
         "type": event.get("type") or row.get("event_type") or "",
         "known_type": bool(event.get("known_type")),
+        # V9 T08: optional Observatory log-category tag (for example "ci"
+        # for the CT102 fix_ci_*/verification_* channel); None for every
+        # event type outside that channel.
+        "category": event.get("category"),
         "summary": event.get("summary") or "",
         "recorded_at": row.get("recorded_at"),
         "display_fields": event.get("display_fields") or {},
