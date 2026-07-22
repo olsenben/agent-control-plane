@@ -2,7 +2,9 @@
 
 Boss-agent discipline adapted for the homelab control plane. Use this to finish work **one slice at a time**, with **mandatory deployment verification before the next slice starts**.
 
-- **Active epic ledger:** [handoff/boss-ledger-v6.md](handoff/boss-ledger-v6.md) (observable sessions)
+- **Active epic ledger:** [handoff/boss-ledger-v8.md](handoff/boss-ledger-v8.md) (residual QA)
+- **Closed V7 ledger:** [handoff/boss-ledger-v7.md](handoff/boss-ledger-v7.md)
+- **Closed V6 ledger:** [handoff/boss-ledger-v6.md](handoff/boss-ledger-v6.md)
 - **Closed V5 ledger:** [handoff/boss-ledger-v5.md](handoff/boss-ledger-v5.md)
 - **Closed V4 ledger:** [handoff/boss-ledger.md](handoff/boss-ledger.md) (archive; T12 still Deferred)
 
@@ -31,11 +33,11 @@ Do **not** spawn parallel Cursor leaves that mutate the **same** `main` tip. Opt
 ## Standard loop
 
 ```text
-1. Orient     — read docs/handoff/boss-ledger-v6.md (active) or boss-ledger-v5.md (V5 archive)
+1. Orient     — read docs/handoff/boss-ledger-v8.md (active) or prior closed ledgers
 2. Coordinate — one slice (code + tests + slice doc)
 3. Deploy     — merge/deploy CT103+CT104; fill DEPLOY_VERIFY
 4. Handoff    — write coordinator-handoff-NNN.md; update ledger ≤5 lines
-5. Continue   — next incomplete ticket OR stop on user blocker
+5. Continue   — next incomplete ticket OR stop on user blocker / WaitingHuman
 ```
 
 Stop only when ledger `Epic status: complete` or a **user-blocking** blocker is recorded.
@@ -44,7 +46,9 @@ Stop only when ledger `Epic status: complete` or a **user-blocking** blocker is 
 
 | Artifact | Owner | Purpose |
 |----------|-------|---------|
-| [boss-ledger-v6.md](handoff/boss-ledger-v6.md) | Boss | **Active** epic scope, ticket order, next ID, wave log |
+| [boss-ledger-v8.md](handoff/boss-ledger-v8.md) | Boss | **Active** epic scope (residual QA) |
+| [boss-ledger-v7.md](handoff/boss-ledger-v7.md) | Boss | Closed V7 archive |
+| [boss-ledger-v6.md](handoff/boss-ledger-v6.md) | Boss | Closed V6 archive |
 | [boss-ledger-v5.md](handoff/boss-ledger-v5.md) | Boss | Closed V5 archive |
 | [boss-ledger.md](handoff/boss-ledger.md) | Boss | Closed V4 archive |
 | [HANDOFF_TEMPLATE.md](handoff/HANDOFF_TEMPLATE.md) | Coordinator | Compact continuation for next wave |
@@ -66,7 +70,7 @@ A ticket may move to `Done` only when **all** are true:
 
 ## Cursor entry points
 
-- **“Run the V6 epic” / “continue the epic”** → orient from [boss-ledger-v6.md](handoff/boss-ledger-v6.md); apply `.cursor/skills/v4-epic-boss`
+- **“Run the V8 epic” / “continue the epic”** → orient from [boss-ledger-v8.md](handoff/boss-ledger-v8.md); apply `.cursor/skills/v4-epic-boss`
 - **“Implement the next slice” / named slice** → apply `.cursor/skills/v4-slice-coordinator` after boss orients from the active ledger
 
 ## Related

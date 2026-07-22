@@ -50,7 +50,7 @@ Status: `Todo` | `In Progress` | `Deploy gate` | `Done` | `Blocked` | `Deferred`
 - Do not enable unbounded recursive controllers in production.
 - Do not treat LlamaFirewall / injection shadow results as authority.
 - Do not mutate production memory during bake-off imports.
-- Residual QA items (homelab DUR soak, N07, mid-SSE revoke, Observatory OAuth) stay deferred — not V7 scope.
+- Residual QA items moved to **V8** — [boss-ledger-v8.md](boss-ledger-v8.md) (was deferred during V7)
 
 ## Wave log
 

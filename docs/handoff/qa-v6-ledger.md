@@ -54,7 +54,9 @@ QA_V6_SMOKE_OK
 
 ## Deferred residual (explicitly saved for later)
 
-- Full homelab DUR soak / restart
-- N07 approver-revoked-before-publish (live OAuth)
-- Mid-SSE token revoke integration
-- Real Gitea OAuth for Observatory (shared token remains gate)
+Owned by epic **V8** — see [boss-ledger-v8.md](boss-ledger-v8.md) and [qa-v8-ledger.md](qa-v8-ledger.md):
+
+- Full homelab DUR soak / restart → V8 T01
+- N07 approver-revoked-before-publish (live OAuth) → V8 T02
+- Mid-SSE token revoke integration → V8 T03
+- Real Gitea OAuth for Observatory (shared token remains gate) → V8 T04

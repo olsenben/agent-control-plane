@@ -1,6 +1,6 @@
 # Slice V9 T05 -- Gitea OAuth session shell + protected observe router
 
-**Status:** Deploy gate -- 2026-07-22
+**Status:** Done -- 2026-07-22 (deploy verify [deploy-verify-v9-t05-20260722.md](handoff/deploy-verify-v9-t05-20260722.md), tip `1f71bf6`)
 **Epic:** V9 Agent Observatory ([boss-ledger-v9.md](handoff/boss-ledger-v9.md))
 **Handoff:** [coordinator-handoff-028.md](handoff/coordinator-handoff-028.md)
 **ADR:** [0029-observatory-oauth-session-shell.md](adr/0029-observatory-oauth-session-shell.md)

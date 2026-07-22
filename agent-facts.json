@@ -2,7 +2,7 @@
   "schema_version": "agent_facts.v1",
   "name": "ai-sdlc-lab-control-plane",
   "signed_by": "CT103",
-  "signed_at_utc": "2026-07-20T23:24:22Z",
+  "signed_at_utc": "2026-07-22T02:11:59Z",
   "capabilities": {
     "commands": [
       {
@@ -78,7 +78,7 @@
   },
   "integrity": {
     "alg": "sha256",
-    "digest": "fa904185e8fbf4766c61992a0a04e577847c57c3e0ecd1693e03c142179fcdaf",
+    "digest": "a6e28a9b1e672948d02c3d5175fbedc692a699cd36ee248dbe237db0c456b9db",
     "source_hashes": {
       "agent_card_md": "199690de328a7d39f1be16f07821c946221071bfe39caf3296744d58c1f820d4",
       "agent_card_json": "05c8d747c54bc2301d0d17403fe138fde8d30147062b00ef07fdf0aeca8a34cb"
