@@ -225,10 +225,23 @@ class Settings(BaseSettings):
         alias="MEMORY_GOVERNANCE_TRAJECTORY_LIMIT",
         description="Max memory records scanned for memory-as-governance",
     )
+    observe_sqlite_size_warning_mb: int = Field(
+        default=512,
+        alias="OBSERVE_SQLITE_SIZE_WARNING_MB",
+        description="V9 T02: log/report a size warning once observe.sqlite exceeds this many MiB",
+    )
 
     @property
     def memory_db_path(self) -> Path:
         return self.agent_state_root / "memory" / "memory.sqlite"
+
+    @property
+    def observe_db_path(self) -> Path:
+        return self.agent_state_root / "observe" / "observe.sqlite"
+
+    @property
+    def observe_sqlite_size_warning_bytes(self) -> int:
+        return self.observe_sqlite_size_warning_mb * 1024 * 1024
 
     @property
     def graph_db_path(self) -> Path:

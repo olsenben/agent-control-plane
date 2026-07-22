@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from agent_shared.models.state import VerificationState
 
 LogicalState = VerificationState
+
+logger = logging.getLogger(__name__)
 
 
 # agent.run_completed means the run reached a terminal state, not that the agent succeeded.
@@ -114,8 +117,29 @@ def allocate_ledger_sequence(state_root: Path, owner: str, repo: str) -> int:
             pass
 
 
+def _project_event_fail_open(state_root: Path, event_dict: dict[str, Any]) -> None:
+    """V9 T02 (H7) -- best-effort observe.sqlite projection; never raises.
+
+    A ledger append must succeed regardless of observe.sqlite health.
+    ``project_event_fail_open`` already catches/logs store failures; this
+    wrapper additionally guards against import-time failures of the
+    (optional, secondary) observe subsystem itself.
+    """
+    try:
+        from agent_control.observe.projector import project_event_fail_open
+
+        project_event_fail_open(state_root, event_dict, project=str(event_dict.get("project") or ""))
+    except Exception:
+        logger.warning("observe_projection_hook_failed event_id=%s", event_dict.get("event_id"), exc_info=True)
+
+
 def append_event(state_root: Path, event: AgentEvent) -> tuple[Path, bool]:
-    """Append event JSON atomically; return (path, created)."""
+    """Append event JSON atomically; return (path, created).
+
+    On a newly-created append, also fires a fail-open secondary projection
+    into observe.sqlite (V9 T02) -- never allowed to affect this return
+    value or raise past this function (H7).
+    """
     owner, repo = event.project.split("/", 1)
     if event.ledger_sequence is None:
         event = event.model_copy(update={"ledger_sequence": allocate_ledger_sequence(state_root, owner, repo)})
@@ -124,16 +148,18 @@ def append_event(state_root: Path, event: AgentEvent) -> tuple[Path, bool]:
     if path.exists():
         return path, False
 
-    body = json.dumps(event.model_dump(by_alias=True, mode="json"), indent=2)
+    event_dict = event.model_dump(by_alias=True, mode="json")
+    body = json.dumps(event_dict, indent=2)
     tmp = path.with_suffix(".json.tmp")
     try:
         with open(tmp, "x", encoding="utf-8") as handle:
             handle.write(body)
         os.replace(tmp, path)
-        return path, True
     finally:
         if tmp.exists() and not path.exists():
             tmp.unlink(missing_ok=True)
+    _project_event_fail_open(state_root, event_dict)
+    return path, True
 
 
 def load_project_events(state_root: Path, project: str) -> list[dict[str, Any]]:

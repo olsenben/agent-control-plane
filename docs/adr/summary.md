@@ -31,6 +31,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0025 | Gated self-improvement proposals land only as Gitea PRs | proposed | 2026-07-20 | Prompt/workflow/`.agent` changes via PR only; deny in-prod self-edit |
 | ADR-0026 | Prompt-injection scanner stays shadow-only | accepted | 2026-07-21 | Shadow assessments only; never grant authority; blocking needs new ADR |
 | ADR-0027 | Observe event safe-display contract precedes storage/streaming/UI | accepted | 2026-07-22 | observe_event.v1 four-tier field classification; unknown types never expose payload values; wired into projection.py before T02/T03/T04 |
+| ADR-0028 | observe.sqlite is a fail-open, display-safe secondary projection | accepted | 2026-07-22 | UNIQUE(run_id,source_kind,source_event_id)+UNIQUE(run_id,projection_sequence) identity; fail-open after primary ledger write; session_observation mirrors live AgentSession; per-project transactional rebuild; no new routes |
 
 ## Review log
 

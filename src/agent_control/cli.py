@@ -1188,6 +1188,54 @@ def trace_show(
         click.echo(f"  [{stage.get('name')}] status={stage.get('status')}")
 
 
+@main.group(name="observe")
+def observe_group() -> None:
+    """observe.sqlite display-safe projection (V9 T02). No public HTTP routes here."""
+
+
+@observe_group.command("rebuild")
+@click.option("--repo", "project", required=True, help="owner/repo")
+@click.option(
+    "--db-path",
+    "db_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override observe.sqlite location (default: settings.observe_db_path)",
+)
+def observe_rebuild(project: str, db_path: Path | None) -> None:
+    """Full rescan of one project's ledger into observe.sqlite (idempotent)."""
+    from agent_control.observe.rebuild import rebuild_observe_db
+    from agent_shared.repo_identity import normalize_repo_full_name
+
+    repo_full = normalize_repo_full_name(project)
+    if repo_full is None:
+        raise click.ClickException(f"invalid repo: {project}")
+    settings = get_settings()
+    result = rebuild_observe_db(
+        settings.agent_state_root,
+        repo_full,
+        db_path=db_path,
+        size_warning_threshold_bytes=settings.observe_sqlite_size_warning_bytes,
+    )
+    click.echo(
+        json.dumps(
+            {
+                "project": result.project,
+                "db_path": str(result.db_path),
+                "events_scanned": result.events_scanned,
+                "events_projected": result.events_projected,
+                "events_skipped": result.events_skipped,
+                "last_ledger_sequence": result.last_ledger_sequence,
+                "size_bytes": result.size_bytes,
+                "size_warning": result.size_warning,
+            },
+            indent=2,
+        )
+    )
+    if result.size_warning:
+        click.echo(f"warning: {result.size_warning}", err=True)
+
+
 @main.group(name="eval")
 def eval_group() -> None:
     """Frozen evaluation export (V6 T08)."""
