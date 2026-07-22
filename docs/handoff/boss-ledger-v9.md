@@ -8,11 +8,11 @@ Epic supervisor state. Prior: [boss-ledger-v8.md](boss-ledger-v8.md) (residual Q
 | **Baseline tip** | `2471b31` |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) |
 | **Integration branch** | `main` |
-| **Epic status** | in progress |
-| **Tickets done** | 6 / 8 |
-| **Next ticket** | T07 ∥ T08 (deploy-verify owed) |
-| **Latest handoff** | [033](coordinator-handoff-033.md) |
-| **Last boss action** | 2026-07-22 — T08 standalone confirmation of the T07+T08 wave, tip bumped `df1d6d8` -> `fba0846` (lint-only diff, no functional change); ruff clean, pytest 890 passed; CT102 Actions / homelab deploy verification still owed before Done |
+| **Epic status** | complete |
+| **Tickets done** | 8 / 8 |
+| **Next ticket** | EPIC_COMPLETE |
+| **Latest handoff** | [deploy-verify-v9-t07-t08-20260722.md](deploy-verify-v9-t07-t08-20260722.md) |
+| **Last boss action** | 2026-07-22 — T07+T08 deploy-verify PASS on CT103+CT104 tip `fba0846`; smoke `V9_T07_SMOKE_OK` + `V9_T08_SMOKE_OK`; V9 epic spine complete |
 | **Lanes** | main only |
 | **Env** | WSL SSH; CT103 `192.168.4.62` / CT104 `192.168.4.63`; `docker compose exec -T … </dev/null` |
 
@@ -34,8 +34,8 @@ Only **T07 ∥ T08** may run in parallel (after T03 Done).
 | **T03** | Protected SSE subscribe-first + Redis id-notify + Last-Event-ID | T05 | Done | `dae78e3` |
 | **T04** | Jinja+HTMX five-panel UI; text-safe; no-JS timeline | T03 | Done | `8fb905d` |
 | **T06** | Gitea extra_tabs + OBSERVE_PUBLIC_BASE_URL fail-closed links | T04 | Done | `4a4998a` |
-| **T07** | Decisions + artifact dispositions | T03 | Deploy gate | `fba0846` |
-| **T08** | CT102 CI into observe stream; no terminal regression | T03 | Deploy gate | `fba0846` |
+| **T07** | Decisions + artifact dispositions | T03 | Done | `fba0846` |
+| **T08** | CT102 CI into observe stream; no terminal regression | T03 | Done | `fba0846` |
 
 ## Hard gates
 
@@ -60,3 +60,4 @@ H1 safe-display before store/stream/UI · H2 auth before public routes · H3 pro
 | 12 | 2026-07-22 | [deploy-verify-v9-t06-20260722.md](deploy-verify-v9-t06-20260722.md) | T07 ∥ T08 | T06 Done; CT103+CT104 tip `4a4998a`; `/readyz` redis+state ok, `observe_public_base_url=unset`; smoke `V9_T06_SMOKE_OK` (no Observe link/warning path when unset); CT100 `extra_tabs` human follow-up not blocking |
 | 13 | 2026-07-22 | [032](coordinator-handoff-032.md) | T07 ∥ T08 (deploy-verify) | T07+T08 code landed + pushed, tip `df1d6d8`; ruff clean, pytest 890 passed (up from 808 at T06 land time); T07: `observe.decisions`/`observe.artifacts` (H5 trust gates, no raw artifact bytes, no chain_of_thought leakage) wired into panels 3+5, two new artifact view/download routes; T08: `observe.ci_channel` teaches the projector `fix_run_id`→`run_id` resolution for `agent.fix_ci_*`, flattens `WorkflowObservation` before H1 classification, adds a `category=ci` tag + CT102 deep link, and reads panel 1's CI phase live from the canonical `verification_claim.json` (no event-replay regression risk); ADR-0032 accepted; CT102 Actions / homelab deploy verification still owed before Done on both tickets |
 | 14 | 2026-07-22 | [033](coordinator-handoff-033.md) | T07 ∥ T08 (deploy-verify) | T08 standalone confirmation session found the T07+T08 wave already landed at `df1d6d8`/`5b3f9da`; verified T08's slice matches this session's own work exactly (no further T08 file changes needed); landed a separate previously-uncommitted `V9 T06: deploy-verify closeout` (`d1df0b8`); fixed one pre-existing unrelated ruff issue in an untracked scratch script; tip bumped to `fba0846` (lint-only, no functional change); ruff clean, pytest 890 passed; pushed |
+| 15 | 2026-07-22 | [deploy-verify-v9-t07-t08-20260722.md](deploy-verify-v9-t07-t08-20260722.md) | EPIC_COMPLETE | T07+T08 Done; CT103+CT104 tip `fba0846`; CT104 pinned from `4bbf438`; `/readyz` + compose ok; smoke `V9_T07_SMOKE_OK` (decisions panel, metadata_only artifacts, path traversal 404) + `V9_T08_SMOKE_OK` (fix_ci projection, timeline CI marker, terminal no-regress); V9 epic 8/8 complete |
