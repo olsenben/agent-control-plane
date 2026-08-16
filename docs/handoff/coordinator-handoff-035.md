@@ -125,3 +125,33 @@ difference.
 - Failover can reach external providers, so C1 runs need `controller_provider` checked before being scored as local.
 - The shared working tree still carries unrelated pre-existing changes; isolate the T00.5 file set when committing.
 - CT102 runner/version remains `PENDING_LIVE_CERT` / `DEEPER_EVAL` from T00.
+
+## Deploy verification closeout (2026-08-16)
+
+| Field | Value |
+|-------|-------|
+| Deploy verify path | `docs/handoff/deploy-verify-v10-t005-20260816.md` |
+| Status | `PASS` |
+| Deployed tip | `e5d91ce29bd0c9d1f0f2c5ebd55a53988fe4d697` |
+| Smoke marker | `V10_T005_SMOKE_OK` |
+| CT103 tip / CT104 tip | `e5d91ce` / `e5d91ce` (match) |
+| `/readyz` | ready |
+| CT104 Gitea write tokens | absent (all three workers) |
+
+T00.5 is **Done**. Ledger updated: tickets 2/12; next ticket T01.
+
+**DEEPER_EVAL:** Live C1 end-to-end against the real 2070 endpoint was not scored in this deploy smoke; unit tests used a mocked gateway. Deferred to harness smoke in T02/T05.
+
+```text
+handoff_path: docs/handoff/coordinator-handoff-035.md
+ticket: T00.5
+status: Done
+deploy_verify: PASS
+deploy_verify_path: docs/handoff/deploy-verify-v10-t005-20260816.md
+tip: e5d91ce29bd0c9d1f0f2c5ebd55a53988fe4d697
+tickets_done: 2 / 12
+next_ticket_id: T01
+blocker: none
+stopped_reason: ticket_done
+deeper_eval: live C1 vs real 2070 deferred to T02/T05 harness smoke
+```
