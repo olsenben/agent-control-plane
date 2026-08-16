@@ -7,7 +7,7 @@
 | Handoff ID | 047 |
 | Date (UTC) | 2026-08-16 |
 | Slice / ticket ID | V10-WAVE-B — close official H1 verifier bindings |
-| Tip SHA (ACP) | unchanged, no ACP code touched |
+| Tip SHA (ACP) | no ACP source touched; docs-only seal at `f7d1a8481cab7025cbf405cd65a73bfdc2d3f5e6` (local, as with the Wave A seals) |
 | Evaluation repo | `ai-sdlc-lab/maintenance-evals` @ `931153ba63e41da762e282cebb5d7b73f6f17d06` (local-only, no remote) |
 | Experiment freeze | `v10-experiment-freeze-2026-08-16`, unchanged |
 | Registry version | `1.0.0-t04-frozen` -> `1.1.0-official-bindings` (digest `3099cdba…`) |
