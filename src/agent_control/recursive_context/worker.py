@@ -369,9 +369,16 @@ def run_conditional_recursive_context(
         controller_prompt_tokens=telemetry.prompt_tokens,
         controller_completion_tokens=telemetry.completion_tokens,
         controller_wall_seconds=round(telemetry.wall_seconds, 3),
-        controller_gpu_seconds=round(telemetry.gpu_seconds, 3),
+        controller_gpu_seconds=(
+            None if telemetry.gpu_seconds is None else round(telemetry.gpu_seconds, 3)
+        ),
         controller_data_left_homelab=telemetry.data_left_homelab,
         controller_error_class=telemetry.error_class,
+        controller_local_only_enforced=telemetry.local_only_enforced,
+        controller_external_routes_refused=telemetry.external_routes_refused,
+        controller_route_class=telemetry.route_class,
+        controller_endpoint_base_url=telemetry.endpoint_base_url,
+        controller_missing_fields=sorted(telemetry.missing_fields),
         trajectory_relative_path=rel_traj,
         created_at=created,
         allow_repo_write=False,

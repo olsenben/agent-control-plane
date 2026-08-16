@@ -340,6 +340,137 @@ def test_prepare_dispatch_honours_c1_env_override(
     assert telemetry["recursive_context_required"] is True
 
 
+# --- V10 Wave C: local-only trust boundary + timing truth ------------------
+
+
+class _GatewayNoTimings(_GatewaySpy):
+    """An endpoint that answers but reports no eval timings (OpenAI-compatible)."""
+
+    def __call__(self, role: str, **kwargs: Any) -> dict[str, Any]:
+        response = super().__call__(role, **kwargs)
+        response["usage"] = {"prompt_tokens": 231, "completion_tokens": 47}
+        return response
+
+
+@pytest.mark.parametrize(
+    "base_url,expected",
+    [
+        ("http://100.125.235.54:11434", True),
+        ("http://192.168.4.62:11434", True),
+        ("http://127.0.0.1:11434", True),
+        ("http://msi.tail25fd47.ts.net:11434", True),
+        ("http://control-plane:8080", True),
+        ("https://api.openai.com/v1", False),
+        ("https://api.anthropic.com", False),
+        ("", False),
+    ],
+)
+def test_endpoint_is_homelab_classifies_routes(base_url: str, expected: bool) -> None:
+    from agent_control.recursive_context.model_client import endpoint_is_homelab
+
+    assert endpoint_is_homelab(base_url) is expected
+
+
+def test_c1_refuses_external_route_and_never_sends_the_request(
+    state_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The CT104-key scenario: 2070 down, external fallback allowed by policy."""
+    monkeypatch.setenv("MODEL_2070_BASE_URL", "")
+    monkeypatch.setenv("MODEL_2070_FALLBACK_BASE_URL", "https://api.openai.com/v1")
+    monkeypatch.setenv("MODEL_2070_FALLBACK_NAME", "gpt-4o-mini")
+    monkeypatch.setenv("MODEL_2070_FALLBACK_API_KEY", "sk-test-not-real")
+    monkeypatch.setenv("MODEL_FALLBACK_ENABLED", "true")
+    monkeypatch.setenv("REPO_EXTERNAL_MODEL_POLICY", "*")
+
+    def _explode(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("the C1 controller must not reach an external provider")
+
+    monkeypatch.setattr("agent_workers.rlm.completion.chat_completion", _explode)
+
+    result = _run(state_env, "run-wavec-refuse", backend="model")
+
+    assert result.controller_model_invoked is False
+    assert result.controller_local_only_enforced is True
+    assert result.controller_external_routes_refused == 1
+    assert result.controller_error_class == "external_route_refused"
+    assert result.controller_data_left_homelab is False
+    assert result.controller_provider == ""
+    assert result.controller_mode == "fallback_deterministic"
+    assert result.evidence_refs, "refusal must still return a citable artifact"
+
+
+def test_c1_missing_endpoint_timing_is_null_not_zero(
+    state_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_gateway(monkeypatch, _GatewayNoTimings())
+
+    result = _run(state_env, "run-wavec-no-timing", backend="model")
+
+    assert result.controller_model_invoked is True
+    assert result.controller_gpu_seconds is None
+    assert "controller_gpu_seconds" in result.controller_missing_fields
+    assert result.controller_prompt_tokens == 231
+    assert "controller_prompt_tokens" not in result.controller_missing_fields
+
+
+def test_c1_records_the_boundary_it_enforced(
+    state_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_gateway(monkeypatch, _GatewaySpy())
+
+    payload = controller_telemetry_payload(_run(state_env, "run-wavec-bound", backend="model"))
+
+    assert payload["controller_local_only_enforced"] is True
+    assert payload["controller_route_class"] == "direct_local"
+    assert payload["controller_external_routes_refused"] == 0
+    assert payload["controller_data_left_homelab"] is False
+
+
+def test_local_only_guard_passes_homelab_and_blocks_external(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from agent_control.model_router import ResolvedEndpoint
+    from agent_control.recursive_context.model_client import (
+        ControllerEgressRefused,
+        ControllerTelemetry,
+        _local_only_complete,
+    )
+
+    seen: list[str] = []
+
+    def _fake_chat_completion(endpoint: Any, **_kwargs: Any) -> dict[str, Any]:
+        seen.append(endpoint.base_url)
+        return {"content": "ok"}
+
+    monkeypatch.setattr("agent_workers.rlm.completion.chat_completion", _fake_chat_completion)
+    telemetry = ControllerTelemetry()
+    guard = _local_only_complete(telemetry)
+
+    def _endpoint(provider: str, base_url: str, model: str) -> ResolvedEndpoint:
+        return ResolvedEndpoint(
+            role="summarizer",
+            tier="2070",
+            provider=provider,  # type: ignore[arg-type]
+            base_url=base_url,
+            model=model,
+            api_key="",
+            primary_provider="gpu",
+        )
+
+    assert guard(_endpoint("gpu", "http://100.125.235.54:11434", "qwen2.5-coder:3b")) == {
+        "content": "ok"
+    }
+    with pytest.raises(ControllerEgressRefused):
+        guard(_endpoint("fallback", "https://api.openai.com/v1", "gpt-4o-mini"))
+    with pytest.raises(ControllerEgressRefused):
+        # Provider label alone is not trusted; the host must also be homelab.
+        guard(_endpoint("gpu", "https://api.openai.com/v1", "gpt-4o-mini"))
+
+    assert seen == ["http://100.125.235.54:11434"]
+    assert telemetry.external_routes_refused == 2
+    assert telemetry.endpoint_base_url == "http://100.125.235.54:11434"
+
+
 def _prepare_dispatch_event(
     state_env: Path,
     monkeypatch: pytest.MonkeyPatch,

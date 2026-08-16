@@ -93,9 +93,17 @@ class RecursiveContextResult(BaseModel):
     controller_prompt_tokens: int = 0
     controller_completion_tokens: int = 0
     controller_wall_seconds: float = 0.0
-    controller_gpu_seconds: float = 0.0
+    # None means the endpoint did not report the timing; it is never a measured
+    # zero. Absent metrics are named in `controller_missing_fields`.
+    controller_gpu_seconds: float | None = None
     controller_data_left_homelab: bool = False
     controller_error_class: str = ""
+    # V10 Wave C — local-only trust-boundary enforcement for the C1 controller.
+    controller_local_only_enforced: bool = False
+    controller_external_routes_refused: int = 0
+    controller_route_class: str = ""
+    controller_endpoint_base_url: str = ""
+    controller_missing_fields: list[str] = Field(default_factory=list)
     trajectory_relative_path: str = ""
     artifact_digest: str = ""
     created_at: str = ""

@@ -26,6 +26,11 @@ def controller_telemetry_payload(result: RecursiveContextResult) -> dict[str, An
         "controller_gpu_seconds": result.controller_gpu_seconds,
         "controller_data_left_homelab": result.controller_data_left_homelab,
         "controller_error_class": result.controller_error_class,
+        "controller_local_only_enforced": result.controller_local_only_enforced,
+        "controller_external_routes_refused": result.controller_external_routes_refused,
+        "controller_route_class": result.controller_route_class,
+        "controller_endpoint_base_url": result.controller_endpoint_base_url,
+        "controller_missing_fields": list(result.controller_missing_fields),
         "invocation_reasons": list(result.invocation_reasons),
         "stop_reason": result.stop_reason,
     }
