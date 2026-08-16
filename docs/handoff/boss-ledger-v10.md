@@ -8,11 +8,11 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
-| **Epic status** | **running** — Waves A and B sealed; both official H1 verifiers are executable; no scored H1 yet |
+| **Epic status** | **blocked_waiting_human** — Wave C FAIL: the RTX 2070 host `msi` is powered off, so no live C1 observation exists |
 | **Tickets done** | 10 / 12 (T08 and T09 remain WaitingHuman); **0 / 5 hypotheses decided** |
-| **Next ticket** | Wave C — live C1 observation against the real 2070 endpoint (blocked on the CT104 model-key decision) |
-| **Latest handoff** | [047](coordinator-handoff-047.md) |
-| **Last boss action** | 2026-08-16 — Wave B PASS; both bindings bound and DEV-smoked non-scored; Wave C not started |
+| **Next ticket** | none until `msi` is online; then re-run the Wave C C1 smoke unchanged. Wave D (scored H1) stays unstarted |
+| **Latest handoff** | [048](coordinator-handoff-048.md) |
+| **Last boss action** | 2026-08-16 — Wave C run: contamination path closed and proven live on both hosts; C1 proof blocked on offline 2070 hardware |
 
 ## Wave A completion (`1.2.0-eval-dispatch`)
 
@@ -44,6 +44,28 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | Deliberately unbound | ARB ranking family (`MRR`, `Recall@k`, `gold_coverage@8k`, `selective_success@20`) — no V10 arm produces a corpus-wide ranking; ARB results are **not** comparable to ranking leaderboards |
 | Gates | 199 tests + ruff green on the committed surface; ACP ruff green |
 | Scored result | none; 0/5 hypotheses decided; 0 paid calls |
+
+## Wave C completion (live C1 proof attempt — FAIL, non-scored)
+
+| Field | Value |
+|---|---|
+| Handoff | [048](coordinator-handoff-048.md) |
+| ACP commits | `0951e56` (C1 local-only + timing truth), `027ad9f` (model-id provenance); both pushed |
+| Deployed tip | `027ad9f06328f9b55f217b042d14c2fcb2beb25d` on CT103 **and** CT104 |
+| Deploy verify | [deploy-verify-v10-wave-c-20260816.md](deploy-verify-v10-wave-c-20260816.md) — **PASS** |
+| **`c1_proof`** | **FAIL** — `controller_model_invoked=false` |
+| Cause | RTX 2070 host `msi` (`100.125.235.54`) offline, `last seen 12h ago`; ping no reply; LAN sweep finds no alternate `:11434` |
+| Contamination | **none** — one candidate route, local `gpu`/`qwen2.5-coder:3b`; `controller_data_left_homelab=false`; 0 external routes offered; 0 paid calls |
+| Live evidence | `docs/evidence/v10-wave-c/c1-live-smoke-027ad9f.json` |
+| Negative control | **PASS on both hosts** — forced OpenAI-only candidate refused, `external_route_refused`, zero external HTTP attempts (`c1-negative-control-027ad9f.json`) |
+| Boundary now enforced | provider must be `gpu` **and** host must be loopback / RFC1918 / `100.64.0.0/10` / `.ts.net`; refusal happens before any request is sent |
+| Timing truth | `controller_gpu_seconds` is nullable; unreported metrics land in `controller_missing_fields`; no fake `0.0` |
+| Model-id truth | `controller_model_id` now prefers the endpoint-reported model; `controller_model_id_source` ∈ `endpoint_reported` / `configured` / `planned_not_invoked`. Handoff 035 decision 3 was wrong — the configured name used to always win |
+| Freeze | `config/recursive_context.yaml` untouched (`8258dc95…`); no amendment; no change to prompt, role, budgets, sampling, recursion trigger, tool policy, or Qwen identity |
+| **New finding** | CT103 `MODEL_2070_NAME=qwen2.5-coder:3b` vs CT104 `qwen2.5-coder:7b` against the *same* endpoint — the 2070 identity is not frozen; gate G7 blocker for any C1 batch. Not fixed here (it is the C1 evaluated identity) |
+| Gates | 920 tests + `ruff check .` green |
+| Scored result | none; 0/5 hypotheses decided; 0 paid calls; H1c still unclaimed |
+| Carried findings | CT104 provider key present on all three workers (gate 6, now unusable by C1); CT102 ruff drift |
 
 ## Dual freezes
 
@@ -87,7 +109,11 @@ One implementation ticket per wave. No T07∥T08.
 ```text
 H1a unclaimed  - corpora materialized, official verifiers now executable; scored batch not yet run
 H1b unclaimed  - corpora materialized, official verifiers now executable; scored batch not yet run
-H1c unclaimed  - WaitingHuman + no live C1 run against the real 2070 endpoint exists
+H1c unclaimed  - Wave C ran the live C1 arm against the real 2070 and the host was
+                 offline; controller_model_invoked=false, so still no observation.
+                 Blocked on hardware, not on code: the contamination path is closed
+                 and proven, and the telemetry is now truthful about what it did not
+                 measure. Also blocked on the CT103/CT104 MODEL_2070_NAME divergence.
 H2  unclaimed  - WaitingHuman FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap
 H3  instrument verified (T07); agent dispatch path cleared under `1.2.0-eval-dispatch`; outcome still unclaimed until scored thresholds
 ```
@@ -107,9 +133,18 @@ is not an H1 answer.
     T07 instrument preserved; H3 claim still requires scored agent batch)
 3. FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap -> unlocks H2
 4. Live C1 observation against the real 2070 endpoint -> required before any C1 batch is scored
+   BLOCKED 2026-08-16 (Wave C): host `msi` (100.125.235.54) is powered off.
+   ACTION REQUIRED: power on the RTX 2070 host and confirm `tailscale status`
+   shows it active, then re-run `scripts/_v10_wc_c1_live_run.sh` unchanged.
 5. Decide H1 on dev, re-freeze the strategy D/E/H inherit -> re-run inheriting arms if the winner differs
 6. CT104 external model API key — decide (revoke, or explicitly freeze and accept)
-   before any "local-only" scored batch; carried from Wave A, still open
+   before any "local-only" scored batch; carried from Wave A, still open.
+   Wave C made it unusable by the C1 controller (proven live), but the key is
+   still present on all three CT104 workers.
+7. FREEZE_2070_MODEL_IDENTITY — new, Wave C. CT103 requests `qwen2.5-coder:3b`
+   and CT104 requests `qwen2.5-coder:7b` from the same endpoint. Decide which is
+   correct, align both `.env` files, and re-freeze the V10 baseline. Until then
+   no C1 arm is comparable across hosts (gate G7).
 ```
 
 Official H1 verifier bindings are **no longer a gate**: both were bound and
@@ -144,3 +179,5 @@ G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experi
 | 16 | 2026-08-16 | [046](coordinator-handoff-046.md) | Wave B | Wave A sealed. Commits: `maintenance-evals@886c970` corpora, `fb7bde1` harness, ACP `657a445` eval dispatch (pushed). `DEPLOY_VERIFY: PASS` on `657a445`; smoke 6/6; T07 `6f2fe308…` preserved. Findings: CT102 ruff drift; CT104 pre-existing external model API key |
 | 17 | 2026-08-16 | — | Wave B Running | Boss advance: bind SWE_CI_TASK_TEST_COMMAND + verify/bind ARB_TRAJECTORY_EVALUATOR; DEV-only non-scored smokes; no H1 scored batch |
 | 18 | 2026-08-16 | [047](coordinator-handoff-047.md) | Wave C (human gate first) | Wave B sealed at `maintenance-evals@931153b`; ACP untouched, deploy N/A. Both official H1 verifiers are now commands, not names: `SWE_CI_TASK_TEST_COMMAND` -> upstream `run_pytest` (`swe-ci-default@b2a0620f`), `ARB_TRAJECTORY_EVALUATOR` -> `arb eval-trajectories` (`arb-v2@07014c98`), recorded in `manifests/benchmarks/verifier-bindings.yaml`. DEV smoke pass on both, non-scored: ARB discriminated 1.0 vs 0.0 on two samples with a negative control; SWE-CI reproduced upstream's declared 14-test gap (943→957) with the executed argv captured rather than predicted. Materialization exposed 5 harness mismatches in never-executed T04 command strings (`--instance` does not exist; 4 ARB flags rejected by the subcommand; both frozen metric name sets wrong) — all corrected, versioned to `arb/swe-ci-adapter-1.1.0` and registry `1.1.0-official-bindings`, splits/seeds/frozen_groups untouched and test-enforced. ARB's ranking family (`MRR`, `Recall@k`, `gold_coverage@8k`) deliberately left unbound. 199 tests + ruff green. 0/5 hypotheses decided; 0 paid calls; CT102 ruff drift and CT104 model key still open |
+| 19 | 2026-08-16 | — | Wave C Running | Boss advance: prove live C1 against the real 2070, non-scored; CT104 external key must not answer the C1 controller call |
+| 20 | 2026-08-16 | [048](coordinator-handoff-048.md) | none — WaitingHuman on 2070 power-on | Wave C **FAIL on `c1_proof`, PASS on everything it could control**. The live C1 arm ran against the real 2070 on the deployed tip and the host was not there: `msi` shows `offline, last seen 12h ago` on the tailnet from both CT103 and CT104, `tailscale ping` gets no reply, and a full `192.168.4.0/24` sweep finds no other `:11434`. `controller_model_invoked=false`, `controller_error_class=ModelRouteExhausted` after a 135 s connect timeout, so H1c stays unclaimed and no C1 batch may be scored. Substituting the 3080 was rejected — that would change the C1 evaluated identity. What the wave did settle is the contamination path the brief flagged: both hosts carry an OpenAI fallback with a live 164-char key and `MODEL_FALLBACK_ENABLED=true`, and only an empty `REPO_EXTERNAL_MODEL_POLICY` was keeping it unreachable. The C1 controller is now local-only by construction — every offered route is checked before a request is sent and non-homelab providers are refused — with a live negative control on **both** hosts forcing an OpenAI-only candidate list and recording `external_route_refused` and zero external HTTP attempts. Two telemetry-truth defects fixed alongside it: absent endpoint timings were being written as `0.0` and are now `null` plus `controller_missing_fields`; and `controller_model_id` was echoing the configured `MODEL_2070_NAME` rather than what the endpoint served, contradicting handoff 035 decision 3, now corrected with `controller_model_id_source`. New blocker found: **CT103 requests `qwen2.5-coder:3b` and CT104 requests `qwen2.5-coder:7b` from the same 2070 endpoint** — the 2070 identity is not frozen, which breaks arm comparability (G7); left unfixed because it is the C1 evaluated identity and needs a human decision. `DEPLOY_VERIFY: PASS` on `027ad9f` (CT103 + CT104), 920 tests + ruff green, `config/recursive_context.yaml` untouched, 0 paid calls, 0 scored runs, 0 hypotheses claimed |

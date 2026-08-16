@@ -1,0 +1,116 @@
+{
+  "allow_network": false,
+  "allow_repo_write": false,
+  "allow_secret_paths": false,
+  "budget_used": {
+    "depth": 1,
+    "graph_queries": 1,
+    "input_tokens": 0,
+    "memory_records": 0,
+    "output_tokens": 0,
+    "subcalls": 6,
+    "tool_calls": 6,
+    "wall_seconds": 133.639
+  },
+  "candidate_routes": [
+    {
+      "base_url": "http://100.125.235.54:11434",
+      "data_leaves_homelab": false,
+      "guard_allows": true,
+      "label": "primary",
+      "model": "qwen2.5-coder:3b",
+      "provider": "gpu"
+    }
+  ],
+  "configured": {
+    "MODEL_2070_BASE_URL": "http://100.125.235.54:11434",
+    "MODEL_2070_EXTERNAL_API_KEY_SET": true,
+    "MODEL_2070_EXTERNAL_BASE_URL": "https://api.openai.com/v1",
+    "MODEL_2070_EXTERNAL_NAME": "gpt-4o-mini",
+    "MODEL_2070_FALLBACK_API_KEY_SET": true,
+    "MODEL_2070_FALLBACK_BASE_URL": "https://api.openai.com/v1",
+    "MODEL_2070_FALLBACK_NAME": "gpt-4o-mini",
+    "MODEL_2070_NAME": "qwen2.5-coder:3b",
+    "MODEL_FALLBACK_ENABLED": true,
+    "MODEL_GATEWAY_BASE_URL": "",
+    "REPO_EXTERNAL_MODEL_POLICY": ""
+  },
+  "control_plane_sha": "0951e56cbcdd03026914f495e25168cb18977799",
+  "controller_mode": "fallback_deterministic",
+  "controller_telemetry": {
+    "controller_attempts": 1,
+    "controller_backend": "model",
+    "controller_completion_tokens": 0,
+    "controller_data_left_homelab": false,
+    "controller_endpoint_base_url": "http://100.125.235.54:11434",
+    "controller_error_class": "ModelRouteExhausted",
+    "controller_external_routes_refused": 0,
+    "controller_gpu_seconds": null,
+    "controller_local_only_enforced": true,
+    "controller_missing_fields": [
+      "controller_completion_tokens",
+      "controller_gpu_seconds",
+      "controller_prompt_tokens"
+    ],
+    "controller_mode": "fallback_deterministic",
+    "controller_model_id": "qwen2.5-coder:3b",
+    "controller_model_invoked": false,
+    "controller_prompt_tokens": 0,
+    "controller_provider": "",
+    "controller_role": "summarizer",
+    "controller_role_label": "gpu-2070",
+    "controller_route_class": "direct_local",
+    "controller_wall_seconds": 133.635,
+    "invocation_reasons": [
+      "graph_coverage_insufficient",
+      "multiple_prior_root_causes"
+    ],
+    "recursive_context_invoked": true,
+    "recursive_context_required": true,
+    "stop_reason": "fallback_deterministic"
+  },
+  "endpoint_probe": {
+    "error": "timed out",
+    "error_class": "ConnectTimeout",
+    "probe_seconds": 8.066,
+    "status": "unreachable"
+  },
+  "evidence_refs": [
+    "graph:blast_radius",
+    "memory:run-prior",
+    "graph:blast_radius:src/unknown.py",
+    "memory:none",
+    "ci_evidence:none"
+  ],
+  "hypothesis_claimed": null,
+  "model_route_events": [],
+  "observation": "v10_wave_c_c1_live_smoke",
+  "resolved_role": {
+    "base_url": "http://100.125.235.54:11434",
+    "gateway_endpoint": null,
+    "model": "qwen2.5-coder:3b",
+    "primary_provider": "gpu",
+    "provider": "gpu",
+    "role": "summarizer",
+    "role_label": "gpu-2070",
+    "tier": "2070"
+  },
+  "run_wall_seconds": 133.639,
+  "schema_version": "recursive_context_result.v1",
+  "scored": false,
+  "stop_reason": "fallback_deterministic",
+  "subcall_tools": [
+    "find_affected_tests",
+    "get_memory_by_cause",
+    "compare_hypotheses",
+    "search_events",
+    "get_failure_evidence",
+    "call_primary_model"
+  ]
+}
+V10_WC_C1_MODEL_INVOKED=False
+V10_WC_C1_PROVIDER=
+V10_WC_C1_MODEL_ID=qwen2.5-coder:3b
+V10_WC_C1_DATA_LEFT_HOMELAB=False
+V10_WC_C1_EXTERNAL_REFUSED=0
+V10_WC_C1_SMOKE_DONE

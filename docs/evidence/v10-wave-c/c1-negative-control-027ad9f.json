@@ -1,0 +1,102 @@
+===== agentcontrol (027ad9f06328f9b55f217b042d14c2fcb2beb25d) =====
+{
+  "control_plane_sha": "027ad9f06328f9b55f217b042d14c2fcb2beb25d",
+  "controller_telemetry": {
+    "controller_attempts": 1,
+    "controller_backend": "model",
+    "controller_completion_tokens": 0,
+    "controller_data_left_homelab": false,
+    "controller_endpoint_base_url": "",
+    "controller_error_class": "external_route_refused",
+    "controller_external_routes_refused": 1,
+    "controller_gpu_seconds": null,
+    "controller_local_only_enforced": true,
+    "controller_missing_fields": [
+      "controller_completion_tokens",
+      "controller_gpu_seconds",
+      "controller_prompt_tokens"
+    ],
+    "controller_mode": "fallback_deterministic",
+    "controller_model_id": "qwen2.5-coder:3b",
+    "controller_model_id_source": "planned_not_invoked",
+    "controller_model_invoked": false,
+    "controller_prompt_tokens": 0,
+    "controller_provider": "",
+    "controller_role": "summarizer",
+    "controller_role_label": "gpu-2070",
+    "controller_route_class": "direct_local",
+    "controller_wall_seconds": 0.196,
+    "invocation_reasons": [
+      "graph_coverage_insufficient"
+    ],
+    "recursive_context_invoked": true,
+    "recursive_context_required": true,
+    "stop_reason": "fallback_deterministic"
+  },
+  "external_http_attempts": [],
+  "forced_candidate_routes": [
+    {
+      "base_url": "https://api.openai.com/v1",
+      "data_leaves_homelab": true,
+      "label": "fallback",
+      "model": "gpt-4o-mini",
+      "provider": "fallback"
+    }
+  ],
+  "host": "agentcontrol",
+  "negative_control_passed": true,
+  "observation": "v10_wave_c_c1_negative_control",
+  "scored": false
+}
+V10_WC_NEGATIVE_CONTROL_PASSED=True
+===== agentworker (027ad9f06328f9b55f217b042d14c2fcb2beb25d) =====
+{
+  "control_plane_sha": "027ad9f06328f9b55f217b042d14c2fcb2beb25d",
+  "controller_telemetry": {
+    "controller_attempts": 1,
+    "controller_backend": "model",
+    "controller_completion_tokens": 0,
+    "controller_data_left_homelab": false,
+    "controller_endpoint_base_url": "",
+    "controller_error_class": "external_route_refused",
+    "controller_external_routes_refused": 1,
+    "controller_gpu_seconds": null,
+    "controller_local_only_enforced": true,
+    "controller_missing_fields": [
+      "controller_completion_tokens",
+      "controller_gpu_seconds",
+      "controller_prompt_tokens"
+    ],
+    "controller_mode": "fallback_deterministic",
+    "controller_model_id": "qwen2.5-coder:7b",
+    "controller_model_id_source": "planned_not_invoked",
+    "controller_model_invoked": false,
+    "controller_prompt_tokens": 0,
+    "controller_provider": "",
+    "controller_role": "summarizer",
+    "controller_role_label": "gpu-2070",
+    "controller_route_class": "direct_local",
+    "controller_wall_seconds": 0.332,
+    "invocation_reasons": [
+      "graph_coverage_insufficient"
+    ],
+    "recursive_context_invoked": true,
+    "recursive_context_required": true,
+    "stop_reason": "fallback_deterministic"
+  },
+  "external_http_attempts": [],
+  "forced_candidate_routes": [
+    {
+      "base_url": "https://api.openai.com/v1",
+      "data_leaves_homelab": true,
+      "label": "fallback",
+      "model": "gpt-4o-mini",
+      "provider": "fallback"
+    }
+  ],
+  "host": "agentworker",
+  "negative_control_passed": true,
+  "observation": "v10_wave_c_c1_negative_control",
+  "scored": false
+}
+V10_WC_NEGATIVE_CONTROL_PASSED=True
