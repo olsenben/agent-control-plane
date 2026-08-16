@@ -6,21 +6,23 @@
 | Sealed (UTC) | 2026-08-16 |
 | Sealed by | V10 T04 |
 | Git tag | `v10-experiment-freeze-2026-08-16` in `ai-sdlc-lab/maintenance-evals`, annotated, at commit `b282f6d` |
-| ACP tag | **Not required.** T04 changed no `agent-control-plane` runtime code, model routing, policy, or worker image. The platform freeze remains `eval-baseline-2026-08` at `2532de7cf5098baa461e49b92e0d338c089cff45`. |
+| ACP tag | Platform freeze remains `eval-baseline-2026-08` at `2532de7…`. The 2026-08-16 eval-dispatch clearance adds ACP runtime (`agentctl eval dispatch`) under experiment version `1.2.0-eval-dispatch` and does not rewrite T04-sealed result sets. |
 | Benchmark registry version | `1.0.0-t04-frozen` |
-| Benchmark registry SHA-256 | `bcb05e1db2b8974d0a45198a58476d7c7e041be55d5a4fbdc0cba22202713913` |
+| Benchmark registry SHA-256 | `adf6f97115e594dd2dcca33bc3599d6103171afae3273097dee86cb3db6b8b45` |
 
 ## The gate
 
 **No scored run may execute against a benchmark whose registry entry says
-`scored_runs_allowed: false`.** At seal time exactly one benchmark is scorable:
-the custom longitudinal corpus, which is authored in `maintenance-evals`,
-carries no upstream licence, and is materialized. Everything else is frozen at
-the contract level and blocked on human approval.
+`scored_runs_allowed: false`.** At seal time exactly one benchmark was scorable:
+the custom longitudinal corpus. On 2026-08-16 the
+`MATERIALIZE_LICENSED_CORPORA` amendment also allowed scored private runs of
+Agent-Retrieval-Bench, SWE-CI, and SWE-Chain after identifier-level evidence
+was recorded. SWE-bench Verified remains gated. Redistribution from this
+repository remains forbidden.
 
 This is enforced in three places, not just asserted here: the registry, each
 split policy, and each experiment manifest, with a test
-(`test_only_the_synthetic_corpus_may_be_scored_at_freeze`) that fails if they
+(`test_materialized_licensed_corpora_may_be_scored`) that fails if they
 disagree.
 
 Changing any value in this document invalidates the freeze and requires a new
@@ -47,9 +49,9 @@ for each: `maintenance-evals/docs/benchmarks/*.md`.
 
 | Benchmark | Module | Adapter version | Field map status |
 |---|---|---|---|
-| Agent-Retrieval-Bench | `maintenance_evals.adapters.agent_retrieval_bench` | `arb-adapter-1.0.0` | declared, pending materialization |
-| SWE-CI | `maintenance_evals.adapters.swe_ci` | `swe-ci-adapter-1.0.0` | declared, pending materialization |
-| SWE-Chain | `maintenance_evals.adapters.swe_chain` | `swe-chain-adapter-1.0.0` | declared, pending materialization |
+| Agent-Retrieval-Bench | `maintenance_evals.adapters.agent_retrieval_bench` | `arb-adapter-1.0.1` | observed at materialization |
+| SWE-CI | `maintenance_evals.adapters.swe_ci` | `swe-ci-adapter-1.0.1` | observed at materialization |
+| SWE-Chain | `maintenance_evals.adapters.swe_chain` | `swe-chain-adapter-1.0.1` | observed at materialization |
 | SWE-bench (optional) | `maintenance_evals.adapters.swe_bench` | `swe-bench-adapter-1.0.0` | declared, pending materialization |
 | custom-longitudinal | `maintenance_evals.adapters.longitudinal` | `longitudinal-adapter-1.0.0` | observed |
 
@@ -287,19 +289,49 @@ categories, not a bare resolving rate.
 Both gates below are machine-readable in the manifests
 (`resolve_before_scoring`) and block the runs they name.
 
-### `MATERIALIZE_LICENSED_CORPORA` — WaitingHuman
+### `MATERIALIZE_LICENSED_CORPORA` — Cleared (2026-08-16)
 
-No upstream corpus has been downloaded into `maintenance-evals`, and none is
-redistributed from it. Blocks: `v10-context-ablation`,
-`v10-maintenance-end-to-end`, `v10-frontier-hybrid`, and the SWE-Chain half of
-`v10-longitudinal`.
+Human approval recorded under
+`maintenance-evals/evidence/materialization/human-approval.json`. Private
+materialization of the exact frozen ARB, SWE-CI, and SWE-Chain revisions lives
+outside Git at `/home/benol/v10-external-corpora` (symlinked from
+`maintenance-evals/external_corpora`). Identifier-level evidence:
 
-To clear, per benchmark: recorded human approval to fetch; recorded
-materialization evidence enumerating the resulting task identifiers; a registry
-edit setting `scored_runs_allowed: true`; an amendment entry in this document.
-Clearing this gate does **not** permit re-running any split assignment, and
-doing so would be a protocol violation. Details and per-benchmark conditions:
-`maintenance-evals/docs/BENCHMARK_LICENSES.md`.
+| Benchmark | Tasks | Split counts (dev/val/test) | Evidence |
+|---|---:|---|---|
+| Agent-Retrieval-Bench | 427 | 43 / 192 / 192 | `evidence/materialization/arb-task-ids.json` |
+| SWE-CI | 100 | 8 / 60 / 32 | `evidence/materialization/swe-ci-task-ids.json` |
+
+| SWE-Chain | 155 | 37 / 58 / 60 | `evidence/materialization/swe-chain-task-ids.json` |
+
+Registry and split policies now read `materialization: materialized` and
+`scored_runs_allowed: true` for those three. Split seeds, `frozen_groups`, and
+task-selection policy were not redrawn. SWE-bench Verified remains gated.
+Redistribution from this repository remains forbidden.
+
+Harness field-map observations recorded at clearance (adapter bumps only;
+benchmark versions unchanged): ARB `arb-adapter-1.0.1` (`id`/`task_type`);
+SWE-CI `swe-ci-adapter-1.0.1` (`task_id`/`repo_name`/`current_sha`/`target_sha`);
+SWE-Chain `swe-chain-adapter-1.0.1` (`prev_ver`/`next_ver`/`specs`).
+
+### `EXECUTE_FROZEN_PLATFORM_AGENT_ON_LONGITUDINAL_CORPUS` — Cleared (new experiment version)
+
+Human approval 2026-08-16 authorized the smallest generic ACP evaluation-dispatch
+capability so longitudinal bare-Git snapshots can call the trusted patch-author
+path without Gitea webhook / Redis enqueue / shallow clone.
+
+- ACP: `agentctl eval dispatch` implements `maintenance_eval_dispatch.v1` over
+  JSON stdio against an exact-SHA local workspace (`src/agent_control/eval_dispatch.py`).
+- Harness: `adapters/agent_control.py` + `scripts/run_longitudinal_de.py --with-agent`.
+- Experiment version: `v10-longitudinal` bumped to `1.2.0-eval-dispatch` (G9).
+- T07 instrument result set `results/v10-t07-longitudinal-de-v1/` is unchanged
+  (`agent_execution=false` by design under `1.1.0-t04-frozen`).
+- Create-only agent evidence: `results/v10-t07b-longitudinal-de-agent-v1/` (or
+  smoke subdirectory); H3 remains unclaimed until scored thresholds are evaluated.
+
+This does **not** change prompts, model identity, context strategy, verification
+semantics, memory semantics, or trust boundaries beyond exposing the generic
+dispatch entry point.
 
 ### `FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE` — WaitingHuman
 
@@ -315,7 +347,8 @@ gap.
 
 ### Not a gate
 
-`v10-longitudinal` on the custom corpus is clear to execute. This is the
+`v10-longitudinal` on the custom corpus is clear to execute, including the
+agent-dispatch path under experiment version `1.2.0-eval-dispatch`. This is the
 synthetic-only scored path: if no external corpus is ever approved, V10 can
 still run a hypothesis-bearing experiment (H3, memory-reset versus
 verified-memory) with the reduced scope stated in the report.
@@ -325,6 +358,8 @@ verified-memory) with the reduced scope stated in the report.
 | Date | Change | Effect |
 |---|---|---|
 | 2026-08-16 | Freeze sealed | — |
+| 2026-08-16 | `MATERIALIZE_LICENSED_CORPORA` cleared for ARB, SWE-CI, SWE-Chain at pinned commits; field maps observed (`arb-adapter-1.0.1`, `swe-ci-adapter-1.0.1`, `swe-chain-adapter-1.0.1`); registry `scored_runs_allowed: true` for those three; raw corpora remain outside Git | Unblocks corpora-gated scored paths; does **not** redraw splits; does **not** clear `FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE`; does **not** approve SWE-bench Verified |
+| 2026-08-16 | `EXECUTE_FROZEN_PLATFORM_AGENT_ON_LONGITUDINAL_CORPUS` cleared via generic ACP `maintenance_eval_dispatch.v1` (`agentctl eval dispatch`); `v10-longitudinal` experiment_version → `1.2.0-eval-dispatch`; T07 result set preserved | Unlocks agent outcome path for H3; does **not** claim H3; does **not** rewrite `results/v10-t07-longitudinal-de-v1` |
 
 Every future entry must state what changed, why, and whether it starts a new
 experiment version.

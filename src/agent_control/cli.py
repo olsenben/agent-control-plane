@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 
 import click
@@ -1261,7 +1263,49 @@ def observe_rebuild(project: str, db_path: Path | None) -> None:
 
 @main.group(name="eval")
 def eval_group() -> None:
-    """Frozen evaluation export (V6 T08)."""
+    """Evaluation export, bake-off, and maintenance-eval dispatch."""
+
+
+@eval_group.command("dispatch")
+@click.option(
+    "--session-root",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override EVAL_DISPATCH_SESSION_ROOT for create-only session records",
+)
+@click.option(
+    "--engine",
+    type=click.Choice(["official", "fake"]),
+    default=None,
+    help="Override EVAL_DISPATCH_ENGINE (default: official, or env)",
+)
+def eval_dispatch_cmd(session_root: Path | None, engine: str | None) -> None:
+    """JSON-stdio adapter for maintenance_eval_dispatch.v1 (exact-SHA local workspace).
+
+    Reads one JSON object from stdin::
+
+        {"operation":"dispatch","request":{...maintenance_eval_dispatch.v1...}}
+        {"operation":"get_session","session_id":"sess-…","project":"owner/repo"}
+
+    Writes one JSON object to stdout. This is the trusted control-plane command
+    pointed at by maintenance-evals ``JsonCommandControlPlaneClient``.
+    """
+    from agent_control.eval_dispatch import EvalDispatchError, handle_message, main as _unused
+
+    del _unused
+    if session_root is not None:
+        os.environ["EVAL_DISPATCH_SESSION_ROOT"] = str(session_root)
+    if engine is not None:
+        os.environ["EVAL_DISPATCH_ENGINE"] = engine
+    try:
+        payload = json.load(sys.stdin)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"invalid JSON: {exc}") from exc
+    try:
+        response = handle_message(payload)
+    except EvalDispatchError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(json.dumps(response))
 
 
 @eval_group.command("export")
