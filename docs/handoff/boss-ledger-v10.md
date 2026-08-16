@@ -8,11 +8,11 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
-| **Epic status** | **running** — Wave A sealed (`1.2.0-eval-dispatch` deployed and verified); Wave B not started |
+| **Epic status** | **running** — Waves A and B sealed; both official H1 verifiers are executable; no scored H1 yet |
 | **Tickets done** | 10 / 12 (T08 and T09 remain WaitingHuman); **0 / 5 hypotheses decided** |
-| **Next ticket** | Wave B — scored longitudinal D/E agent batch (requires explicit human authorization) |
-| **Latest handoff** | [046](coordinator-handoff-046.md) |
-| **Last boss action** | 2026-08-16 — Wave A complete: ACP `657a445`, `maintenance-evals` `fb7bde1` (+ corpora clearance `886c970`), `DEPLOY_VERIFY: PASS`, no scored result |
+| **Next ticket** | Wave C — live C1 observation against the real 2070 endpoint (blocked on the CT104 model-key decision) |
+| **Latest handoff** | [047](coordinator-handoff-047.md) |
+| **Last boss action** | 2026-08-16 — Wave B PASS; both bindings bound and DEV-smoked non-scored; Wave C not started |
 
 ## Wave A completion (`1.2.0-eval-dispatch`)
 
@@ -27,6 +27,23 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | Carried findings | CT102 CI red on unpinned-ruff drift (pre-existing); CT104 holds a real external model API key (pre-existing) — resolve before any scored batch |
 | **Lanes** | main only |
 | **Env** | WSL SSH; CT103 `192.168.4.62` / CT104 `192.168.4.63`; `docker compose exec -T … </dev/null` |
+
+## Wave B completion (official H1 verifier bindings)
+
+| Field | Value |
+|---|---|
+| `maintenance-evals` commit | `931153ba63e41da762e282cebb5d7b73f6f17d06` (repo has no remote) |
+| ACP | unchanged; deploy verify **N/A** (no ACP source touched) |
+| `SWE_CI_TASK_TEST_COMMAND` | **bound** -> upstream `run_pytest`, `swe-ci-default@b2a0620f` `src/swe_ci/benchmark/tools.py` (sha256 `d1810aed…`) |
+| `ARB_TRAJECTORY_EVALUATOR` | **bound** -> `arb eval-trajectories`, `arb-v2@07014c98` `src/agent_retrieval_bench/trajectory.py` (sha256 `c5995d46…`), dist `agent-retrieval-bench` 0.2.1 |
+| Record | `manifests/benchmarks/verifier-bindings.yaml` (`benchmark_verifier_bindings.v1`); narrative `docs/VERIFIER_BINDINGS.md` |
+| DEV smoke | ARB **pass** (2 dev samples × 2 arms, discriminates 1.0 vs 0.0); SWE-CI **pass** (1 dev task, 943→957, gap 14 matches upstream metadata); `scored=false`, 0 hypotheses claimed |
+| Harness corrections | 5, all `semantics_changed: false`: SWE-CI `--instance` does not exist; official/additional command lists swapped; "ANC" is not an upstream key; ARB passed 4 flags `eval-trajectories` rejects; ARB metric names were snake_case renames of the *ranking* family |
+| Versions | `arb-adapter-1.1.0`, `swe-ci-adapter-1.1.0`, registry `1.1.0-official-bindings` (digest `3099cdba…`); 5 experiment manifests resealed |
+| Splits / seeds / frozen_groups | **unchanged**; a test recomputes both assignments from materialization evidence and asserts equality across the bump |
+| Deliberately unbound | ARB ranking family (`MRR`, `Recall@k`, `gold_coverage@8k`, `selective_success@20`) — no V10 arm produces a corpus-wide ranking; ARB results are **not** comparable to ranking leaderboards |
+| Gates | 199 tests + ruff green on the committed surface; ACP ruff green |
+| Scored result | none; 0/5 hypotheses decided; 0 paid calls |
 
 ## Dual freezes
 
@@ -68,8 +85,8 @@ One implementation ticket per wave. No T07∥T08.
 ## Hypothesis status (authoritative)
 
 ```text
-H1a unclaimed  - corpora materialized; official ARB/SWE-CI scored batches not yet run
-H1b unclaimed  - corpora materialized; official scored batches not yet run
+H1a unclaimed  - corpora materialized, official verifiers now executable; scored batch not yet run
+H1b unclaimed  - corpora materialized, official verifiers now executable; scored batch not yet run
 H1c unclaimed  - WaitingHuman + no live C1 run against the real 2070 endpoint exists
 H2  unclaimed  - WaitingHuman FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap
 H3  instrument verified (T07); agent dispatch path cleared under `1.2.0-eval-dispatch`; outcome still unclaimed until scored thresholds
@@ -91,7 +108,14 @@ is not an H1 answer.
 3. FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap -> unlocks H2
 4. Live C1 observation against the real 2070 endpoint -> required before any C1 batch is scored
 5. Decide H1 on dev, re-freeze the strategy D/E/H inherit -> re-run inheriting arms if the winner differs
+6. CT104 external model API key — decide (revoke, or explicitly freeze and accept)
+   before any "local-only" scored batch; carried from Wave A, still open
 ```
+
+Official H1 verifier bindings are **no longer a gate**: both were bound and
+DEV-smoked non-scored in Wave B. ARB's ranking metric family remains
+permanently unbound by design, which constrains what H1 may claim rather than
+blocking it.
 
 ## Hard gates
 
@@ -117,4 +141,6 @@ G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experi
 | 13 | 2026-08-16 | [044](coordinator-handoff-044.md) | T10 | T09 added `hybrid_route.py`, `held_out.py`, `suites/hybrid_h.py`, `v10-hybrid-held-out.yaml`, synthetic harness freeze (`e3eba0ed…`, 15 slots), and `docs/HYBRID_H_HELD_OUT.md`. Route stub: preflight→local Qwen→conditional recursive→verify→typed frontier escalate; refuses paid escalation without credentials. Held-out test split reserved (config-loader, text-normalizer since T07). No paid or official scored batches. T09 WaitingHuman; not Done. T10 may proceed on frozen partial evidence |
 | 14 | 2026-08-16 | [045](coordinator-handoff-045.md) | none (human gates) | T10 analyzed the six frozen result sets and sealed handoffs 034–044 and produced `reports/V10_RESULTS.md`, `docs/THREAT_TO_VALIDITY.md`, `docs/GO_NO_GO.md`, `reports/DEEPER_EVAL.md`, and `reports/LITERATURE_COMPARISON.md`. Zero of five hypotheses decided; no threshold evaluable; no primary test run. Go/no-go decision is **HOLD** — epic §32 branches A–E are all unavailable on evidence, branch B is closest and still unearned. Literature verified against arXiv:2607.24882, 2603.03823, 2605.14415, 2506.09289 and the SWE-bench ICLR 2024 lineage; a metric-naming defect was found (V10's frozen "ANC" is EvoScore at γ=1, discarding the paper's future weighting). Epic status set to `blocked_waiting_human` |
 | 15 | 2026-08-16 | — | human gates | Cleared `EXECUTE_FROZEN_PLATFORM_AGENT_ON_LONGITUDINAL_CORPUS`: ACP `agentctl eval dispatch` (`maintenance_eval_dispatch.v1`), harness `--with-agent`, experiment version `1.2.0-eval-dispatch`; smoke `results/v10-t07b-longitudinal-de-agent-smoke-v1` (6/6 `agent_execution=true`); T07 `result_set_sha256` `6f2fe308…` unchanged; H3 still unclaimed |
-| 16 | 2026-08-16 | [046](coordinator-handoff-046.md) | Wave B (human-authorized) | Wave A sealed. Three provenance-split commits: `maintenance-evals@886c970` corpora clearance, `maintenance-evals@fb7bde1` `--with-agent` harness, ACP `657a445` `agentctl eval dispatch` (pushed). `DEPLOY_VERIFY: PASS` — CT103+CT104 pinned to `657a445`, runtime delta vs prior deploy `e5d91ce` is only `cli.py` + `eval_dispatch.py`; in-container dispatch returned `agent_execution=true`; host smoke 6/6; T07 `6f2fe308…` unchanged. ACP ruff clean + 905 tests, harness ruff clean + 179 tests. No scored result, no paid call, 0/5 hypotheses. Findings: CT102 CI red at `Lint` from unpinned `ruff>=0.4` (0.16.3 → 391 pre-existing errors; green at `2532de7`, red since `d9dae98`) so deploy was by host pin; CT104 carries a real `sk-…` model API key predating this wave; in-container `control_plane_sha` needs `CONTROL_PLANE_SHA` set |
+| 16 | 2026-08-16 | [046](coordinator-handoff-046.md) | Wave B | Wave A sealed. Commits: `maintenance-evals@886c970` corpora, `fb7bde1` harness, ACP `657a445` eval dispatch (pushed). `DEPLOY_VERIFY: PASS` on `657a445`; smoke 6/6; T07 `6f2fe308…` preserved. Findings: CT102 ruff drift; CT104 pre-existing external model API key |
+| 17 | 2026-08-16 | — | Wave B Running | Boss advance: bind SWE_CI_TASK_TEST_COMMAND + verify/bind ARB_TRAJECTORY_EVALUATOR; DEV-only non-scored smokes; no H1 scored batch |
+| 18 | 2026-08-16 | [047](coordinator-handoff-047.md) | Wave C (human gate first) | Wave B sealed at `maintenance-evals@931153b`; ACP untouched, deploy N/A. Both official H1 verifiers are now commands, not names: `SWE_CI_TASK_TEST_COMMAND` -> upstream `run_pytest` (`swe-ci-default@b2a0620f`), `ARB_TRAJECTORY_EVALUATOR` -> `arb eval-trajectories` (`arb-v2@07014c98`), recorded in `manifests/benchmarks/verifier-bindings.yaml`. DEV smoke pass on both, non-scored: ARB discriminated 1.0 vs 0.0 on two samples with a negative control; SWE-CI reproduced upstream's declared 14-test gap (943→957) with the executed argv captured rather than predicted. Materialization exposed 5 harness mismatches in never-executed T04 command strings (`--instance` does not exist; 4 ARB flags rejected by the subcommand; both frozen metric name sets wrong) — all corrected, versioned to `arb/swe-ci-adapter-1.1.0` and registry `1.1.0-official-bindings`, splits/seeds/frozen_groups untouched and test-enforced. ARB's ranking family (`MRR`, `Recall@k`, `gold_coverage@8k`) deliberately left unbound. 199 tests + ruff green. 0/5 hypotheses decided; 0 paid calls; CT102 ruff drift and CT104 model key still open |
