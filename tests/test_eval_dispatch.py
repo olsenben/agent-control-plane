@@ -118,3 +118,68 @@ def test_stdio_round_trip(workspace: tuple[Path, str]) -> None:
     )
     assert session["verification_claim"]["status"] == "passed"
     assert json.dumps(session)  # serializable
+
+
+def test_h1_local_direct_has_no_context_pack(workspace: tuple[Path, str]) -> None:
+    repo, sha = workspace
+    request = {
+        "schema": DISPATCH_SCHEMA,
+        "eval_run_id": "eval-h1-a",
+        "project": "synthlab/retry-toolkit",
+        "workspace": str(repo),
+        "head_sha": sha,
+        "policy_source_sha": "2532de7cf5098baa461e49b92e0d338c089cff45",
+        "problem_statement": "Find src/foo.py helpers",
+        "arm": "local-direct",
+        "context_strategy": "ordinary bounded repository and tool context",
+        "controller_backend": "none",
+        "frontier_escalation": False,
+        "memory": {"policy": "off", "enabled": False, "namespace": "n", "audit_history_action": "retain"},
+        "verification": {"official_commands": [], "v10_additional_commands": []},
+        "limits": {"wall_seconds": 30, "attempts": 1},
+        "evaluation_mode": "retrieval",
+        "upstream_task_id": "sample-1",
+    }
+    session_id = dispatch_evaluation(request)
+    session = get_session(session_id, "synthlab/retry-toolkit")
+    telemetry = session["evaluation_telemetry"]
+    assert telemetry["controller_model_invoked"] is False
+    assert telemetry["recursive_invoked"] is False
+    assert session["head_sha"] == sha
+    assert (repo / "arb_trajectory.jsonl").is_file()
+
+
+def test_h1_local_deterministic_attaches_pack(workspace: tuple[Path, str]) -> None:
+    repo, sha = workspace
+    (repo / "src").mkdir()
+    (repo / "src" / "foo.py").write_text("def helpers():\n    return 1\n", encoding="utf-8")
+    subprocess.check_call(["git", "-C", str(repo), "add", "src/foo.py"])
+    subprocess.check_call(
+        ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "foo"],
+    )
+    sha = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+    request = {
+        "schema": DISPATCH_SCHEMA,
+        "eval_run_id": "eval-h1-b",
+        "project": "synthlab/retry-toolkit",
+        "workspace": str(repo),
+        "head_sha": sha,
+        "policy_source_sha": "2532de7cf5098baa461e49b92e0d338c089cff45",
+        "problem_statement": "Inspect src/foo.py helpers",
+        "arm": "local-deterministic",
+        "context_strategy": "deterministic CT103 preflight graph FTS and context pack",
+        "controller_backend": "none",
+        "frontier_escalation": False,
+        "memory": {"policy": "off", "enabled": False, "namespace": "n", "audit_history_action": "retain"},
+        "verification": {"official_commands": [], "v10_additional_commands": []},
+        "limits": {"wall_seconds": 30, "attempts": 1},
+        "evaluation_mode": "retrieval",
+        "upstream_task_id": "sample-2",
+    }
+    session_id = dispatch_evaluation(request)
+    session = get_session(session_id, "synthlab/retry-toolkit")
+    telemetry = session["evaluation_telemetry"]
+    assert telemetry["controller_model_invoked"] is False
+    assert telemetry["recursive_invoked"] is False
+    assert telemetry.get("retrieved_files") is not None
+

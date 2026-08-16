@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from agent_control.eval_arm_context import apply_arm_context, write_arb_trajectory
 from agent_shared.constants import RiskClass
 from agent_shared.models.intent import CommandIntent
 from agent_workers.patch.apply import ApplyFixError, apply_fix_to_workspace
@@ -109,12 +110,46 @@ def dispatch_evaluation(
     artifact_dir.mkdir(parents=True, exist_ok=False)
 
     allowed_files = _workspace_files(workspace)
+    evaluation_mode = str(request.get("evaluation_mode") or "patch")
     job = _build_eval_job(
         request=request,
         session_id=session_id,
         run_id=run_id,
         allowed_files=allowed_files,
+        evaluation_mode=evaluation_mode,
     )
+    arm_context = apply_arm_context(
+        arm=str(request.get("arm") or ""),
+        controller_backend=str(request.get("controller_backend") or "none"),
+        workspace=workspace,
+        project=project,
+        question=str(request.get("problem_statement") or ""),
+        session_id=session_id,
+        run_id=run_id,
+        source_sha=head_sha,
+        policy_source_sha=str(request.get("policy_source_sha") or ""),
+        state_root=session_root() / session_id,
+    )
+    if arm_context.context_pack:
+        job["context_pack"] = arm_context.context_pack
+    if arm_context.contamination:
+        record = _failed_session(
+            session_id=session_id,
+            project=project,
+            head_sha=head_sha,
+            run_id=run_id,
+            reason_code="harness",
+            reason=f"c1_contamination:{arm_context.contamination}",
+        )
+        record["evaluation_telemetry"] = {
+            **(record.get("evaluation_telemetry") or {}),
+            **arm_context.controller_telemetry,
+            "agent_execution": True,
+            "retrieved_files": arm_context.retrieved_files,
+            "c1_contamination": arm_context.contamination,
+        }
+        _write_session(session_id, record)
+        return session_id
     engine_name = resolve_engine_name()
     factory = engine_factory or _default_engine
     engine = factory(engine_name)
@@ -141,7 +176,11 @@ def dispatch_evaluation(
 
     result_sha = head_sha
     files_changed = 0
-    if getattr(result, "fix_result", None) is not None and result.fix_result is not None:
+    if (
+        evaluation_mode != "retrieval"
+        and getattr(result, "fix_result", None) is not None
+        and result.fix_result is not None
+    ):
         try:
             apply_fix_to_workspace(
                 workspace,
@@ -162,6 +201,16 @@ def dispatch_evaluation(
             )
             _write_session(session_id, record)
             return session_id
+    engine_sources = list(getattr(result, "context_sources", None) or [])
+    retrieved_files = list(
+        dict.fromkeys([*arm_context.retrieved_files, *engine_sources])
+    )
+    sample_id = str(request.get("upstream_task_id") or "")
+    if evaluation_mode == "retrieval" and sample_id:
+        write_arb_trajectory(artifact_dir / "arb_trajectory.jsonl", sample_id, retrieved_files)
+        workspace_traj = workspace / "arb_trajectory.jsonl"
+        if not workspace_traj.exists():
+            write_arb_trajectory(workspace_traj, sample_id, retrieved_files)
 
     verification = request.get("verification") or {}
     official_ok, additional_ok, claim = _run_verification_commands(
@@ -196,7 +245,11 @@ def dispatch_evaluation(
             "v10_additional_verification_pass": additional_ok,
             "primary_model": os.environ.get("MODEL_3080_NAME", "qwen2.5-coder:14b"),
             "model_config_hash": os.environ.get("MODEL_CONFIG_HASH", ""),
-            "controller_backend": str(request.get("controller_backend") or "none"),
+            "controller_backend": str(
+                arm_context.controller_telemetry.get("controller_backend")
+                or request.get("controller_backend")
+                or "none"
+            ),
             "solver_attempts": 1,
             "repair_attempts": 0,
             "ci_cycles": 1,
@@ -210,6 +263,14 @@ def dispatch_evaluation(
             "context_strategy": request.get("context_strategy"),
             "memory_policy": (request.get("memory") or {}).get("policy"),
             "memory_namespace": (request.get("memory") or {}).get("namespace"),
+            "retrieved_files": retrieved_files,
+            "recursive_context_required": arm_context.recursive_context_required,
+            "recursive_invoked": arm_context.recursive_invoked,
+            "invocation_reasons": arm_context.invocation_reasons,
+            "context_tokens_to_primary": _usage_tokens(result, "prompt"),
+            "local_prompt_tokens": _usage_tokens(result, "prompt"),
+            "local_completion_tokens": _usage_tokens(result, "completion"),
+            **arm_context.controller_telemetry,
         },
         "engine_summary": getattr(result, "summary", None),
         "eval_dispatch": {
@@ -249,12 +310,16 @@ def _build_eval_job(
     session_id: str,
     run_id: str,
     allowed_files: list[str],
+    evaluation_mode: str = "patch",
 ) -> dict[str, Any]:
     project = str(request["project"])
     owner, _, repo = project.partition("/")
     if not repo:
         owner, repo = "eval", project
     limits = request.get("limits") or {}
+    retrieval = evaluation_mode == "retrieval"
+    kind = "inspect" if retrieval else "fix"
+    risk = RiskClass.READ_ONLY.value if retrieval else RiskClass.WRITE_PATCH.value
     return {
         "schema_version": "rlm_job.v1",
         "run_id": run_id,
@@ -274,15 +339,15 @@ def _build_eval_job(
         "task_ref": str(request["head_sha"]),
         "flow": "developer_flow",
         "agent": "developer",
-        "risk_class": RiskClass.WRITE_PATCH.value,
+        "risk_class": risk,
         "command_intent": CommandIntent(
-            kind="fix",
+            kind=kind,
             natural_language_task=str(request.get("problem_statement") or ""),
         ).model_dump(mode="json"),
         "safety": {
             "activation_required": False,
-            "command_scope": "fix",
-            "allow_repo_write": True,
+            "command_scope": kind,
+            "allow_repo_write": not retrieval,
             "allow_test_execution": True,
             "allow_network": False,
             "allow_push": False,
@@ -400,6 +465,12 @@ def _run_command_list(workspace: Path, commands: list[str], log_path: Path) -> b
         # for harness smoke without benchmark-specific verifiers.
         log_path.write_text("no commands\n", encoding="utf-8")
         return True
+    if any("${" in command for command in commands):
+        log_path.write_text(
+            "unsubstituted placeholders; verification deferred to the eval harness\n",
+            encoding="utf-8",
+        )
+        return True
     ok = True
     lines: list[str] = []
     for command in commands:
@@ -469,6 +540,20 @@ def _failed_session(
             "solver_attempts": 1,
         },
     }
+
+
+def _usage_tokens(result: Any, kind: str) -> int | None:
+    """Return prompt/completion tokens when the engine reported them; else None."""
+    usage = getattr(result, "usage", None) or {}
+    if not isinstance(usage, dict):
+        usage = getattr(usage, "to_dict", lambda: {})()
+    if kind == "prompt":
+        value = usage.get("prompt_tokens") or usage.get("input_tokens")
+    else:
+        value = usage.get("completion_tokens") or usage.get("output_tokens")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
 
 
 def _write_session(session_id: str, record: dict[str, Any]) -> None:
