@@ -1,0 +1,66 @@
+# Boss ledger — V10 Maintenance Evaluation & Economic Bake-off
+
+Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete). Epic: [boss-ledger-v10-maintenance-evaluation-revised.md](../boss-ledger-v10-maintenance-evaluation-revised.md). Plan: `.cursor/plans/v10_eval_bakeoff_30f4388b.plan.md`.
+
+| Field | Value |
+|-------|-------|
+| **Epic name** | V10 — Maintenance Evaluation & Economic Bake-off |
+| **Baseline tip** | `4376ef4` live-certified; final docs/tag SHA pending docs-only commit |
+| **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
+| **Integration branch** | `main` |
+| **Epic status** | in_progress |
+| **Tickets done** | 1 / 12 |
+| **Next ticket** | T00.5 |
+| **Latest handoff** | [034](coordinator-handoff-034.md) |
+| **Last boss action** | 2026-08-16 — Wave 2 T00 live certification passed; T00 Done |
+| **Lanes** | main only |
+| **Env** | WSL SSH; CT103 `192.168.4.62` / CT104 `192.168.4.63`; `docker compose exec -T … </dev/null` |
+
+## Dual freezes
+
+```text
+T00/T00.5 = platform freeze
+T04       = experiment freeze (docs/handoff/v10-experiment-freeze.md + tag)
+T05+      = scored evaluation (no scored runs before experiment freeze)
+```
+
+## Spine (strict sequential)
+
+```text
+T00 -> T00.5 -> T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07 -> T08 -> T09 -> T10
+```
+
+One implementation ticket per wave. No T07∥T08.
+
+## Ticket states
+
+`Ready | Running | Done | WaitingHuman | BlockedTechnical | InvalidExperiment`
+
+## Tickets
+
+| ID | Slice | Deps | Status | Tip |
+|----|-------|------|--------|-----|
+| **T00** | Platform baseline freeze + stale-doc reconciliation | — | Done | `4376ef4` (live baseline; docs/tag commit pending) |
+| **T00.5** | C0/C1 controller_backend truth | T00 | Ready | — |
+| **T01** | maintenance-evals schemas/manifests | T00.5 | Ready | — |
+| **T02** | exact-SHA replay runner + evalctl | T01 | Ready | — |
+| **T03** | cost/usage telemetry + pricing | T02 | Ready | — |
+| **T04** | Benchmark methodology + adapters + EXPERIMENT_FREEZE | T03 | Ready | — |
+| **T05** | A/B/C0/C1 block-randomized context ablation | T04 | Ready | — |
+| **T06** | SWE-CI + SWE-Chain local E2E | T05 | Ready | — |
+| **T07** | Longitudinal D/E | T06 | Ready | — |
+| **T08** | Frontier F/G | T06 | Ready | — |
+| **T09** | Hybrid H + held-out | T08 | Ready | — |
+| **T10** | Frozen analysis + lit synthesis + go/no-go | T09 | Ready | — |
+
+## Hard gates
+
+G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experiment freeze · G5 no leakage · G6 verification authority · G7 comparable arms · G8 cost traceability · G9 no silent tuning · G10 negative-transfer visibility · G11 infra separated · G12 full provenance · dual official/V10 metrics · seeded block-randomized order
+
+## Wave log
+
+| Wave | Date | Handoff | Next | Notes |
+|------|------|---------|------|-------|
+| 0 | 2026-08-16 | — | T00 | Ledger opened |
+| 1 | 2026-08-16 | [034](coordinator-handoff-034.md) | T00 (deploy-verify) | Five stale CT104 write-token docs reconciled; repository-known baseline and live-cert checklist prepared; T00 remains Running with tip/tag/deploy fields TBD |
+| 2 | 2026-08-16 | [034](coordinator-handoff-034.md) | T00.5 | `DEPLOY_VERIFY: PASS`; CT103+CT104 tip `4376ef4`; CT104 write tokens absent in all three workers; CT103 token/publish flag expected; image/model/Ollama inventory frozen; docs-only commit/tag SHA pending; CT102 runner version deferred to `DEEPER_EVAL` |

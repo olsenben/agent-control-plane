@@ -3,7 +3,7 @@
 - Webhook HMAC validation on raw body (constant-time compare).
 - Repo allowlist enforced before event append.
 - Target repos must not contain privileged dispatch workflows.
-- Gitea bot token lives on the control-plane host only; `GITEA_AGENT_TOKEN` on CT104 `worker-report` only (comments).
+- Gitea bot token lives on CT103 only. CT104 has no Gitea API write token; result comments and publication are brokered by CT103.
 - External/fallback model API keys live in `.env` on CT103 only; never commit them or echo them in trajectories or Gitea comments.
 - State worker concurrency: 1 globally at MVP.
 - Redis/RQ use pickle serialization; keep Redis on CT103 private only (UFW denies 6379; no public exposure).
@@ -25,6 +25,7 @@ Regression tests: `tests/test_prompt_injection.py`.
 | Worker | Has | Does not have |
 |--------|-----|---------------|
 | worker-rlm-root | Redis, HTTP git credentials (read-only), agent-runs | Gitea API token, model keys |
-| worker-report | optional GITEA_AGENT_TOKEN | repo write key, model keys |
+| worker-report | agent-state/result artifact access | Gitea API write token, repo write key |
 
+- CT104 production startup fails closed if `GITEA_AGENT_TOKEN` or `GITEA_BOT_TOKEN` is present. See [secrets-boundaries.md](secrets-boundaries.md) and ADR-0004.
 - ADR mandatory constraints fail closed on prompt budget overflow.

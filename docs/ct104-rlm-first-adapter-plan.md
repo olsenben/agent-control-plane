@@ -6,7 +6,7 @@ This document **extends** [ct104.md](ct104.md). It does not replace or walk back
 
 > How do we integrate existing libraries such as the official RLM library, Aider, OpenHands, SWE-agent-style tools, CrewAI, or LangGraph without replacing the RLM-first architecture?
 
-**Answer:** Keep RLM as the orchestrator. External libraries are optional bounded tools or subsystems. CT104 remains the policy, logging, safety, artifact, and approval boundary.
+**Answer:** Keep RLM as the orchestrator. External libraries are optional bounded tools or subsystems. CT104 enforces its effective execution policy and owns worker logging, safety, and artifacts; CT103 owns canonical policy/state, approvals, credentials, verification claims, and all Gitea mutations.
 
 CT104 follows a GitLab-like flow-session logging model, but uses Gitea comments, filesystem artifacts, and RQ workers instead of GitLab's managed workflow service.
 
@@ -282,7 +282,7 @@ Build on `src/agent_workers/tools/registry.py` and `SessionEventWriter`:
 - Tools cannot bypass `EffectivePolicy`
 - Tools cannot bypass the context broker for repo reads unless explicitly allowed
 - External libraries are never given raw secrets by default
-- **ExecutionTool implementations must not call Gitea directly.** They return `ToolResult` / patch / logs to CT104; `worker-report` handles Gitea comments and reporting
+- **ExecutionTool implementations must not call Gitea directly.** They return `ToolResult` / patch / logs to CT104; CT104 writes result/bundle artifacts and CT103 handles authorized Gitea comments and publication.
 
 ### Patch-producing tool output normalization
 
@@ -435,13 +435,13 @@ policy loading from protected branch
 run artifacts
 session_events.jsonl
 redaction
-Gitea comments/reporting
+Gitea comments/reporting (CT103)
 approval gates
 verification sandbox requirement
 CT103 public surface restrictions
 ```
 
-Libraries must not replace CT104's policy/logging/artifact boundary.
+Libraries must not replace the CT104 execution-policy/logging/artifact boundary or the CT103 canonical policy/state/approval/publication boundary.
 
 ### Reuse or wrap
 
@@ -461,7 +461,7 @@ Gitleaks
 Ruff/pytest/etc.
 ```
 
-Libraries should reduce implementation work **inside** CT104, but they must not replace CT104's policy/logging/artifact boundary.
+Libraries should reduce implementation work **inside** CT104, but they must not replace CT104's execution-policy/logging/artifact boundary or gain CT103 authority.
 
 ## Phased spike plan
 
@@ -609,7 +609,7 @@ Each external library spike (Spikes 1–5) must produce a short decision record 
 ```text
 Do not replace CT104 with OpenHands.
 Do not replace CT104 with Aider.
-Do not let external libraries post directly to Gitea without CT104 report policy.
+Do not let external libraries post directly to Gitea; CT103 owns all Gitea mutations.
 Do not let external libraries read secrets by default.
 Do not let external libraries push branches directly in V1.
 Do not bypass session_events.jsonl.
@@ -624,7 +624,7 @@ Do not enable autonomous CrewAI crews in V1.
 Do not treat LangGraph as a default repo-editing RLM tool.
 ```
 
-External tools must not call Gitea directly. Return structured results to CT104; `worker-report` owns comments.
+External tools must not call Gitea directly. Return structured results to CT104; CT104 writes result artifacts and CT103 owns comments and publication.
 
 ## Known gaps (intentional future work)
 
@@ -634,7 +634,7 @@ External tools must not call Gitea directly. Return structured results to CT104;
 
 ## Next implementation task
 
-**Spike 1 (completed, homelab verified 2026-06-14):** `OfficialRLMEngine` for read-only inspect/explain with repo clone, Ollama, and Gitea comment-back. See [decisions/spike1-official-rlm-library.md](decisions/spike1-official-rlm-library.md).
+**Spike 1 (completed, homelab verified 2026-06-14):** `OfficialRLMEngine` for read-only inspect/explain with repo clone, Ollama, and the then-current CT104 Gitea comment-back path. Slice 6D.2 later retired direct CT104 comments; CT103 now owns comment-back. See [decisions/spike1-official-rlm-library.md](decisions/spike1-official-rlm-library.md).
 
 **Spike 2 (next):** Harden `MinimalLocalRLMEngine` as first-class fallback — bounded recursion (max_depth 0–1), structured output validation, real model calls without `rlms` REPL when official library is awkward.
 
@@ -642,7 +642,7 @@ Homelab settings for official inspect:
 
 1. `MODEL_ROUTING_POLICY=official` on **CT103** (dispatch policy)
 2. `MODEL_3080_BASE_URL` / `MODEL_3080_NAME` on **CT104**
-3. `GITEA_AGENT_TOKEN` + `GITEA_AGENT_COMMENT_ENABLED=true` on CT104
+3. No Gitea write token on CT104; CT103 result-ingest posts authorized comments
 4. HTTP git credentials mounted into `worker-rlm-root` (see [ct104.md](ct104.md))
 
 ## Related docs

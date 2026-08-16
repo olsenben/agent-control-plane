@@ -36,10 +36,10 @@ For CT104 workers that execute SRT (`worker-ci-repair`, `worker-rlm-root`):
 4. Treat bwrap launch failures as attestation/command failure (fail closed), never as deny-success.
 5. Install verifier tools (`ruff`, `pytest`) in the worker image via `pip install -e ".[dev]"`.
 
-Sandbox still has no Gitea write credentials; push remains outside SRT on the worker supervisor (transitional CT104 publish debt per §0.7).
+Sandbox has no Gitea write credentials. The original 6F.2 deployment pushed outside SRT from the CT104 worker supervisor as transitional debt; ADR-0004 and Slice 6D.2 later retired that path. CT104 now produces immutable patch bundles, and CT103 alone validates and publishes them.
 
 # Consequences
 
-- Demo sandboxed repair verify+push works on CT104 Docker-on-LXC.
+- Historical 6F.2 demo sandboxed repair verify+push worked on CT104 Docker-on-LXC; current publication is CT103-brokered.
 - Larger container attack surface than default Docker (bounded to two worker services).
-- Follow-up: V4.1.1 publish brokerage on CT103 may retire CT104 write tokens; re-evaluate whether SRT can move to a less-privileged executor layout.
+- Completed follow-up: V4.1.1 publish brokerage on CT103 retired CT104 write tokens (ADR-0004 / Slice 6D.2). Re-evaluate separately whether SRT can move to a less-privileged executor layout.

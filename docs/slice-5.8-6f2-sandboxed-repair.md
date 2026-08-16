@@ -10,18 +10,20 @@
 
 ```text
 Phase A: deployed command_registry + command_runner → SandboxBackend only (fail closed)
-Phase B: durable reservation + RQ → CT104 ci_repair → mandatory SRT verify → non-force push
+Phase B (historical 6F.2 path): durable reservation + RQ → CT104 ci_repair → mandatory SRT verify → non-force push
          → fix_ci_repair_pushed → CT103 registers 6E pending / supersedes old SHA
 ```
 
-Demo-only (`ai-sdlc-lab/demo-app`). CT104 publish remains transitional debt (§0.7).
+Demo-only (`ai-sdlc-lab/demo-app`). At this slice's 2026-07-18 acceptance, CT104 publication was explicitly transitional debt. Slice 6D.2 subsequently retired that debt: CT104 now emits immutable patch bundles and CT103 is the sole Gitea mutation authority.
 
 ## Authority
 
 | Host | Owns |
 |------|------|
 | CT103 | Observer lock, reservation create, RQ enqueue, ledger, pending/supersede from `repair_pushed` |
-| CT104 | Lease, checkout, patch apply, closed-world gates, SRT verify (no Gitea write creds in sandbox), non-force push, durable report |
+| CT104 (historical 6F.2 acceptance) | Lease, checkout, patch apply, closed-world gates, SRT verify (no Gitea write creds in sandbox), non-force push, durable report |
+
+Current authority is defined by [Slice 6D.2](slice-6d2-ct103-publish-brokerage.md) and [ADR-0004](adr/0004-ct103-publish-brokerage.md): CT104 stops at immutable patch-bundle production; CT103 independently validates and publishes.
 
 ## Concurrency
 
@@ -58,4 +60,4 @@ Fixture: issue #4 / PR #5; intentional-fail removed by demo heuristic; ACP runti
 
 ## Out of scope
 
-CT103 publish brokerage, full `tool_policy.v2`, non-demo repair, classifier polish, model-authored repair proposals.
+At the time of this slice: CT103 publish brokerage, full `tool_policy.v2`, non-demo repair, classifier polish, model-authored repair proposals. CT103 publish brokerage was completed in Slice 6D.2.
