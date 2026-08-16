@@ -53,6 +53,10 @@ def chat_completion(
     return {
         "content": content,
         "model": endpoint.model or data.get("model"),
+        # What the endpoint says it served, which can differ from what we asked
+        # for. Kept separate from `model` so callers that need provenance can
+        # tell a configured name from an observed one.
+        "model_reported": str(data.get("model") or ""),
         "provider": endpoint.provider,
         "base_url": endpoint.base_url,
         "usage": usage,

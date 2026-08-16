@@ -18,6 +18,7 @@ def controller_telemetry_payload(result: RecursiveContextResult) -> dict[str, An
         "controller_role": result.controller_role,
         "controller_role_label": result.controller_role_label,
         "controller_model_id": result.controller_model_id,
+        "controller_model_id_source": result.controller_model_id_source,
         "controller_provider": result.controller_provider,
         "controller_attempts": result.controller_attempts,
         "controller_prompt_tokens": result.controller_prompt_tokens,

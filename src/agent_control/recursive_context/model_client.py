@@ -81,6 +81,7 @@ class ControllerTelemetry:
     data_left_homelab: bool = False
     error_class: str = ""
     planned_model_id: str = ""
+    model_id_source: str = ""
     errors: list[str] = field(default_factory=list)
     local_only_enforced: bool = False
     external_routes_refused: int = 0
@@ -99,6 +100,7 @@ class ControllerTelemetry:
             "controller_role_label": self.role_label,
             "controller_model_invoked": self.model_invoked,
             "controller_model_id": self.model_id,
+            "controller_model_id_source": self.model_id_source,
             "controller_provider": self.provider,
             "controller_attempts": self.attempts,
             "controller_prompt_tokens": self.prompt_tokens,
@@ -251,6 +253,7 @@ def build_controller_model_fn(
             telemetry.errors.append(str(exc)[:200])
             if not telemetry.model_id:
                 telemetry.model_id = telemetry.planned_model_id
+                telemetry.model_id_source = "planned_not_invoked"
             for name in ("controller_prompt_tokens", "controller_completion_tokens"):
                 telemetry.note_missing(name)
             telemetry.note_missing("controller_gpu_seconds")
@@ -260,7 +263,14 @@ def build_controller_model_fn(
         usage = response.get("usage") or {}
         usage = usage if isinstance(usage, dict) else {}
         telemetry.model_invoked = True
-        telemetry.model_id = str(response.get("model") or telemetry.planned_model_id or "")
+        reported = str(response.get("model_reported") or "").strip()
+        if reported:
+            telemetry.model_id = reported
+            telemetry.model_id_source = "endpoint_reported"
+        else:
+            telemetry.model_id = str(response.get("model") or telemetry.planned_model_id or "")
+            telemetry.model_id_source = "configured"
+            telemetry.note_missing("controller_model_id")
         telemetry.provider = str(response.get("provider") or "")
         for field_name, usage_key in (
             ("controller_prompt_tokens", "prompt_tokens"),

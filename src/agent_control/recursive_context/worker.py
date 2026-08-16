@@ -364,6 +364,7 @@ def run_conditional_recursive_context(
         controller_role=gateway_role,
         controller_role_label=role_label,
         controller_model_id=telemetry.model_id,
+        controller_model_id_source=telemetry.model_id_source,
         controller_provider=telemetry.provider,
         controller_attempts=telemetry.attempts,
         controller_prompt_tokens=telemetry.prompt_tokens,

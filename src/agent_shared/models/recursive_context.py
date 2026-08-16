@@ -88,6 +88,9 @@ class RecursiveContextResult(BaseModel):
     controller_role: str = ""
     controller_role_label: str = ""
     controller_model_id: str = ""
+    # endpoint_reported | configured | planned_not_invoked — a C1 proof needs the
+    # first, because the other two only echo local configuration back.
+    controller_model_id_source: str = ""
     controller_provider: str = ""
     controller_attempts: int = 0
     controller_prompt_tokens: int = 0

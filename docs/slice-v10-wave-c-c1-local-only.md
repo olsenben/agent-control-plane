@@ -64,7 +64,25 @@ but not through the OpenAI-compatible `/v1/chat/completions` route ACP uses, so
 a real C1 call is expected to report `controller_gpu_seconds: null` plus
 `controller_missing_fields: ["controller_gpu_seconds"]`.
 
-### 3. The boundary that was enforced is recorded
+### 3. The model id says where it came from
+
+Handoff 035 recorded that `controller_model_id` is "read back from the endpoint
+response rather than hardcoded". It was not. `chat_completion` returned
+`endpoint.model or data.get("model")`, so the configured `MODEL_2070_NAME` always
+won and a 2070 serving something else would still have been recorded as
+`qwen2.5-coder:3b`.
+
+`chat_completion` now also returns `model_reported`, the model the endpoint says
+it served, alongside the unchanged `model` key. The controller prefers it and
+records `controller_model_id_source`:
+
+| Value | Meaning |
+|---|---|
+| `endpoint_reported` | the endpoint named the model — the only value that supports a C1 claim |
+| `configured` | the endpoint answered but named nothing; `controller_model_id` is in `controller_missing_fields` |
+| `planned_not_invoked` | nothing was invoked; the id is the route we would have used |
+
+### 4. The boundary that was enforced is recorded
 
 New telemetry on `recursive_context_result.v1`, all additive with defaults:
 
@@ -74,6 +92,7 @@ New telemetry on `recursive_context_result.v1`, all additive with defaults:
 | `controller_external_routes_refused` | how many non-homelab routes were blocked |
 | `controller_route_class` | `direct_local` (ACP dials the GPU) or `gateway_indirect` |
 | `controller_endpoint_base_url` | the endpoint actually contacted |
+| `controller_model_id_source` | provenance of `controller_model_id` |
 | `controller_missing_fields` | metrics the endpoint did not report |
 
 `gateway_indirect` means a proxy sits in front of the GPUs and can egress
@@ -97,7 +116,7 @@ gateway configured, so live runs are `direct_local`.
 
 ## Tests
 
-`tests/test_v10_t005_controller_backend.py` (24 cases, 5 new):
+`tests/test_v10_t005_controller_backend.py` (27 cases, 8 new):
 
 - `test_endpoint_is_homelab_classifies_routes` — tailnet, RFC1918, loopback,
   MagicDNS, compose service name accepted; `api.openai.com` and
@@ -110,3 +129,8 @@ gateway configured, so live runs are `direct_local`.
 - `test_c1_missing_endpoint_timing_is_null_not_zero`
 - `test_c1_records_the_boundary_it_enforced`
 - `test_local_only_guard_passes_homelab_and_blocks_external`
+- `test_c1_prefers_the_model_the_endpoint_says_it_served` — endpoint reports
+  `llama3:8b` while config asks for `qwen2.5-coder:3b`; the artifact records what
+  was served.
+- `test_c1_flags_a_model_id_that_only_echoes_local_config`
+- `test_failed_c1_marks_the_model_id_as_never_invoked`

@@ -413,6 +413,47 @@ def test_c1_missing_endpoint_timing_is_null_not_zero(
     assert "controller_prompt_tokens" not in result.controller_missing_fields
 
 
+def test_c1_prefers_the_model_the_endpoint_says_it_served(
+    state_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _WrongModelServed(_GatewaySpy):
+        def __call__(self, role: str, **kwargs: Any) -> dict[str, Any]:
+            response = super().__call__(role, **kwargs)
+            response["model_reported"] = "llama3:8b"
+            return response
+
+    _patch_gateway(monkeypatch, _WrongModelServed())
+
+    result = _run(state_env, "run-wavec-model-id", backend="model")
+
+    assert result.controller_model_invoked is True
+    assert result.controller_model_id == "llama3:8b"
+    assert result.controller_model_id_source == "endpoint_reported"
+
+
+def test_c1_flags_a_model_id_that_only_echoes_local_config(
+    state_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_gateway(monkeypatch, _GatewaySpy())
+
+    result = _run(state_env, "run-wavec-model-id-echo", backend="model")
+
+    assert result.controller_model_id == "qwen2.5-coder:3b"
+    assert result.controller_model_id_source == "configured"
+    assert "controller_model_id" in result.controller_missing_fields
+
+
+def test_failed_c1_marks_the_model_id_as_never_invoked(
+    state_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_gateway(monkeypatch, _GatewayDown())
+
+    result = _run(state_env, "run-wavec-model-id-down", backend="model")
+
+    assert result.controller_model_invoked is False
+    assert result.controller_model_id_source == "planned_not_invoked"
+
+
 def test_c1_records_the_boundary_it_enforced(
     state_env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
