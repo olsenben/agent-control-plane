@@ -5,7 +5,7 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | Field | Value |
 |-------|-------|
 | **Epic name** | V10 — Maintenance Evaluation & Economic Bake-off |
-| **Baseline tip** | `4376ef4` live-certified; final docs/tag SHA pending docs-only commit |
+| **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
 | **Epic status** | in_progress |
@@ -40,8 +40,8 @@ One implementation ticket per wave. No T07∥T08.
 
 | ID | Slice | Deps | Status | Tip |
 |----|-------|------|--------|-----|
-| **T00** | Platform baseline freeze + stale-doc reconciliation | — | Done | `4376ef4` (live baseline; docs/tag commit pending) |
-| **T00.5** | C0/C1 controller_backend truth | T00 | Running (code done; deploy pending) | — |
+| **T00** | Platform baseline freeze + stale-doc reconciliation | — | Done | `4376ef4` live baseline; docs/tag `2532de7` (`eval-baseline-2026-08`) |
+| **T00.5** | C0/C1 controller_backend truth | T00 | Running (code done; deploy pending) | `0bf2e82` (code+docs; not deployed) |
 | **T01** | maintenance-evals schemas/manifests | T00.5 | Ready | — |
 | **T02** | exact-SHA replay runner + evalctl | T01 | Ready | — |
 | **T03** | cost/usage telemetry + pricing | T02 | Ready | — |
