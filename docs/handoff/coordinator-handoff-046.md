@@ -21,8 +21,10 @@ handoff_path: docs/handoff/coordinator-handoff-046.md
 wave: A
 ticket: V10-WAVE-A-1.2.0-eval-dispatch
 acp_sha: 657a445d38e0b2a32970c7b6169e598883b33d06
-maintenance_evals_sha: fb7bde1e58c4666f75c0182fd96bab9817e201d4
+maintenance_evals_sha: fb7bde1e58c4666f75c0182fd96bab9817e201d4 (eval-dispatch code)
 maintenance_evals_materialization_sha: 886c9703895c5ba421e24b232c8d0796e75148bb
+maintenance_evals_tip: f2ae2d3 (deploy-verify smoke re-run)
+acp_tip: bb1dde3 (docs-only seal commits after the verified tip)
 deployed_sha: 657a445d38e0b2a32970c7b6169e598883b33d06
 deploy_verify: PASS
 smoke: results/v10-t07b-longitudinal-de-agent-smoke-v1 agent_execution=true 6/6

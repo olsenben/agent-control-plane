@@ -18,8 +18,8 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 
 | Field | Value |
 |---|---|
-| ACP commit / deployed SHA | `657a445d38e0b2a32970c7b6169e598883b33d06` (pushed; CT103 + CT104 pinned) |
-| `maintenance-evals` commits | `fb7bde1` (eval-dispatch harness) on `886c970` (corpora clearance); repo has no remote |
+| ACP commit / deployed SHA | `657a445d38e0b2a32970c7b6169e598883b33d06` (pushed; CT103 + CT104 pinned); tip since advanced to `bb1dde3` by docs-only seal commits |
+| `maintenance-evals` commits | `fb7bde1` (eval-dispatch harness) on `886c970` (corpora clearance), tip `f2ae2d3` (deploy-verify smoke re-run); repo has no remote |
 | Deploy verify | [deploy-verify-v10-wave-a-eval-dispatch-20260816.md](deploy-verify-v10-wave-a-eval-dispatch-20260816.md) — **PASS** |
 | Smoke | `results/v10-t07b-longitudinal-de-agent-smoke-v1` — `agent_execution=true` 6/6, `scored=false`, `h3_claimed=false` |
 | T07 instrument | preserved: `6f2fe308…` under `1.1.0-t04-frozen` |
