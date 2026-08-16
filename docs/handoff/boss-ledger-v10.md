@@ -8,11 +8,23 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
-| **Epic status** | **blocked_waiting_human** (partial analysis complete; not complete) |
+| **Epic status** | **running** — Wave A sealed (`1.2.0-eval-dispatch` deployed and verified); Wave B not started |
 | **Tickets done** | 10 / 12 (T08 and T09 remain WaitingHuman); **0 / 5 hypotheses decided** |
-| **Next ticket** | none available to an agent — the five human gates below must clear first |
-| **Latest handoff** | [045](coordinator-handoff-045.md) |
-| **Last boss action** | 2026-08-16 — T10 produced the frozen partial analysis, threats, go/no-go, DEEPER_EVAL backlog, and literature synthesis. Decision is **HOLD**: no epic §32 branch is selectable, standalone SaaS cannot be a GO, and a NO-GO would be equally unsupported |
+| **Next ticket** | Wave B — scored longitudinal D/E agent batch (requires explicit human authorization) |
+| **Latest handoff** | [046](coordinator-handoff-046.md) |
+| **Last boss action** | 2026-08-16 — Wave A complete: ACP `657a445`, `maintenance-evals` `fb7bde1` (+ corpora clearance `886c970`), `DEPLOY_VERIFY: PASS`, no scored result |
+
+## Wave A completion (`1.2.0-eval-dispatch`)
+
+| Field | Value |
+|---|---|
+| ACP commit / deployed SHA | `657a445d38e0b2a32970c7b6169e598883b33d06` (pushed; CT103 + CT104 pinned) |
+| `maintenance-evals` commits | `fb7bde1` (eval-dispatch harness) on `886c970` (corpora clearance); repo has no remote |
+| Deploy verify | [deploy-verify-v10-wave-a-eval-dispatch-20260816.md](deploy-verify-v10-wave-a-eval-dispatch-20260816.md) — **PASS** |
+| Smoke | `results/v10-t07b-longitudinal-de-agent-smoke-v1` — `agent_execution=true` 6/6, `scored=false`, `h3_claimed=false` |
+| T07 instrument | preserved: `6f2fe308…` under `1.1.0-t04-frozen` |
+| Scored result | none; 0/5 hypotheses decided; 0 paid calls |
+| Carried findings | CT102 CI red on unpinned-ruff drift (pre-existing); CT104 holds a real external model API key (pre-existing) — resolve before any scored batch |
 | **Lanes** | main only |
 | **Env** | WSL SSH; CT103 `192.168.4.62` / CT104 `192.168.4.63`; `docker compose exec -T … </dev/null` |
 
@@ -56,11 +68,11 @@ One implementation ticket per wave. No T07∥T08.
 ## Hypothesis status (authoritative)
 
 ```text
-H1a unclaimed  - WaitingHuman MATERIALIZE_LICENSED_CORPORA (official ARB/SWE-CI)
-H1b unclaimed  - WaitingHuman MATERIALIZE_LICENSED_CORPORA
+H1a unclaimed  - corpora materialized; official ARB/SWE-CI scored batches not yet run
+H1b unclaimed  - corpora materialized; official scored batches not yet run
 H1c unclaimed  - WaitingHuman + no live C1 run against the real 2070 endpoint exists
 H2  unclaimed  - WaitingHuman FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap
-H3  instrument verified on the synthetic longitudinal corpus; outcome unclaimed (agent_execution=false in 108/108)
+H3  instrument verified (T07); agent dispatch path cleared under `1.2.0-eval-dispatch`; outcome still unclaimed until scored thresholds
 ```
 
 No pre-registered threshold was evaluated and no primary test was run. The
@@ -70,8 +82,12 @@ is not an H1 answer.
 ## Open human gates before any scored batch
 
 ```text
-1. MATERIALIZE_LICENSED_CORPORA               -> unlocks H1a/H1b/H1c and the external half of H2
-2. EXECUTE_FROZEN_PLATFORM_AGENT_ON_LONGITUDINAL_CORPUS -> unlocks the outcome half of H3 (new experiment version)
+1. MATERIALIZE_LICENSED_CORPORA — CLEARED 2026-08-16
+   (ARB 427 / SWE-CI 100 / SWE-Chain 155; evidence under
+   maintenance-evals/evidence/materialization/; raw corpora outside Git)
+2. EXECUTE_FROZEN_PLATFORM_AGENT_ON_LONGITUDINAL_CORPUS — CLEARED 2026-08-16
+   (generic ACP maintenance_eval_dispatch.v1; experiment_version 1.2.0-eval-dispatch;
+    T07 instrument preserved; H3 claim still requires scored agent batch)
 3. FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap -> unlocks H2
 4. Live C1 observation against the real 2070 endpoint -> required before any C1 batch is scored
 5. Decide H1 on dev, re-freeze the strategy D/E/H inherit -> re-run inheriting arms if the winner differs
@@ -100,3 +116,5 @@ G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experi
 | 12 | 2026-08-16 | [043](coordinator-handoff-043.md) | T09 (orchestrator) | T08 added `frontier_spend` gates, F/G suite scaffolding in `suites/frontier_hybrid.py`, synthetic harness driver, and `docs/FRONTIER_CREDENTIALS.md`. Spend-cap hooks refuse without `frontier_id`, provider credentials, and total spend cap. Synthetic harness freeze only; no paid calls. T08 WaitingHuman on `FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE`; not Done. T09 dep on T08 — orchestrator decides next |
 | 13 | 2026-08-16 | [044](coordinator-handoff-044.md) | T10 | T09 added `hybrid_route.py`, `held_out.py`, `suites/hybrid_h.py`, `v10-hybrid-held-out.yaml`, synthetic harness freeze (`e3eba0ed…`, 15 slots), and `docs/HYBRID_H_HELD_OUT.md`. Route stub: preflight→local Qwen→conditional recursive→verify→typed frontier escalate; refuses paid escalation without credentials. Held-out test split reserved (config-loader, text-normalizer since T07). No paid or official scored batches. T09 WaitingHuman; not Done. T10 may proceed on frozen partial evidence |
 | 14 | 2026-08-16 | [045](coordinator-handoff-045.md) | none (human gates) | T10 analyzed the six frozen result sets and sealed handoffs 034–044 and produced `reports/V10_RESULTS.md`, `docs/THREAT_TO_VALIDITY.md`, `docs/GO_NO_GO.md`, `reports/DEEPER_EVAL.md`, and `reports/LITERATURE_COMPARISON.md`. Zero of five hypotheses decided; no threshold evaluable; no primary test run. Go/no-go decision is **HOLD** — epic §32 branches A–E are all unavailable on evidence, branch B is closest and still unearned. Literature verified against arXiv:2607.24882, 2603.03823, 2605.14415, 2506.09289 and the SWE-bench ICLR 2024 lineage; a metric-naming defect was found (V10's frozen "ANC" is EvoScore at γ=1, discarding the paper's future weighting). Epic status set to `blocked_waiting_human` |
+| 15 | 2026-08-16 | — | human gates | Cleared `EXECUTE_FROZEN_PLATFORM_AGENT_ON_LONGITUDINAL_CORPUS`: ACP `agentctl eval dispatch` (`maintenance_eval_dispatch.v1`), harness `--with-agent`, experiment version `1.2.0-eval-dispatch`; smoke `results/v10-t07b-longitudinal-de-agent-smoke-v1` (6/6 `agent_execution=true`); T07 `result_set_sha256` `6f2fe308…` unchanged; H3 still unclaimed |
+| 16 | 2026-08-16 | [046](coordinator-handoff-046.md) | Wave B (human-authorized) | Wave A sealed. Three provenance-split commits: `maintenance-evals@886c970` corpora clearance, `maintenance-evals@fb7bde1` `--with-agent` harness, ACP `657a445` `agentctl eval dispatch` (pushed). `DEPLOY_VERIFY: PASS` — CT103+CT104 pinned to `657a445`, runtime delta vs prior deploy `e5d91ce` is only `cli.py` + `eval_dispatch.py`; in-container dispatch returned `agent_execution=true`; host smoke 6/6; T07 `6f2fe308…` unchanged. ACP ruff clean + 905 tests, harness ruff clean + 179 tests. No scored result, no paid call, 0/5 hypotheses. Findings: CT102 CI red at `Lint` from unpinned `ruff>=0.4` (0.16.3 → 391 pre-existing errors; green at `2532de7`, red since `d9dae98`) so deploy was by host pin; CT104 carries a real `sk-…` model API key predating this wave; in-container `control_plane_sha` needs `CONTROL_PLANE_SHA` set |
