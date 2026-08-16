@@ -51,7 +51,7 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 |---|---|
 | Handoff | [048](coordinator-handoff-048.md) |
 | ACP commits | `0951e56` (C1 local-only + timing truth), `027ad9f` (model-id provenance); both pushed |
-| Deployed tip | `027ad9f06328f9b55f217b042d14c2fcb2beb25d` on CT103 **and** CT104 |
+| Deployed tip | `027ad9f06328f9b55f217b042d14c2fcb2beb25d` on CT103 **and** CT104; docs tip since advanced by docs-only seal commits (`b491b6e`, `1b9be38`, `ca657a1`) |
 | Deploy verify | [deploy-verify-v10-wave-c-20260816.md](deploy-verify-v10-wave-c-20260816.md) — **PASS** |
 | **`c1_proof`** | **FAIL** — `controller_model_invoked=false` |
 | Cause | RTX 2070 host `msi` (`100.125.235.54`) offline, `last seen 12h ago`; ping no reply; LAN sweep finds no alternate `:11434` |

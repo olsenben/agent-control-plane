@@ -7,7 +7,8 @@
 | Handoff ID | 048 |
 | Date (UTC) | 2026-08-16 |
 | Slice / wave | V10 Wave C — prove live C1 against the real 2070 |
-| ACP tip / deployed SHA | `027ad9f06328f9b55f217b042d14c2fcb2beb25d` (CT103 + CT104) |
+| ACP deployed SHA | `027ad9f06328f9b55f217b042d14c2fcb2beb25d` (CT103 + CT104, both verified) |
+| ACP docs tip | advanced past the deployed SHA by docs-only seal commits (`b491b6e`, `1b9be38`, `ca657a1`), same convention as Wave A |
 | Epic | V10 Maintenance Evaluation & Economic Bake-off |
 | Prior handoffs | [046](coordinator-handoff-046.md), [047](coordinator-handoff-047.md) |
 | `stopped_reason` | `blocker` |
