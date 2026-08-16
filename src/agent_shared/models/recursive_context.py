@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 SCHEMA_VERSION = "recursive_context_result.v1"
 
+ControllerBackend = Literal["deterministic", "model"]
+
 StopReason = Literal[
     "deterministic_preflight_sufficient",
     "sufficient_evidence",
@@ -79,6 +81,21 @@ class RecursiveContextResult(BaseModel):
     controller_mode: Literal["skipped", "deterministic", "model_2070", "fallback_deterministic"] = (
         "skipped"
     )
+    # V10 T00.5 — C0/C1 controller telemetry. Additive with defaults so existing
+    # recursive_context_result.v1 artifacts stay loadable.
+    controller_backend: ControllerBackend = "deterministic"
+    controller_model_invoked: bool = False
+    controller_role: str = ""
+    controller_role_label: str = ""
+    controller_model_id: str = ""
+    controller_provider: str = ""
+    controller_attempts: int = 0
+    controller_prompt_tokens: int = 0
+    controller_completion_tokens: int = 0
+    controller_wall_seconds: float = 0.0
+    controller_gpu_seconds: float = 0.0
+    controller_data_left_homelab: bool = False
+    controller_error_class: str = ""
     trajectory_relative_path: str = ""
     artifact_digest: str = ""
     created_at: str = ""

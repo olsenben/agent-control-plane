@@ -332,6 +332,7 @@ def prepare_typed_rlm_dispatch(
             load_recursive_context_artifact,
             persist_recursive_context_artifact,
         )
+        from agent_control.recursive_context.telemetry import controller_telemetry_payload
         from agent_control.recursive_context.worker import run_conditional_recursive_context
         from agent_control.session.events import append_recursive_context_completed
 
@@ -348,6 +349,7 @@ def prepare_typed_rlm_dispatch(
                     preflight=preflight,
                     settings=settings,
                     state_root=state_root,
+                    controller_backend=settings.recursive_context_controller_backend or None,
                 )
                 rc_result, rc_ref, rc_created = persist_recursive_context_artifact(
                     state_root, rc_result
@@ -362,6 +364,7 @@ def prepare_typed_rlm_dispatch(
                         skipped=rc_result.skipped,
                         stop_reason=rc_result.stop_reason,
                         relative_path=rc_ref.relative_path,
+                        controller_telemetry=controller_telemetry_payload(rc_result),
                     )
                 session = session.model_copy(
                     update={"recursive_context": rc_ref, "updated_at": _now()}

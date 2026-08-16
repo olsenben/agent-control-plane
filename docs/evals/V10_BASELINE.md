@@ -1,8 +1,11 @@
 # V10 platform baseline
 
-**Status:** `LIVE_CERTIFIED` (trust boundary and deployed runtime; final tagged documentation SHA pending commit)  
+**Status:** `LIVE_CERTIFIED`  
 **Recorded (UTC):** 2026-08-16  
-**Scope:** V10 T00 platform freeze; no agent behavior change
+**Scope:** V10 T00 platform freeze; no agent behavior change  
+**Amendments:** T00.5 re-pinned `config/recursive_context.yaml` for the additive `controller_backend` key
+(see [Recursive-context budgets](#recursive-context-budgets) and
+[slice-v10-t005-recursive-controller.md](../slice-v10-t005-recursive-controller.md))
 
 This document records the repository-known and live-certified platform baseline. The final documentation/tag SHA and unknown CT102 runner version remain explicit follow-ups; they do not change the certified trust boundary.
 
@@ -10,10 +13,10 @@ This document records the repository-known and live-certified platform baseline.
 
 | Field | Frozen value |
 |-------|--------------|
-| `baseline_tag` | `eval-baseline-2026-08` (create after the T00 documentation commit) |
+| `baseline_tag` | `eval-baseline-2026-08` |
 | Live-deployed agent-control-plane Git SHA (CT103 and CT104) | `4376ef417e29f14bf05d2fcee89c0ab2739f2ddb` |
 | Observatory contract source pin | `fba0846624fc5dfbdf762b06391d181ef9ce7beb` (V9 completed tip) |
-| Final tagged agent-control-plane Git SHA | `PENDING_COMMIT` |
+| Final tagged agent-control-plane Git SHA | `2532de7cf5098baa461e49b92e0d338c089cff45` (`eval-baseline-2026-08`) |
 | CT103 `control-plane` image ID | `sha256:f743c713baa1c756dda4adf330e5908ee6fbad92cb47118fdc51945b6763226a` |
 | CT103 `publish-broker` image ID | `sha256:99185d42d19e97f30b3d614a147b928a6d00172563b3316a58e73705b475bdcc` |
 | CT103 `worker-state` image ID | `sha256:987fe2ba4b5710a6aa07c2b89a5935fd7721e6e7f196a165602b0b93516ec179` |
@@ -40,13 +43,17 @@ This document records the repository-known and live-certified platform baseline.
 
 ## Recursive-context budgets
 
-`config/recursive_context.yaml` file SHA-256: `d438a2eea3c907a05cfa4e2c3b06fc4e2809e67d309805cb7ade7bdbf2d70034`.
+`config/recursive_context.yaml` file SHA-256: `8258dc951f65aa04b8331293574ce3533fabf33a1798926c49468fad94ecc9c5`.
+
+**T00.5 platform-freeze amendment (2026-08-16).** T00 pinned this file at `d438a2eea3c907a05cfa4e2c3b06fc4e2809e67d309805cb7ade7bdbf2d70034`. T00.5 added the single key `controller_backend: deterministic` (plus its explanatory comment) and re-pinned the SHA above. No budget, tool allowlist, or capability value changed, and the production default arm is still the deterministic controller, so the frozen behavior of the baseline is unchanged. Every later ticket must cite the amended SHA.
 
 | Budget | Frozen value |
 |--------|--------------|
 | Invocation | conditional |
-| Controller role | `gpu-2070` |
-| Primary model role | `summarizer` |
+| Controller backend (default) | `deterministic` (C0) |
+| Controller backend (experiment) | `model` (C1) via `RECURSIVE_CONTEXT_CONTROLLER_BACKEND` or `--controller-backend` |
+| Controller role | `gpu-2070` (policy label) |
+| Primary model role | `summarizer` (gateway role mapping to `MODEL_2070_*`) |
 | Maximum depth / subcalls | 2 / 6 |
 | Maximum graph queries / memory records | 20 / 24 |
 | Maximum wall time | 180 seconds |
@@ -86,7 +93,8 @@ The frozen repository hashes above are the T00 policy/config pins. Per-repositor
 
 - The final tagged SHA cannot be known before these documentation changes are committed; create `eval-baseline-2026-08` from that docs-only commit without changing agent behavior.
 - CT102 runner/version remains `PENDING_LIVE_CERT` and is a `DEEPER_EVAL` inventory item before scored evaluation.
-- The live 2070 configuration is `MODEL_2070_NAME=qwen2.5-coder:3b`, not the previously assumed 7B model. T00.5 must use the configured `MODEL_2070_NAME`; the installed 7B model is not the baseline controller unless a later frozen change explicitly selects it.
-- T00 does not prove or change the T00.5 `controller_backend` behavior. The live model inventory is not evidence that a recursive-controller call occurred.
+- The live 2070 configuration is `MODEL_2070_NAME=qwen2.5-coder:3b`, not the previously assumed 7B model. T00.5 uses the configured `MODEL_2070_NAME`; the installed 7B model is not the baseline controller unless a later frozen change explicitly selects it.
+- T00 does not prove or change the T00.5 `controller_backend` behavior. The live model inventory is not evidence that a recursive-controller call occurred; only `controller_model_invoked=true` with a resolved `controller_model_id` is.
+- T00.5 amended `config/recursive_context.yaml` (see the re-pinned SHA above) to add the C0/C1 arm selector. No other frozen platform identifier changed.
 - External model health also reports OpenAI URLs, and configured fallbacks are `gpt-4.1` / `gpt-4o-mini`; evaluation arms must prevent unintended external routing and record any paid fallback use.
 - Verification claims remain scoped to machine-recorded evidence and the named adequacy profile; they are not universal correctness claims.

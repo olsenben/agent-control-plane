@@ -5,6 +5,10 @@
 recursive_context:
   enabled: true
   invocation: conditional
+  # V10 T00.5 experiment arm selector. `deterministic` (C0) is the production
+  # default; `model` (C1) additionally calls the configured 2070 controller.
+  # Override per run with RECURSIVE_CONTEXT_CONTROLLER_BACKEND or --controller-backend.
+  controller_backend: deterministic
   controller_role: gpu-2070
   primary_model_role: summarizer
   max_depth: 2

@@ -291,6 +291,7 @@ def append_recursive_context_completed(
     skipped: bool,
     stop_reason: str,
     relative_path: str,
+    controller_telemetry: dict[str, Any] | None = None,
 ) -> tuple[Path, bool]:
     at = _now()
     payload = {
@@ -301,6 +302,7 @@ def append_recursive_context_completed(
         "stop_reason": stop_reason,
         "relative_path": relative_path,
         "schema": "recursive_context_result.v1",
+        **(controller_telemetry or {}),
     }
     return append_session_event(
         state_root,

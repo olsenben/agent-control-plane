@@ -154,6 +154,14 @@ class Settings(BaseSettings):
         alias="MODEL_ROUTING_POLICY",
         description="Platform-owned engine selection passed to CT104 jobs (fake, official, local, ...)",
     )
+    recursive_context_controller_backend: str = Field(
+        default="",
+        alias="RECURSIVE_CONTEXT_CONTROLLER_BACKEND",
+        description=(
+            "V10 T00.5 experiment arm: 'deterministic' (C0) or 'model' (C1). "
+            "Empty defers to config/recursive_context.yaml, whose default is deterministic."
+        ),
+    )
     fix_remote_publish_enabled: bool = Field(
         default=False,
         alias="FIX_REMOTE_PUBLISH_ENABLED",

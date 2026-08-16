@@ -10,7 +10,12 @@ from typing import Any
 
 from agent_control.config import Settings, get_settings
 from agent_control.project_identity import sanitize_path_segment
-from agent_control.recursive_context.config import budget_from_config, load_recursive_context_config
+from agent_control.recursive_context.config import (
+    budget_from_config,
+    controller_roles,
+    load_recursive_context_config,
+    resolve_controller_backend,
+)
 from agent_control.recursive_context.tools import PrimaryModelFn, ReadOnlyToolBelt, ToolBudget
 from agent_control.session.storage import sessions_dir
 from agent_shared.models.memory_preflight import MemoryPreflight
@@ -50,16 +55,24 @@ def run_conditional_recursive_context(
     primary_model: PrimaryModelFn | None = None,
     force_invoke: bool = False,
     budget: RecursiveContextBudget | None = None,
+    controller_backend: str | None = None,
 ) -> RecursiveContextResult:
     """Invoke 2070-style recursive exploration only when preflight requires it.
 
     False path: returns recursive_context_result.v1 with skipped=True and never
     constructs a model client. True path: bounded read-only tool loop with
-    mandatory evidence citations; falls back to deterministic tools if no model.
+    mandatory evidence citations.
+
+    `controller_backend` selects the V10 T00.5 arm: `deterministic` (C0) keeps
+    the allowlisted read-only fallback plan, `model` (C1) additionally routes
+    `call_primary_model` to the configured 2070 controller. Unset resolves from
+    RECURSIVE_CONTEXT_CONTROLLER_BACKEND and then config/recursive_context.yaml.
     """
     settings = settings or get_settings()
     state_root = state_root or settings.agent_state_root
     cfg = load_recursive_context_config()
+    backend = resolve_controller_backend(cfg, settings=settings, override=controller_backend)
+    gateway_role, role_label = controller_roles(cfg)
     # Re-validate so budget identity matches RecursiveContextResult's model class
     # (avoids pydantic model_type errors under editable/CI import edges).
     raw_budget = budget if budget is not None else budget_from_config(cfg)
@@ -85,6 +98,9 @@ def run_conditional_recursive_context(
             budget=budget,
             stop_reason="deterministic_preflight_sufficient",
             controller_mode="skipped",
+            controller_backend=backend,
+            controller_role=gateway_role,
+            controller_role_label=role_label,
             created_at=created,
             remaining_uncertainty=list(preflight.uncertainty)[:10],
             recommended_next_evidence=["use_deterministic_preflight"],
@@ -107,6 +123,9 @@ def run_conditional_recursive_context(
             budget=budget,
             stop_reason="policy_denied",
             controller_mode="skipped",
+            controller_backend=backend,
+            controller_role=gateway_role,
+            controller_role_label=role_label,
             created_at=created,
             evidence_refs=["policy:recursive_context.enabled=false"],
         )
@@ -115,6 +134,26 @@ def run_conditional_recursive_context(
     traj = _trajectory_path(state_root, preflight.repo, preflight.session_id)
     if traj.is_file():
         traj.unlink()
+
+    from agent_control.recursive_context.model_client import ControllerTelemetry
+
+    telemetry = ControllerTelemetry(backend=backend, role=gateway_role, role_label=role_label)
+    builtin_controller = False
+    if primary_model is None and backend == "model":
+        from agent_control.recursive_context.model_client import build_controller_model_fn
+
+        primary_model = build_controller_model_fn(
+            role=gateway_role,
+            role_label=role_label,
+            project=preflight.repo,
+            run_id=preflight.run_id,
+            session_id=preflight.session_id,
+            budget=budget,
+            settings=settings,
+            state_root=state_root,
+            telemetry=telemetry,
+        )
+        builtin_controller = True
 
     tools = ReadOnlyToolBelt(
         project=preflight.repo,
@@ -150,6 +189,8 @@ def run_conditional_recursive_context(
             "run_id": preflight.run_id,
             "reasons": reasons,
             "question": q,
+            "controller_backend": backend,
+            "controller_role": gateway_role,
             "at": created,
         },
     )
@@ -246,7 +287,12 @@ def run_conditional_recursive_context(
                 uncertainty.append("graph_gaps_in_affected_tests")
                 next_evidence.append("refresh_graph_snapshot")
 
-    if primary_model is None and mode == "deterministic":
+    if builtin_controller and not telemetry.model_invoked:
+        # C1 selected but every route failed — fail soft into C0 semantics.
+        mode = "fallback_deterministic"
+        if stop_reason == "sufficient_evidence":
+            stop_reason = "fallback_deterministic"
+    elif primary_model is None and mode == "deterministic":
         # Mark fallback when we never had a live 2070 client.
         mode = "fallback_deterministic"
         if stop_reason == "sufficient_evidence":
@@ -268,6 +314,8 @@ def run_conditional_recursive_context(
         graph_queries=tool_budget.graph_queries,
         memory_records=tool_budget.memory_records,
         wall_seconds=round(time.monotonic() - started, 3),
+        input_tokens=telemetry.prompt_tokens,
+        output_tokens=telemetry.completion_tokens,
         tool_calls=len(subcalls),
     )
 
@@ -278,7 +326,12 @@ def run_conditional_recursive_context(
 
     _append_trajectory(
         traj,
-        {"event": "stop", "stop_reason": stop_reason, "budget_used": used.model_dump()},
+        {
+            "event": "stop",
+            "stop_reason": stop_reason,
+            "budget_used": used.model_dump(),
+            **telemetry.as_dict(),
+        },
     )
 
     return RecursiveContextResult(
@@ -306,6 +359,19 @@ def run_conditional_recursive_context(
         budget_used=used,
         stop_reason=stop_reason,  # type: ignore[arg-type]
         controller_mode=mode,  # type: ignore[arg-type]
+        controller_backend=backend,
+        controller_model_invoked=telemetry.model_invoked,
+        controller_role=gateway_role,
+        controller_role_label=role_label,
+        controller_model_id=telemetry.model_id,
+        controller_provider=telemetry.provider,
+        controller_attempts=telemetry.attempts,
+        controller_prompt_tokens=telemetry.prompt_tokens,
+        controller_completion_tokens=telemetry.completion_tokens,
+        controller_wall_seconds=round(telemetry.wall_seconds, 3),
+        controller_gpu_seconds=round(telemetry.gpu_seconds, 3),
+        controller_data_left_homelab=telemetry.data_left_homelab,
+        controller_error_class=telemetry.error_class,
         trajectory_relative_path=rel_traj,
         created_at=created,
         allow_repo_write=False,

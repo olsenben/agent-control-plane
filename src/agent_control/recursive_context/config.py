@@ -8,9 +8,12 @@ from typing import Any
 
 import yaml
 
-from agent_shared.models.recursive_context import RecursiveContextBudget
+from agent_shared.models.recursive_context import ControllerBackend, RecursiveContextBudget
 
 _DEFAULT_PATH = Path(__file__).resolve().parents[3] / "config" / "recursive_context.yaml"
+
+CONTROLLER_BACKENDS: frozenset[str] = frozenset({"deterministic", "model"})
+DEFAULT_CONTROLLER_BACKEND: ControllerBackend = "deterministic"
 
 
 @lru_cache(maxsize=4)
@@ -35,6 +38,44 @@ def budget_from_config(cfg: dict[str, Any] | None = None) -> RecursiveContextBud
         max_total_output_tokens=int(root.get("max_total_output_tokens", 12000)),
         output_max_chars=int(root.get("output_max_chars", 16000)),
     )
+
+
+def resolve_controller_backend(
+    cfg: dict[str, Any] | None = None,
+    *,
+    settings: Any | None = None,
+    override: str | None = None,
+) -> ControllerBackend:
+    """Pick the V10 T00.5 controller arm.
+
+    Precedence: explicit CLI/caller override, then
+    ``RECURSIVE_CONTEXT_CONTROLLER_BACKEND``, then the yaml pin. Anything
+    unrecognised falls back to ``deterministic`` so the production arm can never
+    be switched on by a typo.
+    """
+    root = (cfg or load_recursive_context_config()).get("recursive_context") or {}
+    if settings is None:
+        from agent_control.config import get_settings
+
+        settings = get_settings()
+    candidates = (
+        override,
+        getattr(settings, "recursive_context_controller_backend", ""),
+        root.get("controller_backend"),
+    )
+    for candidate in candidates:
+        value = str(candidate or "").strip().lower()
+        if value in CONTROLLER_BACKENDS:
+            return value  # type: ignore[return-value]
+    return DEFAULT_CONTROLLER_BACKEND
+
+
+def controller_roles(cfg: dict[str, Any] | None = None) -> tuple[str, str]:
+    """Return (gateway_role, policy_role_label) for the recursive controller."""
+    root = (cfg or load_recursive_context_config()).get("recursive_context") or {}
+    gateway_role = str(root.get("primary_model_role") or "summarizer").strip()
+    label = str(root.get("controller_role") or "gpu-2070").strip()
+    return gateway_role, label
 
 
 def allowed_tools(cfg: dict[str, Any] | None = None) -> frozenset[str]:

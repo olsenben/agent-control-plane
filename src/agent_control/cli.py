@@ -768,6 +768,12 @@ def rlm() -> None:
 @click.option("--session-id", default=None, help="sess-… to load stored result")
 @click.option("--query", default="", help="Focused question for recursive context")
 @click.option("--force", is_flag=True, help="Force invoke even if preflight would skip")
+@click.option(
+    "--controller-backend",
+    type=click.Choice(["deterministic", "model"]),
+    default=None,
+    help="V10 T00.5 arm: deterministic (C0) or model (C1); default from env/yaml",
+)
 def rlm_inspect(
     digest: str | None,
     run_id: str | None,
@@ -775,6 +781,7 @@ def rlm_inspect(
     session_id: str | None,
     query: str,
     force: bool,
+    controller_backend: str | None,
 ) -> None:
     """Inspect recursive context (8c) or legacy digest stub."""
     if digest and not (run_id or session_id):
@@ -838,6 +845,7 @@ def rlm_inspect(
         settings=settings,
         state_root=settings.agent_state_root,
         force_invoke=force,
+        controller_backend=controller_backend,
     )
     click.echo(result.model_dump_json(indent=2))
 
@@ -847,11 +855,24 @@ def rlm_inspect(
 @click.option("--run-id", required=True)
 @click.option("--session-id", required=True)
 @click.option("--query", default="")
-def rlm_run(project: str, run_id: str, session_id: str, query: str) -> None:
+@click.option(
+    "--controller-backend",
+    type=click.Choice(["deterministic", "model"]),
+    default=None,
+    help="V10 T00.5 arm: deterministic (C0) or model (C1); default from env/yaml",
+)
+def rlm_run(
+    project: str,
+    run_id: str,
+    session_id: str,
+    query: str,
+    controller_backend: str | None,
+) -> None:
     """Run conditional recursive context using a stored memory_preflight.json."""
     settings = get_settings()
     from agent_control.memory.preflight_artifacts import load_preflight_artifact
     from agent_control.recursive_context.artifacts import persist_recursive_context_artifact
+    from agent_control.recursive_context.telemetry import controller_telemetry_payload
     from agent_control.recursive_context.worker import run_conditional_recursive_context
 
     preflight = load_preflight_artifact(settings.agent_state_root, project, session_id)
@@ -862,6 +883,7 @@ def rlm_run(project: str, run_id: str, session_id: str, query: str) -> None:
         question=query,
         settings=settings,
         state_root=settings.agent_state_root,
+        controller_backend=controller_backend,
     )
     stamped, ref, created = persist_recursive_context_artifact(settings.agent_state_root, result)
     click.echo(
@@ -870,6 +892,7 @@ def rlm_run(project: str, run_id: str, session_id: str, query: str) -> None:
                 "created": created,
                 "digest": ref.digest,
                 "relative_path": ref.relative_path,
+                "controller_telemetry": controller_telemetry_payload(stamped),
                 "result": stamped.model_dump(mode="json"),
             },
             indent=2,
