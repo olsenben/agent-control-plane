@@ -3,11 +3,9 @@
 **Status:** `LIVE_CERTIFIED`  
 **Recorded (UTC):** 2026-08-16  
 **Scope:** V10 T00 platform freeze; no agent behavior change  
-**Amendments:** T00.5 re-pinned `config/recursive_context.yaml` for the additive `controller_backend` key
-(see [Recursive-context budgets](#recursive-context-budgets) and
-[slice-v10-t005-recursive-controller.md](../slice-v10-t005-recursive-controller.md))
+**Amendments:** T00.5 re-pinned `config/recursive_context.yaml` for the additive `controller_backend` key (see [Recursive-context budgets](#recursive-context-budgets) and [slice-v10-t005-recursive-controller.md](../slice-v10-t005-recursive-controller.md))
 
-This document records the repository-known and live-certified platform baseline. The final documentation/tag SHA and unknown CT102 runner version remain explicit follow-ups; they do not change the certified trust boundary.
+This document records the repository-known and live-certified platform baseline. The unknown CT102 runner version remains an explicit follow-up; it does not change the certified trust boundary.
 
 ## Identity
 
@@ -91,7 +89,7 @@ The frozen repository hashes above are the T00 policy/config pins. Per-repositor
 
 ## Known limitations
 
-- The final tagged SHA cannot be known before these documentation changes are committed; create `eval-baseline-2026-08` from that docs-only commit without changing agent behavior.
+- The final tagged SHA is resolved: `eval-baseline-2026-08` points at the docs-only T00 commit `2532de7cf5098baa461e49b92e0d338c089cff45`, which changed no agent behavior.
 - CT102 runner/version remains `PENDING_LIVE_CERT` and is a `DEEPER_EVAL` inventory item before scored evaluation.
 - The live 2070 configuration is `MODEL_2070_NAME=qwen2.5-coder:3b`, not the previously assumed 7B model. T00.5 uses the configured `MODEL_2070_NAME`; the installed 7B model is not the baseline controller unless a later frozen change explicitly selects it.
 - T00 does not prove or change the T00.5 `controller_backend` behavior. The live model inventory is not evidence that a recursive-controller call occurred; only `controller_model_invoked=true` with a resolved `controller_model_id` is.
