@@ -1,138 +1,131 @@
-# V10 T00.5 — experimental live 2070 recursive-controller hook (C0/C1)
+# V10 T00.5 — live 2070 recursive-controller hook and C0/C1 proof
 
-**Ticket:** V10 T00.5 · **Deps:** T00 (platform baseline freeze) · **Scope:** `agent-control-plane` only
+**Ticket:** V10 T00.5 (`C0/C1 controller_backend truth`)
+**Gate:** G2 (C0/C1 telemetry truth). Also touches G3 (platform freeze) via a re-pin.
+**Status:** code done; CT103/CT104 deploy verification pending.
 
-## Goal
+## Problem
 
-Make the already-scaffolded conditional recursive path runnable in two explicit,
-telemetry-provable evaluation arms without changing production behavior:
-
-```text
-controller_backend = deterministic   # C0 — existing read-only fallback plan
-controller_backend = model           # C1 — live configured 2070 controller call
-```
-
-Gate G2 requires that C0 is never mislabeled as a 2070 RLM run, and that C1 is
-only claimed when a model call actually happened.
-
-## Verified pre-change behavior
-
-`prepare_typed_rlm_dispatch` called `run_conditional_recursive_context` without a
-`primary_model`, and no other production caller supplied one. The
-`call_primary_model` tool therefore always took its deterministic branch and every
-live run ended as `controller_mode=fallback_deterministic`. The V10 epic's
-"current-build assumption" is confirmed: the recursive path was scaffolded but had
-no live controller client at all.
+V10's context ablation compares a deterministic controller arm (C0) against a live
+2070-model controller arm (C1). Before T00.5 the arms were indistinguishable in
+practice: `run_conditional_recursive_context` accepted a `primary_model` callable,
+but no production caller ever passed one, so the `call_primary_model` tool always
+returned the deterministic stub and every run recorded
+`controller_mode="fallback_deterministic"`. There was no way to select an arm, and
+no artifact field that could prove whether a controller model had actually run.
+Any C0-vs-C1 comparison made on that basis would have compared C0 against C0.
 
 ## What changed
 
-| Area | Change |
-|------|--------|
-| `config/recursive_context.yaml` | New `controller_backend: deterministic` key. Budgets, tool allowlist, and capability flags unchanged. |
-| `agent_control/config.py` | New `RECURSIVE_CONTEXT_CONTROLLER_BACKEND` setting; empty defers to yaml. |
-| `agent_control/recursive_context/config.py` | `resolve_controller_backend()` (override → env → yaml → `deterministic`) and `controller_roles()`. |
-| `agent_control/recursive_context/model_client.py` | New. Builds a `call_primary_model` implementation routed through `chat_completion_with_failover` and records `ControllerTelemetry`. |
-| `agent_control/recursive_context/telemetry.py` | New. Flat G2 telemetry projection for events and CLI output. |
-| `agent_control/recursive_context/worker.py` | Resolves the arm, builds the controller only on the true path under C1, records telemetry, fails soft. |
-| `agent_shared/models/recursive_context.py` | Additive `controller_*` fields on `recursive_context_result.v1`, all defaulted. |
-| `agent_control/session/events.py` | `agent.recursive_context_completed` carries the controller telemetry block. |
-| `agent_control/session/prepare_dispatch.py` | Passes the env-selected arm through and emits telemetry. |
-| `agent_control/cli.py` | `agentctl rlm inspect|run --controller-backend deterministic|model`. |
+### 1. Arm selector with a production-safe default
 
-## Arm selection
+`config/recursive_context.yaml` gains one additive key, `controller_backend`,
+pinned to `deterministic`. Resolution order is caller override, then the
+`RECURSIVE_CONTEXT_CONTROLLER_BACKEND` environment variable, then the yaml pin,
+implemented in `resolve_controller_backend`. An unrecognised value resolves to
+`deterministic` rather than raising, so a typo in an experiment harness can never
+silently switch the production arm to a live model.
 
-Precedence, highest first:
+Selection surfaces:
 
-1. explicit caller/CLI `--controller-backend`
-2. `RECURSIVE_CONTEXT_CONTROLLER_BACKEND`
-3. `config/recursive_context.yaml: recursive_context.controller_backend`
-4. `deterministic`
+- environment: `RECURSIVE_CONTEXT_CONTROLLER_BACKEND=model`
+- CLI: `agentctl rlm run --controller-backend model` and `agentctl rlm inspect --controller-backend model`
+- `prepare_typed_rlm_dispatch` reads `settings.recursive_context_controller_backend` and passes it through; empty means "defer to yaml".
 
-Any unrecognized value resolves to `deterministic`, so the production arm cannot be
-switched on by a typo or a stale environment string.
+### 2. Live controller client
 
-## Behavior contract
+`recursive_context/model_client.py` builds the `call_primary_model` implementation
+for the C1 arm on top of `chat_completion_with_failover`, using the gateway role
+from `primary_model_role` (`summarizer`, which maps to the `MODEL_2070_*`
+endpoint) with `controller_role: gpu-2070` retained as the policy label. The live
+model identifier is not hardcoded; it is read back from the endpoint response and
+recorded as `controller_model_id` (currently `qwen2.5-coder:3b` per the frozen
+baseline).
 
-```text
-recursive_context_required = false
-    -> return skipped recursive_context_result.v1
-    -> no controller client is constructed, in either arm
+The controller stays inside the existing authority boundary. Its system prompt
+grants it no authority over policy, budgets, credentials, verification,
+publication, or repository state, and its user prompt carries the focused question
+plus evidence *references* only — never file contents or secrets. The read-only
+tool belt, the deterministic tool plan, and the budget ceilings are unchanged, so
+C1 differs from C0 in exactly one respect: whether the `call_primary_model` step
+reaches the 2070 controller.
 
-recursive_context_required = true, backend = deterministic
-    -> existing allowlisted read-only tool plan
-    -> controller_model_invoked = false, controller_mode = fallback_deterministic
+### 3. Fail-soft inside the worker
 
-recursive_context_required = true, backend = model
-    -> same typed read-only tool plan and same CT103 budgets
-    -> call_primary_model routed to the `summarizer` gateway role (MODEL_2070_*)
-    -> controller_model_invoked = true, controller_mode = model_2070
-    -> on any route failure: deterministic summary, controller_model_invoked = false,
-       controller_mode = fallback_deterministic, controller_error_class recorded,
-       and a valid recursive_context_result.v1 is still produced
-```
+Any exception from the gateway, an empty completion, or an exhausted input-token
+budget degrades to the deterministic summary inside the worker. The run still
+produces a valid `recursive_context_result.v1` with
+`controller_mode="fallback_deterministic"`, `controller_model_invoked=false`, and
+`controller_error_class` naming the failure. It does not escape into
+`prepare_dispatch`'s failed-only path, so a cold or unreachable 2070 host degrades
+the arm rather than losing the artifact.
 
-The C1 prompt carries the focused question and evidence *references* only. No file
-contents, secrets, or policy text are sent, and the controller has no authority over
-policy, budgets, verification, publication, memory admission, or canonical state.
+### 4. Telemetry that can settle the C0/C1 question
 
-## Telemetry (gate G2)
-
-`controller_telemetry_payload()` projects these onto the artifact, the
-`agent.recursive_context_completed` event, the trajectory `stop` record, and
-`agentctl rlm run` output:
-
-`recursive_context_required`, `recursive_context_invoked`, `controller_backend`,
-`controller_mode`, `controller_model_invoked`, `controller_role`,
+`RecursiveContextResult` gains additive, defaulted fields:
+`controller_backend`, `controller_model_invoked`, `controller_role`,
 `controller_role_label`, `controller_model_id`, `controller_provider`,
 `controller_attempts`, `controller_prompt_tokens`, `controller_completion_tokens`,
 `controller_wall_seconds`, `controller_gpu_seconds`,
-`controller_data_left_homelab`, `controller_error_class`, `invocation_reasons`,
-`stop_reason`.
+`controller_data_left_homelab`, and `controller_error_class`. Token counts also
+flow into `budget_used.input_tokens` / `output_tokens`. GPU time is taken from the
+endpoint's own timings (Ollama reports `eval_duration` in nanoseconds) and stays
+`0.0` when the endpoint does not report it.
 
-`controller_gpu_seconds` is populated only when the endpoint reports timing (for
-example Ollama `eval_duration`); it is `0.0` otherwise rather than estimated.
-Controller token counts are also mirrored into `budget_used.input_tokens` /
-`budget_used.output_tokens`.
+`controller_telemetry_payload` projects the gate-G2 fields
+(`recursive_context_required`, `recursive_context_invoked`, `controller_backend`,
+`controller_model_invoked`, `controller_role`, `controller_model_id`,
+`invocation_reasons`, tokens, wall/GPU seconds, `stop_reason`) onto the
+`agent.recursive_context_completed` event and the `rlm run` CLI output.
 
-## Non-goals honored
+Every new field is optional with a default, so artifacts written before this
+slice still validate. Stored results are reused rather than recomputed when a
+session already has one, so the added fields cannot raise
+`ArtifactConflictError` on an existing session.
 
-- Recursion is still conditional; nothing made it always-on.
-- No recurrent/SSM controller was added.
-- The authority boundary is unchanged: CT103 still owns deterministic preflight,
-  `recursive_context_required`, budgets, policy, canonical state, memory admission,
-  verification, and publication.
-- Default production behavior is byte-identical to the T00 baseline arm.
+### 5. Platform-freeze amendment
 
-## Tests
+Adding the yaml key changed the file SHA, so `docs/evals/V10_BASELINE.md` re-pins
+`config/recursive_context.yaml` to
+`8258dc951f65aa04b8331293574ce3533fabf33a1798926c49468fad94ecc9c5` and records the
+amendment against the T00 pin. No budget, allowlist, or capability value changed.
 
-`tests/test_v10_t005_controller_backend.py`:
+## What did not change
 
-- yaml default is `deterministic`; override → env → yaml precedence; invalid value falls back.
-- `recursive_context_required=false` makes no model call even with the C1 env set.
-- C0 on a qualifying task: no gateway call, `controller_model_invoked=false`.
-- C1 on the same preflight object: one gateway call at role `summarizer`, model id,
-  token counts, and GPU seconds recorded.
-- C0 vs C1 on the identical preflight differ only by arm (same question, reasons,
-  tool sequence, and budgets).
-- C1 route exhaustion fails soft to a schema-valid result with the error class recorded.
-- Both arms remain read-only and evidence-citing.
-- `prepare_typed_rlm_dispatch` defaults to C0 and honors the C1 env override, with the
-  telemetry present on the emitted event.
+Recursion is still conditional, not always-on: `recursive_context_required=false`
+returns the skip result before any client is constructed, in both arms. No
+state-space or recurrent model was introduced. The authority boundary, the tool
+allowlist, and `allow_repo_write` / `allow_network` / `allow_secret_paths=false`
+are untouched. With no override present, production selects C0 and behaves exactly
+as it did before this slice.
 
-## Baseline impact
+## Proof (`tests/test_v10_t005_controller_backend.py`)
 
-`config/recursive_context.yaml` was re-pinned in `docs/evals/V10_BASELINE.md` from
-`d438a2ee…` to `8258dc95…` with an explicit T00.5 platform-freeze amendment note.
+| Claim | Test |
+|-------|------|
+| yaml default is `deterministic` | `test_yaml_default_is_deterministic` |
+| override beats env beats yaml; bad value falls back | `test_backend_precedence_override_then_env_then_yaml` |
+| `required=false` makes no model call even under C1 | `test_required_false_makes_no_model_call_even_under_c1` |
+| C0 never invokes the controller model | `test_c0_arm_never_invokes_controller_model` |
+| C1 invokes the configured 2070 role and records id/tokens/GPU time | `test_c1_arm_invokes_configured_2070_controller` |
+| prompt carries evidence references only | `test_c1_prompt_carries_only_evidence_references` |
+| same qualifying task, arms differ only by backend | `test_c0_and_c1_differ_only_by_backend` |
+| C1 model failure fails soft to a valid artifact | `test_c1_model_failure_fails_soft_to_valid_result` |
+| both arms stay read-only | `test_controller_stays_read_only_in_both_arms` |
+| gate-G2 payload exposes the required fields | `test_telemetry_payload_exposes_gate_g2_fields` |
+| dispatch defaults to C0 and emits telemetry | `test_prepare_dispatch_defaults_to_c0_and_records_telemetry` |
+| dispatch honours the C1 env override | `test_prepare_dispatch_honours_c1_env_override` |
 
-## Operating the arms
+`test_c0_and_c1_differ_only_by_backend` is the load-bearing one: it feeds a single
+`MemoryPreflight` to both arms and asserts identical question, invocation reasons,
+subcall sequence, and budgets, with `(deterministic, False)` versus
+`(model, True)` as the only difference.
 
-```bash
-# C0 (production default, no env needed)
-agentctl rlm run --repo owner/repo --run-id RUN --session-id SESS
+Suite: 902 passed. `ruff check .` exits 0.
 
-# C1 for a single experiment run
-agentctl rlm run --repo owner/repo --run-id RUN --session-id SESS --controller-backend model
+## Follow-ups
 
-# C1 for a whole dispatch path (experiment host only)
-RECURSIVE_CONTEXT_CONTROLLER_BACKEND=model
-```
+- Deploy-verify on CT103/CT104 and capture a live C1 run against the real 2070
+  endpoint, recording the resolved `controller_model_id` and non-zero GPU seconds.
+  Until that evidence exists, C1 is proven only against a mocked gateway.
+- T05 must record the arm per run and must not mix arms within a block.
