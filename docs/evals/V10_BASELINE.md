@@ -3,7 +3,7 @@
 **Status:** `LIVE_CERTIFIED`  
 **Recorded (UTC):** 2026-08-16  
 **Scope:** V10 T00 platform freeze; no agent behavior change  
-**Amendments:** T00.5 re-pinned `config/recursive_context.yaml` for the additive `controller_backend` key (see [Recursive-context budgets](#recursive-context-budgets) and [slice-v10-t005-recursive-controller.md](../slice-v10-t005-recursive-controller.md))
+**Amendments:** T00.5 re-pinned `config/recursive_context.yaml` for the additive `controller_backend` key (see [Recursive-context budgets](#recursive-context-budgets) and [slice-v10-t005-recursive-controller.md](../slice-v10-t005-recursive-controller.md)). Wave C retry (2026-08-16) froze `MODEL_2070_NAME` to `qwen2.5-coder:7b` after the T00 `:3b` identity proved unservable; see [v10-wave-c-2070-identity-freeze-amendment.md](../handoff/v10-wave-c-2070-identity-freeze-amendment.md).
 
 This document records the repository-known and live-certified platform baseline. The unknown CT102 runner version remains an explicit follow-up; it does not change the certified trust boundary.
 
@@ -31,8 +31,9 @@ This document records the repository-known and live-certified platform baseline.
 | `MODEL_ROUTING_POLICY` | `official` |
 | `MODEL_3080_NAME` / Qwen patch-author identifier | `qwen2.5-coder:14b` |
 | Qwen quantization | `Q4_K_M` |
-| `MODEL_2070_NAME` / configured controller identifier | `qwen2.5-coder:3b` |
-| Additional model available on 2070 host | `qwen2.5-coder:7b` (available, not the configured `MODEL_2070_NAME`) |
+| `MODEL_2070_NAME` / configured controller identifier | `qwen2.5-coder:7b` (Wave C retry freeze; T00 recorded `qwen2.5-coder:3b`) |
+| 2070 served digest (ACP-host `/api/tags`) | `dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364` (Q4_K_M, 7.6B) |
+| T00 additional note (historical) | T00 listed `:7b` as available-but-not-configured and `:3b` as the live name. `:3b` is absent on the live 2070 endpoint; it is not rewritten out of T00 history. |
 | Ollama 3080 version | `0.24.0` |
 | Ollama 2070 version | `0.24.0` |
 | Configured fallbacks | `gpt-4.1` / `gpt-4o-mini` |
@@ -91,7 +92,7 @@ The frozen repository hashes above are the T00 policy/config pins. Per-repositor
 
 - The final tagged SHA is resolved: `eval-baseline-2026-08` points at the docs-only T00 commit `2532de7cf5098baa461e49b92e0d338c089cff45`, which changed no agent behavior.
 - CT102 runner/version remains `PENDING_LIVE_CERT` and is a `DEEPER_EVAL` inventory item before scored evaluation.
-- The live 2070 configuration is `MODEL_2070_NAME=qwen2.5-coder:3b`, not the previously assumed 7B model. T00.5 uses the configured `MODEL_2070_NAME`; the installed 7B model is not the baseline controller unless a later frozen change explicitly selects it.
+- T00 recorded `MODEL_2070_NAME=qwen2.5-coder:3b` from CT103. Wave C (048) found CT104 already requesting `:7b` from the same endpoint, and the live 2070 `/api/tags` (ACP hosts, 2026-08-16 retry) serves only `:7b` (digest `dae161e2…`). The Wave C retry freeze selects `:7b` on both hosts. This is an identity amendment, not a silent rewrite of T00 or of the 048 `planned_not_invoked` observation.
 - T00 does not prove or change the T00.5 `controller_backend` behavior. The live model inventory is not evidence that a recursive-controller call occurred; only `controller_model_invoked=true` with a resolved `controller_model_id` is.
 - T00.5 amended `config/recursive_context.yaml` (see the re-pinned SHA above) to add the C0/C1 arm selector. No other frozen platform identifier changed.
 - External model health also reports OpenAI URLs, and configured fallbacks are `gpt-4.1` / `gpt-4o-mini`; evaluation arms must prevent unintended external routing and record any paid fallback use.

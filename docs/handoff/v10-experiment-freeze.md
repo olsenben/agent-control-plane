@@ -153,7 +153,7 @@ restated. Authority: `docs/evals/V10_BASELINE.md`.
 |---|---|
 | Platform baseline tag | `eval-baseline-2026-08` at `2532de7cf5098baa461e49b92e0d338c089cff45` |
 | Patch-author model | `qwen2.5-coder:14b`, quantization `Q4_K_M` |
-| Controller model | `qwen2.5-coder:3b` (`MODEL_2070_NAME`) |
+| Controller model | `qwen2.5-coder:7b` (`MODEL_2070_NAME`; T04 seal recorded `qwen2.5-coder:3b` — see amendment log) |
 | Model routing policy | `official` |
 | LiteLLM config SHA-256 | `e39938abf73805ca141252d8c663b65b4b545e93533f562aedd81f8534614fd7` |
 | Recursive-context config SHA-256 | `8258dc951f65aa04b8331293574ce3533fabf33a1798926c49468fad94ecc9c5` (T00.5 amended) |
@@ -360,6 +360,7 @@ verified-memory) with the reduced scope stated in the report.
 | 2026-08-16 | Freeze sealed | — |
 | 2026-08-16 | `MATERIALIZE_LICENSED_CORPORA` cleared for ARB, SWE-CI, SWE-Chain at pinned commits; field maps observed (`arb-adapter-1.0.1`, `swe-ci-adapter-1.0.1`, `swe-chain-adapter-1.0.1`); registry `scored_runs_allowed: true` for those three; raw corpora remain outside Git | Unblocks corpora-gated scored paths; does **not** redraw splits; does **not** clear `FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE`; does **not** approve SWE-bench Verified |
 | 2026-08-16 | `EXECUTE_FROZEN_PLATFORM_AGENT_ON_LONGITUDINAL_CORPUS` cleared via generic ACP `maintenance_eval_dispatch.v1` (`agentctl eval dispatch`); `v10-longitudinal` experiment_version → `1.2.0-eval-dispatch`; T07 result set preserved | Unlocks agent outcome path for H3; does **not** claim H3; does **not** rewrite `results/v10-t07-longitudinal-de-v1` |
+| 2026-08-16 | `FREEZE_2070_MODEL_IDENTITY`: `MODEL_2070_NAME` `qwen2.5-coder:3b` → `qwen2.5-coder:7b` (digest `dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364`). T04 seal and T00 baseline still record `:3b` as the original configured name. CT103 host `.env` aligned to CT104. No prompt / budget / sampling / trigger / tool-policy / Qwen-14b patch-author change. | Makes the C1 arm comparable across hosts (G7) before any scored C1 batch. Does **not** start a new experiment version: no scored C1 result exists to invalidate. Does **not** rewrite handoff 048 or `c1-live-smoke-027ad9f.json`. |
 
 Every future entry must state what changed, why, and whether it starts a new
 experiment version.

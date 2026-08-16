@@ -104,7 +104,11 @@ gateway configured, so live runs are `direct_local`.
 
 - `config/recursive_context.yaml` is untouched; the T00.5 pin
   `8258dc951f65aa04b8331293574ce3533fabf33a1798926c49468fad94ecc9c5` still
-  holds and the platform freeze needs no further amendment.
+  holds. The Wave C retry added a separate identity-freeze amendment for
+  `MODEL_2070_NAME` (`:3b` → `:7b`); see
+  [v10-wave-c-2070-identity-freeze-amendment.md](handoff/v10-wave-c-2070-identity-freeze-amendment.md).
+  That amendment is host env + freeze record, not a change to this slice's
+  local-only guard.
 - The production default is still `controller_backend: deterministic`.
 - Prompt, role (`summarizer` -> `MODEL_2070_*`), budgets, sampling, recursion
   trigger thresholds, tool policy, and the read-only authority boundary are

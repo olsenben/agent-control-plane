@@ -108,8 +108,11 @@ Negative / accepted trade-offs:
 
 Follow-up:
 
-- `MODEL_2070_NAME` differs between CT103 (`qwen2.5-coder:3b`) and CT104
-  (`qwen2.5-coder:7b`) for the same endpoint. That is an identity-freeze problem
-  outside this ADR's scope, tracked as a V10 human gate.
+- `MODEL_2070_NAME` differed between CT103 (`qwen2.5-coder:3b`) and CT104
+  (`qwen2.5-coder:7b`) for the same endpoint. Wave C retry (2026-08-16) froze
+  both hosts to `qwen2.5-coder:7b` (digest `dae161e2…`) after ACP-host
+  `/api/tags` showed `:3b` absent on `msi`. Identity freeze is outside this
+  ADR's decision; record:
+  [v10-wave-c-2070-identity-freeze-amendment.md](../handoff/v10-wave-c-2070-identity-freeze-amendment.md).
 - If the recursive controller is ever fronted by a gateway, decide whether
   `gateway_indirect` should be refused outright rather than flagged.

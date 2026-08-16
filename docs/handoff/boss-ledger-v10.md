@@ -8,11 +8,11 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
-| **Epic status** | **blocked_waiting_human** — Wave C FAIL: the RTX 2070 host `msi` is powered off, so no live C1 observation exists |
+| **Epic status** | **running** — Wave C retry `c1_proof=PASS` (non-scored); Wave D unstarted |
 | **Tickets done** | 10 / 12 (T08 and T09 remain WaitingHuman); **0 / 5 hypotheses decided** |
-| **Next ticket** | none until `msi` is online; then re-run the Wave C C1 smoke unchanged. Wave D (scored H1) stays unstarted |
-| **Latest handoff** | [048](coordinator-handoff-048.md) |
-| **Last boss action** | 2026-08-16 — Wave C run: contamination path closed and proven live on both hosts; C1 proof blocked on offline 2070 hardware |
+| **Next ticket** | Wave D (scored H1) — **not started** this wave; C1 live proof is now PASS |
+| **Latest handoff** | [049](coordinator-handoff-049.md) |
+| **Last boss action** | 2026-08-16 — human resumed Wave C: Ollama tags on 2070 host show `qwen2.5-coder:14b`, `qwen2.5-coder:7b`, `llama3:latest`; `:3b` absent. Freeze C1 identity to `qwen2.5-coder:7b` (only previously-configured name that exists). Do not select `:14b`. |
 
 ## Wave A completion (`1.2.0-eval-dispatch`)
 
@@ -67,6 +67,32 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | Scored result | none; 0/5 hypotheses decided; 0 paid calls; H1c still unclaimed |
 | Carried findings | CT104 provider key present on all three workers (gate 6, now unusable by C1); CT102 ruff drift |
 
+## Wave C retry (live C1 proof — PASS, non-scored)
+
+| Field | Value |
+|---|---|
+| Handoff | [049](coordinator-handoff-049.md) |
+| Prior FAIL | [048](coordinator-handoff-048.md) + `c1-live-smoke-027ad9f.json` — **not overwritten** |
+| Deployed tip | still `027ad9f06328f9b55f217b042d14c2fcb2beb25d` (env-only host alignment; no ACP source change) |
+| Deploy verify | **N/A** — no ACP image/code change; CT103 `control-plane` recreated to pick up `.env` |
+| Frozen identity | `MODEL_2070_NAME=qwen2.5-coder:7b` digest `dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364` |
+| Host alignment | CT103 `.env` `:3b` → `:7b`; CT104 already `:7b`; both request `http://100.125.235.54:11434` |
+| ACP-host tags on 2070 URL | only `qwen2.5-coder:7b` (human localhost `:14b`/`llama3` were the 3080 on `buttholecentral`) |
+| **`c1_proof`** | **PASS** |
+| `controller_backend` | `model` |
+| `controller_model_invoked` | `true` |
+| `controller_model_id` | `qwen2.5-coder:7b` (`controller_model_id_source=endpoint_reported`) |
+| `controller_provider` | `gpu` |
+| `controller_data_left_homelab` | `false` |
+| `controller_route_class` | `direct_local` |
+| `controller_external_routes_refused` | `0` |
+| Tokens | prompt 160 / completion 110 |
+| GPU seconds | `null` + `missing_fields=["controller_gpu_seconds"]` (not fake `0.0`) |
+| Contamination | **none** — one candidate `gpu`/`qwen2.5-coder:7b`; not gpt-4.1 / gpt-4o-mini |
+| Live evidence | `docs/evidence/v10-wave-c/c1-live-smoke-049-qwen7b.json` |
+| Freeze amendment | [v10-wave-c-2070-identity-freeze-amendment.md](v10-wave-c-2070-identity-freeze-amendment.md) |
+| Scored result | none; 0/5 hypotheses decided; 0 paid calls; H1c still unclaimed (proof only) |
+
 ## Dual freezes
 
 ```text
@@ -109,11 +135,11 @@ One implementation ticket per wave. No T07∥T08.
 ```text
 H1a unclaimed  - corpora materialized, official verifiers now executable; scored batch not yet run
 H1b unclaimed  - corpora materialized, official verifiers now executable; scored batch not yet run
-H1c unclaimed  - Wave C ran the live C1 arm against the real 2070 and the host was
-                 offline; controller_model_invoked=false, so still no observation.
-                 Blocked on hardware, not on code: the contamination path is closed
-                 and proven, and the telemetry is now truthful about what it did not
-                 measure. Also blocked on the CT103/CT104 MODEL_2070_NAME divergence.
+H1c unclaimed  - Wave C retry produced a live non-scored C1 observation
+                 (controller_model_invoked=true, endpoint-reported
+                 qwen2.5-coder:7b on msi). Hardware and identity-freeze
+                 blockers are cleared. H1c still requires a scored C1 batch
+                 (Wave D, not started). Handoff 048 remains the offline FAIL.
 H2  unclaimed  - WaitingHuman FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap
 H3  instrument verified (T07); agent dispatch path cleared under `1.2.0-eval-dispatch`; outcome still unclaimed until scored thresholds
 ```
@@ -132,19 +158,20 @@ is not an H1 answer.
    (generic ACP maintenance_eval_dispatch.v1; experiment_version 1.2.0-eval-dispatch;
     T07 instrument preserved; H3 claim still requires scored agent batch)
 3. FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap -> unlocks H2
-4. Live C1 observation against the real 2070 endpoint -> required before any C1 batch is scored
-   BLOCKED 2026-08-16 (Wave C): host `msi` (100.125.235.54) is powered off.
-   ACTION REQUIRED: power on the RTX 2070 host and confirm `tailscale status`
-   shows it active, then re-run `scripts/_v10_wc_c1_live_run.sh` unchanged.
+4. Live C1 observation against the real 2070 endpoint -> CLEARED 2026-08-16
+   (Wave C retry / handoff 049). Non-scored smoke PASS:
+   controller_model_invoked=true, endpoint-reported qwen2.5-coder:7b,
+   provider=gpu, data_left_homelab=false. Evidence:
+   docs/evidence/v10-wave-c/c1-live-smoke-049-qwen7b.json. Does not score H1c.
 5. Decide H1 on dev, re-freeze the strategy D/E/H inherit -> re-run inheriting arms if the winner differs
 6. CT104 external model API key — decide (revoke, or explicitly freeze and accept)
    before any "local-only" scored batch; carried from Wave A, still open.
    Wave C made it unusable by the C1 controller (proven live), but the key is
    still present on all three CT104 workers.
-7. FREEZE_2070_MODEL_IDENTITY — new, Wave C. CT103 requests `qwen2.5-coder:3b`
-   and CT104 requests `qwen2.5-coder:7b` from the same endpoint. Decide which is
-   correct, align both `.env` files, and re-freeze the V10 baseline. Until then
-   no C1 arm is comparable across hosts (gate G7).
+7. FREEZE_2070_MODEL_IDENTITY — CLEARED 2026-08-16 (boss decision + host
+   alignment). Frozen name `qwen2.5-coder:7b`, digest `dae161e2…`. CT103
+   aligned to CT104. T00/T04 `:3b` kept as history; amendment in
+   v10-wave-c-2070-identity-freeze-amendment.md. Handoff 048 not rewritten.
 ```
 
 Official H1 verifier bindings are **no longer a gate**: both were bound and
@@ -180,4 +207,6 @@ G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experi
 | 17 | 2026-08-16 | — | Wave B Running | Boss advance: bind SWE_CI_TASK_TEST_COMMAND + verify/bind ARB_TRAJECTORY_EVALUATOR; DEV-only non-scored smokes; no H1 scored batch |
 | 18 | 2026-08-16 | [047](coordinator-handoff-047.md) | Wave C (human gate first) | Wave B sealed at `maintenance-evals@931153b`; ACP untouched, deploy N/A. Both official H1 verifiers are now commands, not names: `SWE_CI_TASK_TEST_COMMAND` -> upstream `run_pytest` (`swe-ci-default@b2a0620f`), `ARB_TRAJECTORY_EVALUATOR` -> `arb eval-trajectories` (`arb-v2@07014c98`), recorded in `manifests/benchmarks/verifier-bindings.yaml`. DEV smoke pass on both, non-scored: ARB discriminated 1.0 vs 0.0 on two samples with a negative control; SWE-CI reproduced upstream's declared 14-test gap (943→957) with the executed argv captured rather than predicted. Materialization exposed 5 harness mismatches in never-executed T04 command strings (`--instance` does not exist; 4 ARB flags rejected by the subcommand; both frozen metric name sets wrong) — all corrected, versioned to `arb/swe-ci-adapter-1.1.0` and registry `1.1.0-official-bindings`, splits/seeds/frozen_groups untouched and test-enforced. ARB's ranking family (`MRR`, `Recall@k`, `gold_coverage@8k`) deliberately left unbound. 199 tests + ruff green. 0/5 hypotheses decided; 0 paid calls; CT102 ruff drift and CT104 model key still open |
 | 19 | 2026-08-16 | — | Wave C Running | Boss advance: prove live C1 against the real 2070, non-scored; CT104 external key must not answer the C1 controller call |
-| 20 | 2026-08-16 | [048](coordinator-handoff-048.md) | none — WaitingHuman on 2070 power-on | Wave C **FAIL on `c1_proof`, PASS on everything it could control**. The live C1 arm ran against the real 2070 on the deployed tip and the host was not there: `msi` shows `offline, last seen 12h ago` on the tailnet from both CT103 and CT104, `tailscale ping` gets no reply, and a full `192.168.4.0/24` sweep finds no other `:11434`. `controller_model_invoked=false`, `controller_error_class=ModelRouteExhausted` after a 135 s connect timeout, so H1c stays unclaimed and no C1 batch may be scored. Substituting the 3080 was rejected — that would change the C1 evaluated identity. What the wave did settle is the contamination path the brief flagged: both hosts carry an OpenAI fallback with a live 164-char key and `MODEL_FALLBACK_ENABLED=true`, and only an empty `REPO_EXTERNAL_MODEL_POLICY` was keeping it unreachable. The C1 controller is now local-only by construction — every offered route is checked before a request is sent and non-homelab providers are refused — with a live negative control on **both** hosts forcing an OpenAI-only candidate list and recording `external_route_refused` and zero external HTTP attempts. Two telemetry-truth defects fixed alongside it: absent endpoint timings were being written as `0.0` and are now `null` plus `controller_missing_fields`; and `controller_model_id` was echoing the configured `MODEL_2070_NAME` rather than what the endpoint served, contradicting handoff 035 decision 3, now corrected with `controller_model_id_source`. New blocker found: **CT103 requests `qwen2.5-coder:3b` and CT104 requests `qwen2.5-coder:7b` from the same 2070 endpoint** — the 2070 identity is not frozen, which breaks arm comparability (G7); left unfixed because it is the C1 evaluated identity and needs a human decision. `DEPLOY_VERIFY: PASS` on `027ad9f` (CT103 + CT104), 920 tests + ruff green, `config/recursive_context.yaml` untouched, 0 paid calls, 0 scored runs, 0 hypotheses claimed |
+| 20 | 2026-08-16 | [048](coordinator-handoff-048.md) | none — WaitingHuman on 2070 power-on | Wave C **FAIL on `c1_proof`**: `msi` offline. Contamination path closed. MODEL_2070_NAME divergence 3b vs 7b left for human. |
+| 21 | 2026-08-16 | — | Wave C Running | Human resume: 2070 Ollama tags = `qwen2.5-coder:14b`, `qwen2.5-coder:7b`, `llama3:latest`. Freeze C1 to `qwen2.5-coder:7b`; align CT103; do not use `:14b` or `:3b`. Re-run non-scored C1 smoke. |
+| 22 | 2026-08-16 | [049](coordinator-handoff-049.md) | Wave D unstarted | Wave C retry **PASS on `c1_proof`**. ACP-host `/api/tags` on configured `msi` (`100.125.235.54:11434`) serves only `qwen2.5-coder:7b` (digest `dae161e2…`); human localhost `:14b`/`llama3` were the 3080 on `buttholecentral`. CT103 `.env` aligned `:3b`→`:7b`; CT104 already `:7b`. Live smoke `c1-live-smoke-049-qwen7b.json`: `controller_backend=model`, `controller_model_invoked=true`, `controller_model_id=qwen2.5-coder:7b` `endpoint_reported`, `provider=gpu`, `data_left_homelab=false`, `route_class=direct_local`, `external_routes_refused=0`, tokens 160/110, `gpu_seconds=null`+missing_fields, `scored=false`. Contamination none. ACP code unchanged; deploy N/A. Freeze amendment recorded; 048 FAIL left intact. 0 paid calls; H1c still unclaimed. |
