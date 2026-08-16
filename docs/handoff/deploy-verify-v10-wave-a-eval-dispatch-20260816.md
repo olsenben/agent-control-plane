@@ -159,3 +159,7 @@ caveats: CT102 pipeline red on a pre-existing unpinned-ruff drift (deploy applie
          CT104 carries a pre-existing external model API key that must be resolved before scored runs
 blocker: none
 ```
+
+After this record was written, `main` advanced to `f272864` with the docs-only
+seal commit (this file, handoff 046, ledger). The hosts stay pinned at `657a445`;
+no redeploy is required because no runtime file changed.
