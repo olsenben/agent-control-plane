@@ -8,11 +8,11 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
-| **Epic status** | **running** — Wave C retry `c1_proof=PASS` (non-scored); Wave D unstarted |
+| **Epic status** | **running** — Wave D blocked: 2070 offline; H1 unclaimed (Wave C `c1_proof=PASS`) |
 | **Tickets done** | 10 / 12 (T08 and T09 remain WaitingHuman); **0 / 5 hypotheses decided** |
-| **Next ticket** | Wave D (scored H1) — **not started** this wave; C1 live proof is now PASS |
-| **Latest handoff** | [049](coordinator-handoff-049.md) |
-| **Last boss action** | 2026-08-16 — human resumed Wave C: Ollama tags on 2070 host show `qwen2.5-coder:14b`, `qwen2.5-coder:7b`, `llama3:latest`; `:3b` absent. Freeze C1 identity to `qwen2.5-coder:7b` (only previously-configured name that exists). Do not select `:14b`. |
+| **Next ticket** | Wave D resume — power on `msi` 2070, then scored H1 DEV v2 (do not interpret v1 staging) |
+| **Latest handoff** | [050](coordinator-handoff-050.md) |
+| **Last boss action** | 2026-08-16 — Wave C retry PASS; freeze `qwen2.5-coder:7b` on `msi`; advancing Wave D |
 
 ## Wave A completion (`1.2.0-eval-dispatch`)
 
@@ -93,6 +93,23 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | Freeze amendment | [v10-wave-c-2070-identity-freeze-amendment.md](v10-wave-c-2070-identity-freeze-amendment.md) |
 | Scored result | none; 0/5 hypotheses decided; 0 paid calls; H1c still unclaimed (proof only) |
 
+## Wave D (scored H1 DEV — blocked, not frozen)
+
+| Field | Value |
+|---|---|
+| Handoff | [050](coordinator-handoff-050.md) |
+| Experiment version | `1.3.0-h1-dev-scored` @ `maintenance-evals@ca8e148` (C1 `:7b` + official bindings `1.1.0`; not T05 `836086c8` / `1.2.0-eval-dispatch`) |
+| ACP deployed | still `c5ccafe` (arm-aware eval-dispatch `9447c1c` + ADR-0034); no new ACP source this turn |
+| Deploy verify | [deploy-verify-v10-wave-d-20260816.md](deploy-verify-v10-wave-d-20260816.md) — **PASS** (arm smoke); `/readyz` degraded on `model_2070` |
+| **`scored`** | **no** — complete DEV batch not frozen; H1 procedure not applied |
+| v1 staging | 28/612 slots — **INVALID** (no `rg`; 2070 down; empty retrieval). Audit only. Do not resume. |
+| Next result dir | `results/v10-h1-dev-scored-v2` (create-only) |
+| **`c1_2070`** | **DOWN** — `msi` `100.125.235.54` tailnet last seen ~1h; CT103 curl timeout. C1 preflight refuses to start. |
+| H1a / H1b / H1c | **unclaimed** |
+| Contamination | none (no paid calls; C1 never invoked; 3080 not used as C1) |
+| val/test | not inspected |
+| Carried | CT104 external key; CT102 ruff drift |
+
 ## Dual freezes
 
 ```text
@@ -133,13 +150,11 @@ One implementation ticket per wave. No T07∥T08.
 ## Hypothesis status (authoritative)
 
 ```text
-H1a unclaimed  - corpora materialized, official verifiers now executable; scored batch not yet run
-H1b unclaimed  - corpora materialized, official verifiers now executable; scored batch not yet run
-H1c unclaimed  - Wave C retry produced a live non-scored C1 observation
-                 (controller_model_invoked=true, endpoint-reported
-                 qwen2.5-coder:7b on msi). Hardware and identity-freeze
-                 blockers are cleared. H1c still requires a scored C1 batch
-                 (Wave D, not started). Handoff 048 remains the offline FAIL.
+H1a unclaimed  - Wave D harness ready (`1.3.0-h1-dev-scored`); no frozen DEV batch
+H1b unclaimed  - same; v1 staging 28/612 invalidated (no rg / 2070 down)
+H1c unclaimed  - Wave C retry proof still stands; scored C1 blocked because
+                 `msi` is offline again (handoff 050). Do not interpret v1.
+                 Handoff 048 remains the prior offline FAIL.
 H2  unclaimed  - WaitingHuman FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap
 H3  instrument verified (T07); agent dispatch path cleared under `1.2.0-eval-dispatch`; outcome still unclaimed until scored thresholds
 ```
@@ -210,3 +225,4 @@ G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experi
 | 20 | 2026-08-16 | [048](coordinator-handoff-048.md) | none — WaitingHuman on 2070 power-on | Wave C **FAIL on `c1_proof`**: `msi` offline. Contamination path closed. MODEL_2070_NAME divergence 3b vs 7b left for human. |
 | 21 | 2026-08-16 | — | Wave C Running | Human resume: 2070 Ollama tags = `qwen2.5-coder:14b`, `qwen2.5-coder:7b`, `llama3:latest`. Freeze C1 to `qwen2.5-coder:7b`; align CT103; do not use `:14b` or `:3b`. Re-run non-scored C1 smoke. |
 | 22 | 2026-08-16 | [049](coordinator-handoff-049.md) | Wave D unstarted | Wave C retry **PASS on `c1_proof`**. ACP-host `/api/tags` on configured `msi` (`100.125.235.54:11434`) serves only `qwen2.5-coder:7b` (digest `dae161e2…`); human localhost `:14b`/`llama3` were the 3080 on `buttholecentral`. CT103 `.env` aligned `:3b`→`:7b`; CT104 already `:7b`. Live smoke `c1-live-smoke-049-qwen7b.json`: `controller_backend=model`, `controller_model_invoked=true`, `controller_model_id=qwen2.5-coder:7b` `endpoint_reported`, `provider=gpu`, `data_left_homelab=false`, `route_class=direct_local`, `external_routes_refused=0`, tokens 160/110, `gpu_seconds=null`+missing_fields, `scored=false`. Contamination none. ACP code unchanged; deploy N/A. Freeze amendment recorded; 048 FAIL left intact. 0 paid calls; H1c still unclaimed. |
+| 23 | 2026-08-16 | [050](coordinator-handoff-050.md) | Wave D WaitingHuman | Wave D **not scored**. v1 28/612 staging invalidated (no `rg`; empty retrieval; 2070 down). Harness `1.3.0-h1-dev-scored` ready; next dir `v10-h1-dev-scored-v2`. `msi` offline again (CT103 curl timeout). H1a/H1b/H1c unclaimed. Wave E not started. 0 paid calls. |
