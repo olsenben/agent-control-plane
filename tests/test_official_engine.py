@@ -245,6 +245,62 @@ def test_official_engine_plan_parse_failure_writes_artifact(tmp_path: Path) -> N
     assert artifact["context_sources"] == pack.context_sources
 
 
+def test_official_engine_fix_parse_failure_persists_artifact(tmp_path: Path) -> None:
+    engine = OfficialRLMEngine()
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("# Demo\n", encoding="utf-8")
+    pack = ContextPack(
+        project="ai-sdlc-lab/demo-app",
+        blast_radius=BlastRadiusContext(
+            affected_repos=["ai-sdlc-lab/demo-app"],
+            affected_tests=["tests/test_fix_parser.py"],
+        ),
+        context_sources=["graph:blast_radius"],
+    )
+    job = _inspect_job()
+    job["command_intent"]["kind"] = "fix"
+    job["risk_class"] = "write_patch"
+    job["fix_authorization"] = {"allowed_files": ["README.md"]}
+    job["context_pack"] = pack.model_dump(mode="json")
+
+    from agent_shared.models.parse_failure import ParseFailureArtifact
+    from agent_workers.rlm.fix_parser import FixParseError
+    from agent_workers.rlm.model_output import StructuredParseFailure
+
+    failure = ParseFailureArtifact(
+        run_id=job["run_id"],
+        command_kind="fix",
+        parse_errors=["forced fix parse failure"],
+        context_sources=list(pack.context_sources),
+        blast_radius=pack.blast_radius,
+    )
+
+    def _boom(*_a, **_k):
+        raise FixParseError("Could not parse fix output") from StructuredParseFailure(failure)
+
+    with patch("agent_workers.rlm.official_engine._rlms_available", return_value=False):
+        with _patch_gpu_endpoint():
+            with patch("agent_workers.rlm.quality_loop.resolve_rlm_external_endpoint", return_value=None):
+                with patch(
+                    "agent_workers.rlm.official_engine.chat_completion",
+                    return_value={
+                        "content": "{}",
+                        "provider": "gpu",
+                        "base_url": _gpu_endpoint().base_url,
+                        "usage": {},
+                    },
+                ):
+                    with patch("agent_workers.rlm.official_engine.parse_fix_output", side_effect=_boom):
+                        with pytest.raises(ValueError, match="Failed to parse fix output"):
+                            engine.run(job, workspace, {}, artifact_dir=str(tmp_path))
+
+    artifact_path = tmp_path / "parse_failure.json"
+    assert artifact_path.exists()
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact["command_kind"] == "fix"
+
+
 def test_gather_read_only_context_respects_broker(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     workspace.mkdir()

@@ -23,7 +23,7 @@ from agent_workers.rlm.budget import (
 from agent_workers.rlm.completion import chat_completion
 from agent_workers.rlm.constants import ENGINE_OFFICIAL
 from agent_workers.rlm.fix_finalize import finalize_fix_result
-from agent_workers.rlm.fix_parser import parse_fix_output
+from agent_workers.rlm.fix_parser import FixParseError, parse_fix_output
 from agent_workers.rlm.model_output import StructuredParseFailure
 from agent_workers.rlm.plan_finalize import finalize_plan_result
 from agent_workers.rlm.plan_parser import PlanParseError, parse_plan_output
@@ -557,14 +557,24 @@ class OfficialRLMEngine:
             allowed_files = list(binding.get("allowed_files") or [])
 
             def _parse_fix(raw: str, repair_endpoint) -> tuple[str, Any, list[str]]:
-                parsed = parse_fix_output(
-                    raw,
-                    context_pack=pack,
-                    run_id=job["run_id"],
-                    repair_endpoint=repair_endpoint,
-                    repair_timeout_seconds=min(completion_timeout, 60.0),
-                    allowed_files=allowed_files,
-                )
+                try:
+                    parsed = parse_fix_output(
+                        raw,
+                        context_pack=pack,
+                        run_id=job["run_id"],
+                        repair_endpoint=repair_endpoint,
+                        repair_timeout_seconds=min(completion_timeout, 60.0),
+                        allowed_files=allowed_files,
+                    )
+                except FixParseError as exc:
+                    if isinstance(exc.__cause__, StructuredParseFailure):
+                        failure = exc.__cause__.artifact
+                        if artifact_dir:
+                            write_json(
+                                Path(artifact_dir) / "parse_failure.json",
+                                failure.model_dump(mode="json"),
+                            )
+                    raise ValueError(f"Failed to parse fix output: {exc}") from exc
                 return finalize_fix_result(
                     parsed,
                     job=job,

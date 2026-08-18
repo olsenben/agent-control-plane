@@ -11,6 +11,8 @@ import pytest
 from agent_control.eval_dispatch import (
     DISPATCH_SCHEMA,
     EvalDispatchError,
+    _python_argv,
+    _run_command_list,
     dispatch_evaluation,
     get_session,
     handle_message,
@@ -296,4 +298,80 @@ def test_diagnostic_injection_persists_mem_id_on_real_fix_result_path(
     assert messages_path.is_file()
     messages = json.loads(messages_path.read_text(encoding="utf-8"))
     assert MEMORY_DIAGNOSTIC_SENTINEL in (messages.get("user") or "")
+
+
+def test_python_argv_uses_sys_executable() -> None:
+    import sys
+
+    argv = _python_argv("python -m pytest tests/test_retry_toolkit_e02.py -q")
+    assert argv[0] == sys.executable
+    assert argv[1:3] == ("-m", "pytest")
+
+
+def test_run_command_list_substitutes_python_and_placeholders(
+    tmp_path: Path,
+) -> None:
+    import sys
+
+    script = tmp_path / "check.py"
+    script.write_text("print('ok')\n", encoding="utf-8")
+    log_path = tmp_path / "official.log"
+    ok, infra = _run_command_list(
+        tmp_path,
+        [f"python {script.name}"],
+        log_path,
+        {},
+    )
+    assert ok is True
+    assert infra is False
+    log = log_path.read_text(encoding="utf-8")
+    assert sys.executable in log
+
+
+def test_run_command_list_unsubstituted_placeholder_is_infrastructure(
+    tmp_path: Path,
+) -> None:
+    log_path = tmp_path / "additional.log"
+    ok, infra = _run_command_list(
+        tmp_path,
+        ["python ${EVAL_CORPUS_ROOT}/invariants/x.py ${WORKSPACE}"],
+        log_path,
+        {},
+    )
+    assert ok is False
+    assert infra is True
+    assert "unsubstituted placeholder" in log_path.read_text(encoding="utf-8")
+
+
+def test_failed_engine_run_persists_artifact_dir(
+    workspace: tuple[Path, str],
+) -> None:
+    repo, sha = workspace
+
+    class _Boom:
+        def run(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+            raise ValueError("forced parse failure")
+
+    request = {
+        "schema": DISPATCH_SCHEMA,
+        "eval_run_id": "eval-parse-fail",
+        "project": "synthlab/retry-toolkit",
+        "workspace": str(repo),
+        "head_sha": sha,
+        "policy_source_sha": "2532de7cf5098baa461e49b92e0d338c089cff45",
+        "problem_statement": "x",
+        "arm": "local-deterministic",
+        "context_strategy": "local-deterministic",
+        "controller_backend": "none",
+        "frontier_escalation": False,
+        "memory": {"policy": "off", "enabled": False, "namespace": "n", "audit_history_action": "retain"},
+        "verification": {"official_commands": [], "v10_additional_commands": []},
+        "limits": {"wall_seconds": 10, "attempts": 1},
+    }
+    session_id = dispatch_evaluation(request, engine_factory=lambda _name: _Boom())
+    session = get_session(session_id, "synthlab/retry-toolkit")
+    artifact_dir = Path(session["eval_dispatch"]["artifact_dir"])
+    assert artifact_dir.is_dir()
+    assert artifact_dir.name == "artifacts"
+    assert session["status"] == "failed"
 

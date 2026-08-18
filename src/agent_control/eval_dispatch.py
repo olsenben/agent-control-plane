@@ -18,6 +18,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Callable
 
 from agent_control.eval_arm_context import apply_arm_context, write_arb_trajectory
@@ -30,6 +31,8 @@ from agent_workers.rlm.official_engine import OfficialRLMEngine
 DISPATCH_SCHEMA = "maintenance_eval_dispatch.v1"
 SESSION_SCHEMA = "maintenance_eval_session.v1"
 DEFAULT_ENGINE = "official"
+_PYTHON_PREFIXES = ("python -m ", "python ")
+_MAXIMUM_SUBSTITUTION_PASSES = 5
 
 
 class EvalDispatchError(RuntimeError):
@@ -149,6 +152,8 @@ def dispatch_evaluation(
             run_id=run_id,
             reason_code="harness",
             reason=f"c1_contamination:{arm_context.contamination}",
+            artifact_dir=artifact_dir,
+            workspace=workspace,
         )
         record["evaluation_telemetry"] = {
             **(record.get("evaluation_telemetry") or {}),
@@ -180,6 +185,8 @@ def dispatch_evaluation(
             if "timeout" in str(exc).lower()
             else "evaluated_agent",
             reason=str(exc),
+            artifact_dir=artifact_dir,
+            workspace=workspace,
         )
         _write_session(session_id, record)
         return session_id
@@ -208,6 +215,8 @@ def dispatch_evaluation(
                 run_id=run_id,
                 reason_code="evaluated_agent",
                 reason=f"patch apply failed: {exc}",
+                artifact_dir=artifact_dir,
+                workspace=workspace,
             )
             _write_session(session_id, record)
             return session_id
@@ -234,13 +243,22 @@ def dispatch_evaluation(
             write_arb_trajectory(workspace_traj, sample_id, retrieved_files)
 
     verification = request.get("verification") or {}
-    official_ok, additional_ok, claim = _run_verification_commands(
+    official_ok, additional_ok, claim, infra_failure = _run_verification_commands(
         workspace=workspace,
         result_sha=result_sha,
         verification=verification,
         artifact_dir=artifact_dir,
     )
     status = "finished" if official_ok else "failed"
+    if infra_failure:
+        terminal_reason_code = "infrastructure"
+        terminal_reason = "verifier environment failure"
+    elif official_ok:
+        terminal_reason_code = None
+        terminal_reason = None
+    else:
+        terminal_reason_code = "evaluated_agent"
+        terminal_reason = "official verification did not pass"
     record = {
         "schema": SESSION_SCHEMA,
         "schema_version": "agent_session.v1",
@@ -255,8 +273,8 @@ def dispatch_evaluation(
         "worker_image_digest": os.environ.get("WORKER_IMAGE_DIGEST", "local-eval-dispatch"),
         "ci_image_digest": os.environ.get("CI_IMAGE_DIGEST", "local-eval-dispatch"),
         "run_ids": [run_id],
-        "terminal_reason_code": None if official_ok else "evaluated_agent",
-        "terminal_reason": None if official_ok else "official verification did not pass",
+        "terminal_reason_code": terminal_reason_code,
+        "terminal_reason": terminal_reason,
         "created_at": _utc_now(),
         "updated_at": _utc_now(),
         "finished_at": _utc_now(),
@@ -463,12 +481,17 @@ def _run_verification_commands(
     result_sha: str,
     verification: dict[str, Any],
     artifact_dir: Path,
-) -> tuple[bool, bool, dict[str, Any]]:
+) -> tuple[bool, bool, dict[str, Any], bool]:
     official = list(verification.get("official_commands") or [])
     additional = list(verification.get("v10_additional_commands") or [])
-    official_ok = _run_command_list(workspace, official, artifact_dir / "official.log")
-    additional_ok = _run_command_list(
-        workspace, additional, artifact_dir / "additional.log"
+    substitutions = verification.get("substitutions") or {}
+    if not isinstance(substitutions, Mapping):
+        substitutions = {}
+    official_ok, official_infra = _run_command_list(
+        workspace, official, artifact_dir / "official.log", substitutions
+    )
+    additional_ok, additional_infra = _run_command_list(
+        workspace, additional, artifact_dir / "additional.log", substitutions
     )
     status = "passed" if official_ok else "failed"
     claim = {
@@ -478,46 +501,107 @@ def _run_verification_commands(
         "adequacy_status": "adequate" if official_ok else "inadequate",
         "limitations": "" if additional_ok else "v10_additional_verification_failed",
     }
-    return official_ok, additional_ok, claim
+    return official_ok, additional_ok, claim, official_infra or additional_infra
 
 
-def _run_command_list(workspace: Path, commands: list[str], log_path: Path) -> bool:
+def _expand_command(
+    command: str, workspace: Path, substitutions: Mapping[str, Any]
+) -> str:
+    values = {**{str(key): str(value) for key, value in substitutions.items()}, "WORKSPACE": str(workspace)}
+    expanded = command
+    for _ in range(_MAXIMUM_SUBSTITUTION_PASSES):
+        previous = expanded
+        for key, value in values.items():
+            expanded = expanded.replace(f"${{{key}}}", value)
+        if expanded == previous:
+            break
+    return expanded
+
+
+def _python_argv(expanded: str) -> tuple[str, ...]:
+    for prefix in _PYTHON_PREFIXES:
+        if expanded.startswith(prefix):
+            remainder = expanded[len(prefix) :]
+            head = ["-m"] if prefix.endswith("-m ") else []
+            return (sys.executable, *head, *remainder.split())
+    return tuple(expanded.split())
+
+
+def _is_python_missing(returncode: int, stderr: str) -> bool:
+    if returncode == 127:
+        return True
+    lowered = (stderr or "").lower()
+    if "python: not found" in lowered:
+        return True
+    return "python" in lowered and "not recognized as an internal or external command" in lowered
+
+
+def _run_command_list(
+    workspace: Path,
+    commands: list[str],
+    log_path: Path,
+    substitutions: Mapping[str, Any] | None = None,
+) -> tuple[bool, bool]:
     if not commands:
         # No commands declared: treat as pass so generic dispatch stays usable
         # for harness smoke without benchmark-specific verifiers.
         log_path.write_text("no commands\n", encoding="utf-8")
-        return True
-    if any("${" in command for command in commands):
-        log_path.write_text(
-            "unsubstituted placeholders; verification deferred to the eval harness\n",
-            encoding="utf-8",
-        )
-        return True
+        return True, False
+    substitutions = substitutions or {}
     ok = True
+    infrastructure = False
     lines: list[str] = []
     for command in commands:
+        expanded = _expand_command(command, workspace, substitutions)
+        if "${" in expanded:
+            ok = False
+            infrastructure = True
+            lines.append(f"$ {command}\nERROR unsubstituted placeholder\n")
+            continue
+        use_python = any(expanded.startswith(prefix) for prefix in _PYTHON_PREFIXES)
         try:
-            completed = subprocess.run(
-                command,
-                cwd=str(workspace),
-                shell=True,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=600,
-            )
+            if use_python:
+                argv = _python_argv(expanded)
+                completed = subprocess.run(
+                    argv,
+                    cwd=str(workspace),
+                    shell=False,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                )
+                logged = " ".join(argv)
+            else:
+                completed = subprocess.run(
+                    expanded,
+                    cwd=str(workspace),
+                    shell=True,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                )
+                logged = expanded
+        except FileNotFoundError as exc:
+            ok = False
+            infrastructure = True
+            lines.append(f"$ {command}\nERROR {exc}\n")
+            continue
         except (OSError, subprocess.TimeoutExpired) as exc:
             ok = False
             lines.append(f"$ {command}\nERROR {exc}\n")
             continue
         lines.append(
-            f"$ {command}\nexit={completed.returncode}\n"
+            f"$ {logged}\nexit={completed.returncode}\n"
             f"{completed.stdout}\n{completed.stderr}\n"
         )
         if completed.returncode != 0:
             ok = False
+            if use_python and _is_python_missing(completed.returncode, completed.stderr):
+                infrastructure = True
     log_path.write_text("".join(lines), encoding="utf-8")
-    return ok
+    return ok, infrastructure
 
 
 def _failed_session(
@@ -528,8 +612,10 @@ def _failed_session(
     run_id: str,
     reason_code: str,
     reason: str,
+    artifact_dir: Path | None = None,
+    workspace: Path | None = None,
 ) -> dict[str, Any]:
-    return {
+    record = {
         "schema": SESSION_SCHEMA,
         "schema_version": "agent_session.v1",
         "session_id": session_id,
@@ -562,6 +648,13 @@ def _failed_session(
             "solver_attempts": 1,
         },
     }
+    if artifact_dir is not None:
+        record["eval_dispatch"] = {
+            "workspace": str(workspace) if workspace is not None else "",
+            "artifact_dir": str(artifact_dir),
+            "engine": resolve_engine_name(),
+        }
+    return record
 
 
 def _usage_tokens(result: Any, kind: str) -> int | None:
