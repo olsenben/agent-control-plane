@@ -8,11 +8,11 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
-| **Epic status** | **running** — Wave E inherit frozen (`1.5.0-wave-e-h1-inherit`); H3 unclaimed; scored H3 not started |
+| **Epic status** | **running** — recursive-policy Stage A frozen `INSUFFICIENT_SIGNAL` (`1.7.0-deeper-eval-recursive-policy-nonscored`); H3 unclaimed; scored H3 not started |
 | **Tickets done** | 10 / 12 (T08 and T09 remain WaitingHuman); **3 / 5 hypotheses decided** (H1a UNDECIDED, H1b FAIL, H1c FAIL) |
-| **Next ticket** | Open scored-H3 experiment version `1.6.0-h3-longitudinal-scored`, enable explicit `scored=true`, freeze it, then execute full D/E batch. Wave E does not create `1.6.0`. Do not inspect val/test. Do not start T08. Do not execute scored H3 in this seal. |
-| **Latest handoff** | [053](coordinator-handoff-053.md) |
-| **Last boss action** | 2026-08-18 — Wave E operational inherit sealed; stop before scored H3 |
+| **Next ticket** | Open scored-H3 experiment version `1.6.0-h3-longitudinal-scored`, enable explicit `scored=true`, freeze it, then execute full D/E batch. Do not Stage B. Do not inspect val/test. Do not start T08. Do not execute scored H3 in this seal. H3 handoff remaps off 054. |
+| **Latest handoff** | [054](coordinator-handoff-054.md) |
+| **Last boss action** | 2026-08-18 — recursive-policy Stage A frozen `INSUFFICIENT_SIGNAL`; stop before Stage B / scored H3 |
 
 ## Wave A completion (`1.2.0-eval-dispatch`)
 
@@ -157,7 +157,27 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | v2 / v3 | **unchanged** digests `13ba38d5…247685` / `5db3c0f7…c6f4b5ae` |
 | val/test | not inspected |
 | H3 | **unclaimed**; `1.6.0-h3-longitudinal-scored` not created and not executed |
-| Recursive-policy | remains deferred |
+| Recursive-policy | Stage A frozen `INSUFFICIENT_SIGNAL` (handoff 054); Stage B not authorized |
+
+## Recursive-policy Stage A (DEEPER_EVAL, non-scored — frozen)
+
+| Field | Value |
+|---|---|
+| Handoff | [054](coordinator-handoff-054.md) |
+| Experiment version | `1.7.0-deeper-eval-recursive-policy-nonscored` |
+| Defining SHA | `maintenance-evals@8571fa7` (harness); freeze/docs `@d6e17549a723480bcf3a4be38c1fac5a83eb8e7d` |
+| Result set | `results/v10-deeper-eval-recursive-policy-v1` digest `2850d7a412322f26d5862ee97d04496f7a6e4f7619a16bcb03496682963005b8` |
+| Gate | **INSUFFICIENT_SIGNAL** (`P+_yield_pos=0/43`); `stage_b_authorized=false` |
+| Tasks | ARB DEV 43; `scored=false`; 2070 not invoked |
+| P1 | 34/43 triggered (`deterministic_fts_empty`); yield 0 |
+| Bq vs B | identical hit counts 43/43 (13 JSON-wrapped) |
+| C0-shadow | hermetic (`backend_io=false`) |
+| Canonical H1a/H1b/H1c | **UNDECIDED / FAIL / FAIL** (v2 ARB; not rewritten) |
+| H3 | **unclaimed**; `1.6.0-h3-longitudinal-scored` not created |
+| `h3_planned_handoff_collision` | `054` (H3 remaps to next free id) |
+| ACP | unchanged at `67836a1`; deploy verify **N/A** |
+| val/test | not inspected |
+| ADR | [ADR-0035](../adr/0035-eval-only-recursive-policy-bakeoff-stays-out-of-acp.md) proposed (eval-only; no production port) |
 
 ## Dual freezes
 
@@ -206,7 +226,7 @@ H1c FAIL      - C1 vs C0 no incremental benefit; C1 invoked 0/153;
                 GPU-ran is not a win. Wave C live proof (049) still stands
                 as non-scored routing evidence, not an H1c PASS.
 H2  unclaimed - WaitingHuman FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap
-H3  instrument verified (T07); Wave E inherit frozen under `1.5.0-wave-e-h1-inherit` (non-scored smoke only); outcome still unclaimed until scored `1.6.0-h3-longitudinal-scored` thresholds
+H3  instrument verified (T07); Wave E inherit frozen under `1.5.0-wave-e-h1-inherit` (non-scored smoke only); recursive-policy Stage A frozen `INSUFFICIENT_SIGNAL` under `1.7.0` (handoff 054, not H3); outcome still unclaimed until scored `1.6.0-h3-longitudinal-scored` thresholds
 ```
 
 H1 scientific verdicts remain v2 ARB DEV (43 paired tasks). SWE-CI DEV was
@@ -286,3 +306,4 @@ G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experi
 | 24 | 2026-08-17 | [051](coordinator-handoff-051.md) | Wave E (not started) | Wave D **scored**. v2 612/612 frozen digest `13ba38d5…`. Decide-only: H1a UNDECIDED, H1b FAIL, H1c FAIL. Arms A,B,C0,C1 valid; contamination none. C1 invoked 0/153. SWE-CI 96 harness (`swe_ci` missing). v1 not interpreted. No second batch. Wave E / T08 not started. 0 paid calls. |
 | 25 | 2026-08-18 | [052](coordinator-handoff-052.md) | Wave E (not started) | SWE-CI repair `1.4.0-h1-sweci-repair`. v3 96/96 digest `5db3c0f7…`; 0 harness; C1 invoked 0/24. v2 digest unchanged. Canonical H1 UNDECIDED/FAIL/FAIL. Operational B `local-deterministic` not hypothesis PASS. Wave E / T08 not started. 0 paid calls. |
 | 26 | 2026-08-18 | [053](coordinator-handoff-053.md) | open `1.6.0-h3-longitudinal-scored` (do not execute) | Wave E **PASS**. Inherit `local-deterministic` into D/E/H operationally. Smoke `a49c992c…` 4/4 `scored=false`. 2070 not required. H3 unclaimed. `1.6.0` not created. val/test untouched. 0 paid calls. |
+| 27 | 2026-08-18 | [054](coordinator-handoff-054.md) | do not Stage B; scored H3 remaps off 054 | Recursive-policy Stage A **INSUFFICIENT_SIGNAL**. `1.7.0` freeze digest `2850d7a4…`; `P+_yield_pos=0/43`; C0-shadow hermetic; H1 unchanged; `1.6.0` not created. 0 paid calls. |
