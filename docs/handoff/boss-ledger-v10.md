@@ -8,11 +8,11 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
-| **Epic status** | **running** — H1 finalized (canonical v2 ARB + supporting v3 SWE-CI); Wave E not started |
+| **Epic status** | **running** — Wave E inherit frozen (`1.5.0-wave-e-h1-inherit`); H3 unclaimed; scored H3 not started |
 | **Tickets done** | 10 / 12 (T08 and T09 remain WaitingHuman); **3 / 5 hypotheses decided** (H1a UNDECIDED, H1b FAIL, H1c FAIL) |
-| **Next ticket** | Wave E — inherit `local-deterministic` (operational, not H1a PASS); do not inspect val/test; do not start T08 |
-| **Latest handoff** | [052](coordinator-handoff-052.md) |
-| **Last boss action** | 2026-08-18 — SWE-CI repair frozen; operational strategy sealed; stop before Wave E |
+| **Next ticket** | Open scored-H3 experiment version `1.6.0-h3-longitudinal-scored`, enable explicit `scored=true`, freeze it, then execute full D/E batch. Wave E does not create `1.6.0`. Do not inspect val/test. Do not start T08. Do not execute scored H3 in this seal. |
+| **Latest handoff** | [053](coordinator-handoff-053.md) |
+| **Last boss action** | 2026-08-18 — Wave E operational inherit sealed; stop before scored H3 |
 
 ## Wave A completion (`1.2.0-eval-dispatch`)
 
@@ -132,8 +132,32 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | `h1_selected_local_strategy` | `local-deterministic` / `operational_selection_not_hypothesis_pass` |
 | Gate 6 | CT104 external keys **ABSENT** (revoked 2026-08-17) |
 | val/test | not inspected |
-| Wave E | **not started** |
+| Wave E | **done** (handoff 053) |
 | Contamination | none |
+
+## Wave E completion (H1 operational inherit — frozen)
+
+| Field | Value |
+|---|---|
+| Handoff | [053](coordinator-handoff-053.md) |
+| Experiment version | `1.5.0-wave-e-h1-inherit` (runtime parent `1.2.0-eval-dispatch`) |
+| `maintenance-evals` | `e4a85c215c2a8347243840f600aecbf517671ef6` (parent `650c8dbb2d15c9255ddbea865773b8b9b296376c`) |
+| ACP | unchanged at `b87b19c267c7c3e84801f5726ad03e78df463300` (052); deploy verify **N/A** |
+| Inherit artifact | `manifests/inheritance/v10-wave-e-h1-inherit.json` |
+| `h1_selected_local_strategy` | `local-deterministic` / `operational_selection_not_hypothesis_pass` |
+| Canonical H1a/H1b/H1c | **UNDECIDED / FAIL / FAIL** (v2 ARB; not rewritten) |
+| D | `local-deterministic` + memory reset |
+| E | `local-deterministic` + `preserve_verified` |
+| H | `local-deterministic` local stage via inherit artifact; frontier YAML still `1.1.0-t04-frozen` |
+| `model_2070_required` | **false** |
+| Smoke | `results/v10-wave-e-de-inherit-smoke-v1` digest `a49c992c986669810ce576cd10652ca38bed4231818b4ced6a39f633aa878906` |
+| Slots | 4: retry-toolkit-e01/e02 × D/E × r1; fake engine; `agent_execution=true`; `scored=false` |
+| Memory | E e01 admitted `mem-45b4a5c453f376978f314797`; E e02 retrieved that id; D consume 0 |
+| Tests | pytest 60 passed (inherit/longitudinal/hybrid/e2e); ruff clean |
+| v2 / v3 | **unchanged** digests `13ba38d5…247685` / `5db3c0f7…c6f4b5ae` |
+| val/test | not inspected |
+| H3 | **unclaimed**; `1.6.0-h3-longitudinal-scored` not created and not executed |
+| Recursive-policy | remains deferred |
 
 ## Dual freezes
 
@@ -182,7 +206,7 @@ H1c FAIL      - C1 vs C0 no incremental benefit; C1 invoked 0/153;
                 GPU-ran is not a win. Wave C live proof (049) still stands
                 as non-scored routing evidence, not an H1c PASS.
 H2  unclaimed - WaitingHuman FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credentials + spend cap
-H3  instrument verified (T07); agent dispatch path cleared under `1.2.0-eval-dispatch`; outcome still unclaimed until scored thresholds
+H3  instrument verified (T07); Wave E inherit frozen under `1.5.0-wave-e-h1-inherit` (non-scored smoke only); outcome still unclaimed until scored `1.6.0-h3-longitudinal-scored` thresholds
 ```
 
 H1 scientific verdicts remain v2 ARB DEV (43 paired tasks). SWE-CI DEV was
@@ -208,9 +232,10 @@ inheritance. v1 staging is not evidence.
    provider=gpu, data_left_homelab=false. Evidence:
    docs/evidence/v10-wave-c/c1-live-smoke-049-qwen7b.json. Does not score H1c.
 5. Decide H1 on dev — CLEARED 2026-08-17 (handoff 051) and sealed for
-   Wave E inherit on 2026-08-18 (handoff 052): H1a UNDECIDED, H1b FAIL,
+   Wave E inherit on 2026-08-18 (handoffs 052 then 053): H1a UNDECIDED, H1b FAIL,
    H1c FAIL on frozen v2. Operational inherit is `local-deterministic`
-   (`operational_selection_not_hypothesis_pass`). Do not inspect val/test.
+   (`operational_selection_not_hypothesis_pass`) frozen into D/E/H under
+   `1.5.0-wave-e-h1-inherit`. Do not inspect val/test.
 6. CT104 external model API key — CLEARED 2026-08-17: both
    `MODEL_*_EXTERNAL_API_KEY` removed from CT104 host `.env` and all three
    workers; re-proved ABSENT. Evidence:
@@ -260,3 +285,4 @@ G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experi
 | 23 | 2026-08-16 | [050](coordinator-handoff-050.md) | Wave D WaitingHuman | Wave D **not scored**. v1 28/612 staging invalidated (no `rg`; empty retrieval; 2070 down). Harness `1.3.0-h1-dev-scored` ready; next dir `v10-h1-dev-scored-v2`. `msi` offline again (CT103 curl timeout). H1a/H1b/H1c unclaimed. Wave E not started. 0 paid calls. |
 | 24 | 2026-08-17 | [051](coordinator-handoff-051.md) | Wave E (not started) | Wave D **scored**. v2 612/612 frozen digest `13ba38d5…`. Decide-only: H1a UNDECIDED, H1b FAIL, H1c FAIL. Arms A,B,C0,C1 valid; contamination none. C1 invoked 0/153. SWE-CI 96 harness (`swe_ci` missing). v1 not interpreted. No second batch. Wave E / T08 not started. 0 paid calls. |
 | 25 | 2026-08-18 | [052](coordinator-handoff-052.md) | Wave E (not started) | SWE-CI repair `1.4.0-h1-sweci-repair`. v3 96/96 digest `5db3c0f7…`; 0 harness; C1 invoked 0/24. v2 digest unchanged. Canonical H1 UNDECIDED/FAIL/FAIL. Operational B `local-deterministic` not hypothesis PASS. Wave E / T08 not started. 0 paid calls. |
+| 26 | 2026-08-18 | [053](coordinator-handoff-053.md) | open `1.6.0-h3-longitudinal-scored` (do not execute) | Wave E **PASS**. Inherit `local-deterministic` into D/E/H operationally. Smoke `a49c992c…` 4/4 `scored=false`. 2070 not required. H3 unclaimed. `1.6.0` not created. val/test untouched. 0 paid calls. |
