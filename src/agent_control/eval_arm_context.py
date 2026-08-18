@@ -13,6 +13,7 @@ Recursive invocation stays conditional on the frozen preflight heuristic.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
@@ -74,6 +75,7 @@ def apply_arm_context(
     policy_source_sha: str,
     state_root: Path,
     recursive_runner: RecursiveRunner | None = None,
+    diagnostic_memory_records: list[dict] | None = None,
 ) -> ArmContext:
     """Apply the frozen H1 arm to ``workspace``. Non-H1 arms are a no-op."""
     if arm not in H1_ARMS:
@@ -113,6 +115,18 @@ def apply_arm_context(
         blast_radius=BlastRadiusContext(missing_graph_edges=missing),
         budget={"search_hits": len(hits), "missing_graph_edges": len(missing)},
     )
+    if diagnostic_memory_records:
+        records = list(diagnostic_memory_records)
+        pack = pack.model_copy(
+            update={
+                "prior_memory": records,
+                "context_sources": [*pack.context_sources, "diagnostic_longitudinal_memory"],
+                "budget": {
+                    **dict(pack.budget),
+                    "prior_memory": len(json.dumps(records)),
+                },
+            }
+        )
     required, reasons, skip = decide_recursive_context(
         prior_memory_count=0,
         distinct_prior_root_causes=0,
@@ -182,8 +196,6 @@ def apply_arm_context(
 
 def write_arb_trajectory(path: Path, sample_id: str, files: list[str]) -> None:
     """Write one sample's context-acquisition trajectory for eval-trajectories."""
-    import json
-
     steps = [
         {
             "step": index + 1,

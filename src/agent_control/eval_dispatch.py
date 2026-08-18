@@ -109,6 +109,12 @@ def dispatch_evaluation(
     artifact_dir = session_root() / session_id / "artifacts"
     artifact_dir.mkdir(parents=True, exist_ok=False)
 
+    memory = request.get("memory") or {}
+    diagnostic_injection = memory.get("diagnostic_injection") is True
+    diagnostic_records: list[dict[str, Any]] = []
+    if diagnostic_injection:
+        diagnostic_records = list(memory.get("records") or [])
+
     allowed_files = _workspace_files(workspace)
     evaluation_mode = str(request.get("evaluation_mode") or "patch")
     job = _build_eval_job(
@@ -118,6 +124,8 @@ def dispatch_evaluation(
         allowed_files=allowed_files,
         evaluation_mode=evaluation_mode,
     )
+    if diagnostic_injection:
+        job["persist_official_engine_messages"] = True
     arm_context = apply_arm_context(
         arm=str(request.get("arm") or ""),
         controller_backend=str(request.get("controller_backend") or "none"),
@@ -129,6 +137,7 @@ def dispatch_evaluation(
         source_sha=head_sha,
         policy_source_sha=str(request.get("policy_source_sha") or ""),
         state_root=session_root() / session_id,
+        diagnostic_memory_records=diagnostic_records,
     )
     if arm_context.context_pack:
         job["context_pack"] = arm_context.context_pack
@@ -147,6 +156,7 @@ def dispatch_evaluation(
             "agent_execution": True,
             "retrieved_files": arm_context.retrieved_files,
             "c1_contamination": arm_context.contamination,
+            "diagnostic_injection": diagnostic_injection,
         }
         _write_session(session_id, record)
         return session_id
@@ -201,6 +211,17 @@ def dispatch_evaluation(
             )
             _write_session(session_id, record)
             return session_id
+    if diagnostic_injection and getattr(result, "fix_result", None) is not None:
+        fix_payload = result.fix_result
+        dumped = (
+            fix_payload.model_dump(mode="json")
+            if hasattr(fix_payload, "model_dump")
+            else dict(fix_payload)
+        )
+        (artifact_dir / "fix_result.json").write_text(
+            json.dumps(dumped, indent=2, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
     engine_sources = list(getattr(result, "context_sources", None) or [])
     retrieved_files = list(
         dict.fromkeys([*arm_context.retrieved_files, *engine_sources])
@@ -263,6 +284,7 @@ def dispatch_evaluation(
             "context_strategy": request.get("context_strategy"),
             "memory_policy": (request.get("memory") or {}).get("policy"),
             "memory_namespace": (request.get("memory") or {}).get("namespace"),
+            "diagnostic_injection": diagnostic_injection,
             "retrieved_files": retrieved_files,
             "recursive_context_required": arm_context.recursive_context_required,
             "recursive_invoked": arm_context.recursive_invoked,

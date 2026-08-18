@@ -183,3 +183,117 @@ def test_h1_local_deterministic_attaches_pack(workspace: tuple[Path, str]) -> No
     assert telemetry["recursive_invoked"] is False
     assert telemetry.get("retrieved_files") is not None
 
+
+MEMORY_DIAGNOSTIC_SENTINEL = "MEMORY_DIAGNOSTIC_SENTINEL_73A1"
+
+
+def test_dispatch_without_diagnostic_injection_does_not_put_sentinel_in_pack(
+    workspace: tuple[Path, str],
+) -> None:
+    from agent_workers.rlm.fake_engine import FakeRLMEngine
+
+    repo, sha = workspace
+    captured: list[dict] = []
+
+    class _CaptureEngine(FakeRLMEngine):
+        def run(self, job, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+            captured.append(job)
+            return super().run(job, *args, **kwargs)
+
+    request = {
+        "schema": DISPATCH_SCHEMA,
+        "eval_run_id": "eval-h3-inherit",
+        "project": "synthlab/retry-toolkit",
+        "workspace": str(repo),
+        "head_sha": sha,
+        "policy_source_sha": "2532de7cf5098baa461e49b92e0d338c089cff45",
+        "problem_statement": "Inspect README.md",
+        "arm": "local-deterministic",
+        "context_strategy": "deterministic CT103 preflight graph FTS and context pack",
+        "controller_backend": "none",
+        "frontier_escalation": False,
+        "memory": {
+            "policy": "inherit",
+            "enabled": True,
+            "namespace": "ns",
+            "audit_history_action": "retain",
+            "records": [
+                {
+                    "memory_id": "mem-diag-73a1",
+                    "reusable_claim": MEMORY_DIAGNOSTIC_SENTINEL,
+                }
+            ],
+        },
+        "verification": {"official_commands": [], "v10_additional_commands": []},
+        "limits": {"wall_seconds": 30, "attempts": 1},
+        "evaluation_mode": "retrieval",
+        "upstream_task_id": "sample-no-diag",
+    }
+    session_id = dispatch_evaluation(request, engine_factory=lambda _name: _CaptureEngine())
+    session = get_session(session_id, "synthlab/retry-toolkit")
+    assert session["evaluation_telemetry"].get("diagnostic_injection") is False
+    assert captured
+    pack = captured[0].get("context_pack") or {}
+    assert MEMORY_DIAGNOSTIC_SENTINEL not in json.dumps(pack)
+    assert pack.get("prior_memory") == []
+    assert captured[0].get("persist_official_engine_messages") is not True
+
+
+def test_diagnostic_injection_persists_mem_id_on_real_fix_result_path(
+    workspace: tuple[Path, str],
+) -> None:
+    from agent_workers.rlm.fake_engine import FakeRLMEngine
+
+    repo, sha = workspace
+    mem_id = "mem-cccccccccccccccccccccccc"
+
+    class _CitingEngine(FakeRLMEngine):
+        def run(self, job, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+            result = super().run(job, *args, **kwargs)
+            if result.fix_result is not None:
+                result.fix_result.scope_summary = f"applied {mem_id}"
+            return result
+
+    request = {
+        "schema": DISPATCH_SCHEMA,
+        "eval_run_id": "eval-diag-cite",
+        "project": "synthlab/retry-toolkit",
+        "workspace": str(repo),
+        "head_sha": sha,
+        "policy_source_sha": "2532de7cf5098baa461e49b92e0d338c089cff45",
+        "problem_statement": "Patch README.md using prior memory if applicable",
+        "arm": "local-deterministic",
+        "context_strategy": "deterministic CT103 preflight graph FTS and context pack",
+        "controller_backend": "none",
+        "frontier_escalation": False,
+        "memory": {
+            "policy": "preserve_verified",
+            "enabled": True,
+            "namespace": "diag",
+            "audit_history_action": "retain",
+            "diagnostic_injection": True,
+            "records": [
+                {
+                    "memory_id": mem_id,
+                    "reusable_claim": MEMORY_DIAGNOSTIC_SENTINEL,
+                    "evidence_refs": ["vclaim-diag"],
+                    "validity": "valid",
+                }
+            ],
+        },
+        "verification": {"official_commands": [], "v10_additional_commands": []},
+        "limits": {"wall_seconds": 30, "attempts": 1},
+    }
+    session_id = dispatch_evaluation(request, engine_factory=lambda _name: _CitingEngine())
+    session = get_session(session_id, "synthlab/retry-toolkit")
+    assert session["evaluation_telemetry"]["diagnostic_injection"] is True
+    artifact_dir = Path(session["eval_dispatch"]["artifact_dir"])
+    fix_path = artifact_dir / "fix_result.json"
+    assert fix_path.is_file()
+    payload = json.loads(fix_path.read_text(encoding="utf-8"))
+    assert mem_id in payload["scope_summary"]
+    messages_path = artifact_dir / "official_engine_messages.json"
+    assert messages_path.is_file()
+    messages = json.loads(messages_path.read_text(encoding="utf-8"))
+    assert MEMORY_DIAGNOSTIC_SENTINEL in (messages.get("user") or "")
+

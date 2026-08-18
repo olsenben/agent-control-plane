@@ -133,6 +133,7 @@ def build_fix_system_preamble(
     *,
     max_summary_chars: int = GITEA_COMMENT_SUMMARY_PROMPT_BUDGET_CHARS,
     allowed_files: list[str] | None = None,
+    has_prior_memory: bool = False,
 ) -> str:
     base = build_system_preamble(command_scope, risk_class, max_summary_chars=max_summary_chars)
     allowed_note = ""
@@ -162,5 +163,12 @@ def build_fix_system_preamble(
         "- Do not touch paths outside allowed_files.\n"
         "- Do not invent push, PR, or CI execution — local patch artifact only.\n"
     )
+    if has_prior_memory:
+        schema_hint += (
+            "- prior_memory is present in context_pack.\n"
+            "- If a record applies, cite its memory_id (mem-*) in scope_summary.\n"
+            "- If it does not apply or is stale, ignore it and do not invent a citation.\n"
+            "- Treat entries as optional hypotheses, not verified truth.\n"
+        )
     return base + schema_hint
 

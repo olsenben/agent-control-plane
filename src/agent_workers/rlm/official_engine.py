@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -119,6 +120,101 @@ def gather_read_only_context(
     return truncate_text("\n\n".join(parts), max_chars), sources
 
 
+def build_official_engine_messages(*, preamble: str, task: str, context_text: str) -> tuple[str, str]:
+    """Return (system_prompt, user_prompt) immediately preceding inference."""
+    user_prompt = f"Repository context:\n{context_text}\n\nTask: {task}"
+    return preamble, user_prompt
+
+
+def _should_persist_official_engine_messages(job: dict[str, Any]) -> bool:
+    if job.get("persist_official_engine_messages") or job.get("eval_memory_consumption_diagnostic"):
+        return True
+    return os.environ.get("EVAL_MEMORY_CONSUMPTION_DIAGNOSTIC", "").strip() == "1"
+
+
+def assemble_official_engine_prompts(
+    *,
+    job: dict[str, Any],
+    workspace: Path,
+    context_broker: Any | None = None,
+    strategy: ExecutionStrategy | None = None,
+    persist_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """Build the same system/user prompts live inference uses."""
+    strategy = strategy or get_execution_strategy()
+    kind = job.get("command_intent", {}).get("kind", "inspect")
+    risk_class = str(job.get("risk_class", "read_only"))
+    pack = _context_pack_from_job(job)
+
+    if kind in REVIEW_KINDS:
+        preamble = build_review_system_preamble(
+            command_scope=job.get("safety", {}).get("command_scope", kind),
+            risk_class=risk_class,
+            has_graph_blast=_has_graph_blast(pack),
+        )
+    elif kind in PLAN_KINDS:
+        preamble = build_plan_system_preamble(
+            command_scope=job.get("safety", {}).get("command_scope", kind),
+            risk_class=risk_class,
+            has_graph_blast=_has_graph_blast(pack),
+            has_prior_memory=_has_prior_memory(pack),
+        )
+    elif kind in FIX_KINDS:
+        binding = job.get("fix_authorization") or {}
+        preamble = build_fix_system_preamble(
+            command_scope=job.get("safety", {}).get("command_scope", kind),
+            risk_class=risk_class,
+            allowed_files=list(binding.get("allowed_files") or []),
+            has_prior_memory=_has_prior_memory(pack),
+        )
+    else:
+        preamble = build_system_preamble(
+            command_scope=job.get("safety", {}).get("command_scope", kind),
+            risk_class=risk_class,
+        )
+
+    task = job.get("command_intent", {}).get("natural_language_task", "")
+    if context_broker is None:
+        from agent_workers.context.broker import ContextBroker
+
+        context_broker = ContextBroker(workspace, profile=kind)
+
+    context_text, sources = gather_read_only_context(
+        context_broker,
+        max_files=strategy.read_only_max_context_files,
+        max_chars=strategy.read_only_max_prompt_chars,
+    )
+    if pack is not None:
+        from agent_control.graph.context_pack import render_context_pack_text
+
+        pack_text = render_context_pack_text(pack)
+        context_text = f"{pack_text}\n\n{context_text}"
+        sources = list(pack.context_sources) + sources
+
+    system_prompt, user_prompt = build_official_engine_messages(
+        preamble=preamble,
+        task=task,
+        context_text=context_text,
+    )
+    if persist_dir is not None:
+        write_json(
+            Path(persist_dir) / "official_engine_messages.json",
+            {
+                "system": system_prompt,
+                "user": user_prompt,
+                "context_chars": len(context_text),
+            },
+        )
+    return {
+        "system": system_prompt,
+        "user": user_prompt,
+        "preamble": preamble,
+        "context_text": context_text,
+        "pack": pack,
+        "sources": sources,
+    }
+
+
 def _validate_kind_and_risk(kind: str, risk_class: str) -> None:
     if kind in INSPECT_KINDS:
         if risk_class != "read_only":
@@ -168,16 +264,20 @@ def _run_rlms(
         "model_name": endpoint.model or "llama3",
         "api_key": endpoint.api_key or "ollama",
     }
+    system_prompt, user_prompt = build_official_engine_messages(
+        preamble=preamble,
+        task=task,
+        context_text=context_text,
+    )
     rlm = RLM(
         backend="openai",
         backend_kwargs=backend_kwargs,
         max_depth=max_depth,
         max_iterations=max_iterations,
         verbose=False,
-        custom_system_prompt=preamble,
+        custom_system_prompt=system_prompt,
     )
     try:
-        user_prompt = f"Repository context:\n{context_text}\n\nTask: {task}"
         result = rlm.completion(user_prompt)
         trace = {
             "run_id": run_id,
@@ -222,7 +322,11 @@ def _run_single_shot(
     timeout_seconds: float,
     kind: str = "inspect",
 ) -> tuple[str, dict[str, Any]]:
-    user_prompt = f"Repository context:\n{context_text}\n\nTask: {task}"
+    system_prompt, user_prompt = build_official_engine_messages(
+        preamble=preamble,
+        task=task,
+        context_text=context_text,
+    )
     response_format, format_mode = _response_format_for_kind(kind)
     result: dict[str, Any] | None = None
     used_mode = format_mode
@@ -235,7 +339,7 @@ def _run_single_shot(
             client = StructuredOutputClient()
             result = client.complete(
                 endpoint=endpoint,
-                system_prompt=preamble,
+                system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 response_format=response_format,
                 timeout_seconds=timeout_seconds,
@@ -246,7 +350,7 @@ def _run_single_shot(
             try:
                 result = chat_completion(
                     endpoint,
-                    system_prompt=preamble,
+                    system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     max_tokens=2048,
                     timeout_seconds=timeout_seconds,
@@ -263,7 +367,7 @@ def _run_single_shot(
     if result is None:
         result = chat_completion(
             endpoint,
-            system_prompt=preamble,
+            system_prompt=system_prompt,
             user_prompt=user_prompt,
             max_tokens=2048,
             timeout_seconds=timeout_seconds,
@@ -315,51 +419,21 @@ class OfficialRLMEngine:
         if not endpoint.base_url:
             raise ValueError("OfficialRLMEngine requires configured MODEL_3080_BASE_URL (rlm role endpoint)")
 
-        if kind in REVIEW_KINDS:
-            pack = _context_pack_from_job(job)
-            preamble = build_review_system_preamble(
-                command_scope=job.get("safety", {}).get("command_scope", kind),
-                risk_class=risk_class,
-                has_graph_blast=_has_graph_blast(pack),
-            )
-        elif kind in PLAN_KINDS:
-            pack = _context_pack_from_job(job)
-            preamble = build_plan_system_preamble(
-                command_scope=job.get("safety", {}).get("command_scope", kind),
-                risk_class=risk_class,
-                has_graph_blast=_has_graph_blast(pack),
-                has_prior_memory=_has_prior_memory(pack),
-            )
-        elif kind in FIX_KINDS:
-            binding = job.get("fix_authorization") or {}
-            preamble = build_fix_system_preamble(
-                command_scope=job.get("safety", {}).get("command_scope", kind),
-                risk_class=risk_class,
-                allowed_files=list(binding.get("allowed_files") or []),
-            )
-        else:
-            preamble = build_system_preamble(
-                command_scope=job.get("safety", {}).get("command_scope", kind),
-                risk_class=risk_class,
-            )
-        task = job.get("command_intent", {}).get("natural_language_task", "")
-        if context_broker is None:
-            from agent_workers.context.broker import ContextBroker
-
-            context_broker = ContextBroker(workspace, profile=kind)
-
-        context_text, sources = gather_read_only_context(
-            context_broker,
-            max_files=strategy.read_only_max_context_files,
-            max_chars=strategy.read_only_max_prompt_chars,
+        persist_dir = None
+        if artifact_dir and _should_persist_official_engine_messages(job):
+            persist_dir = artifact_dir
+        assembled = assemble_official_engine_prompts(
+            job=job,
+            workspace=workspace,
+            context_broker=context_broker,
+            strategy=strategy,
+            persist_dir=persist_dir,
         )
-        pack = _context_pack_from_job(job)
-        if pack is not None:
-            from agent_control.graph.context_pack import render_context_pack_text
-
-            pack_text = render_context_pack_text(pack)
-            context_text = f"{pack_text}\n\n{context_text}"
-            sources = list(pack.context_sources) + sources
+        preamble = assembled["preamble"]
+        context_text = assembled["context_text"]
+        pack = assembled["pack"]
+        sources = assembled["sources"]
+        task = job.get("command_intent", {}).get("natural_language_task", "")
         append_trace_event(
             artifact_dir,
             {

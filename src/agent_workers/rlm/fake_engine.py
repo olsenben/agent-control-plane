@@ -189,6 +189,18 @@ class FakeRLMEngine:
         kind = job.get("command_intent", {}).get("kind", "inspect")
         task = job.get("command_intent", {}).get("natural_language_task", "")
         warnings = list(policy.get("warnings") or [])
+        if artifact_dir and (
+            job.get("persist_official_engine_messages")
+            or job.get("eval_memory_consumption_diagnostic")
+        ):
+            from agent_workers.rlm.official_engine import assemble_official_engine_prompts
+
+            assemble_official_engine_prompts(
+                job=job,
+                workspace=workspace,
+                context_broker=context_broker,
+                persist_dir=artifact_dir,
+            )
 
         if kind == "review":
             review, sources = _build_fake_review_result(job, workspace, context_broker)
