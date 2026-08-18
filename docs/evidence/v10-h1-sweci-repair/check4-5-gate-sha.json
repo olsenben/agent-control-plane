@@ -1,0 +1,11 @@
+{
+  "4_gate6_ct104_keys": {
+    "status": "fail",
+    "evidence": "KEYS_PRESENT_BLOCK; workers_seen=3; present_hits=7; evidence=/mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/gate6-ct104-keys.txt"
+  },
+  "5_acp_deployed_sha": {
+    "status": "pass",
+    "evidence": "expected=c5ccafe4757afec26e9ff3c11498124ba4d196b7; host_sha=c5ccafe4757afec26e9ff3c11498124ba4d196b7; evidence=/mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/acp-deployed-sha.txt; note=matches_expected"
+  },
+  "host_sha": "c5ccafe4757afec26e9ff3c11498124ba4d196b7"
+}

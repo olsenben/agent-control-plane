@@ -1,0 +1,14 @@
+{
+  "schema": "v10_gate6_clearance.v1",
+  "cleared_at_utc": "2026-08-17T21:26:00Z",
+  "host": "192.168.4.63",
+  "host_env_keys": "ABSENT",
+  "host_lines_removed": 2,
+  "containers": {
+    "worker-ci-repair": "ABSENT",
+    "worker-report": "ABSENT",
+    "worker-rlm-root": "ABSENT"
+  },
+  "workers_recreated": true,
+  "secret_values_printed": false
+}

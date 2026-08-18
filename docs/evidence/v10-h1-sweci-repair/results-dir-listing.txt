@@ -1,0 +1,12 @@
+v10-h1-dev-scored-v1.INVALID.md
+v10-h1-dev-scored-v1.staging.jsonl
+v10-h1-dev-scored-v2
+v10-h1-dev-scored-v2-h1-decision.json
+v10-h1-dev-scored-v2.staging.jsonl
+v10-t05-context-ablation-synthetic-harness
+v10-t05-context-ablation-synthetic-harness-v1
+v10-t06-maintenance-end-to-end-synthetic-harness-v1
+v10-t07-longitudinal-de-v1
+v10-t07b-longitudinal-de-agent-smoke-v1
+v10-t08-frontier-fg-synthetic-harness-v1
+v10-t09-hybrid-h-held-out-synthetic-harness-v1

@@ -1,0 +1,8 @@
+HOST_LINES_REMOVED=2
+HOST_ENV_KEYS=ABSENT
+CONTAINER service=worker-ci-repair KEYS=ABSENT
+CONTAINER service=worker-report KEYS=ABSENT
+CONTAINER service=worker-rlm-root KEYS=ABSENT
+worker-ci-repair agent-control-plane-worker-ci-repair-1 Up Less than a second
+worker-report agent-control-plane-worker-report-1 Up Less than a second
+worker-rlm-root agent-control-plane-worker-rlm-root-1 Up Less than a second

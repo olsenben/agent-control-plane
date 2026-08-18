@@ -1,0 +1,18 @@
+=== host .env ===
+HOST_ENV_KEYS=PRESENT
+MODEL_3080_EXTERNAL_API_KEY=REDACTED
+MODEL_2070_EXTERNAL_API_KEY=REDACTED
+=== compose ps ===
+worker-ci-repair agent-control-plane-worker-ci-repair-1 Up 24 hours
+worker-report agent-control-plane-worker-report-1 Up 24 hours
+worker-rlm-root agent-control-plane-worker-rlm-root-1 Up 24 hours
+=== container env presence ===
+CONTAINER name=agent-control-plane-worker-ci-repair-1 service=worker-ci-repair
+  MODEL_2070_EXTERNAL_API_KEY=PRESENT
+  MODEL_3080_EXTERNAL_API_KEY=PRESENT
+CONTAINER name=agent-control-plane-worker-report-1 service=worker-report
+  MODEL_2070_EXTERNAL_API_KEY=PRESENT
+  MODEL_3080_EXTERNAL_API_KEY=PRESENT
+CONTAINER name=agent-control-plane-worker-rlm-root-1 service=worker-rlm-root
+  MODEL_2070_EXTERNAL_API_KEY=PRESENT
+  MODEL_3080_EXTERNAL_API_KEY=PRESENT

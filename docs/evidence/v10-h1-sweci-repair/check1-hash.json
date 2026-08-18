@@ -1,0 +1,12 @@
+{
+  "check": "1_result_set_sha256",
+  "hash_method": "sha256(f'{sha256(execution-order.json)}:{sha256(raw-results.jsonl)}') per suites/context_ablation.py:_freeze_result_set",
+  "execution_order_sha256_file": "da717c2a1b68d5145cc3fdef658f0329b1d4e5870837dce6021db9933b1743c1",
+  "raw_results_sha256_file": "c830c8a29e6a9d3dafee22dd717acd8982e61bc9485a6135b8d245a582faa5f7",
+  "result_set_sha256_computed": "13ba38d5fa72b38a73d65d36b2b334feb3ed4a50da1c379491dc969450247685",
+  "expected": "13ba38d5fa72b38a73d65d36b2b334feb3ed4a50da1c379491dc969450247685",
+  "freeze_result_set_sha256": "13ba38d5fa72b38a73d65d36b2b334feb3ed4a50da1c379491dc969450247685",
+  "freeze_execution_order_sha256": "da717c2a1b68d5145cc3fdef658f0329b1d4e5870837dce6021db9933b1743c1",
+  "freeze_raw_results_sha256": "c830c8a29e6a9d3dafee22dd717acd8982e61bc9485a6135b8d245a582faa5f7",
+  "status": "pass"
+}

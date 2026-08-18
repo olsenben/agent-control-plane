@@ -1,0 +1,10 @@
+{
+  "6_hosts_rg_artifacts": {
+    "status": "pass",
+    "evidence": "ct103=agentcontrol; ct104=agentworker; rg=/home/benol/.local/bin/rg; rg_ver=ripgrep 14.1.1 (rev 4649aa9700); unexpected_test_dirs=none; results_listing=/mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/results-dir-listing.txt; sweci_policy_paths=none; split_policy_path=/mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/maintenance-evals/manifests/splits/swe-ci.yaml; policy_exists=yes; policy_has_test_proportion=; no_test_result_dirs=confirmed_via_results-dir-listing"
+  },
+  "7_isolated_verifier": {
+    "status": "pass",
+    "evidence": "python=/home/benol/v10-binding-envs/swe-ci/bin/python; exists=yes; src=/home/benol/v10-external-corpora/swe-ci/code/src; import_ok None\nSWE_CI_CODE /home/benol/v10-external-corpora/swe-ci/code\nsrc /home/benol/v10-external-corpora/swe-ci/code/src"
+  }
+}

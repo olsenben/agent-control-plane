@@ -8,11 +8,11 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | **Baseline tip** | `4376ef4` live-certified; docs/tag SHA `2532de7` (`eval-baseline-2026-08`) |
 | **Orchestration** | [epic-orchestration.md](../epic-orchestration.md) + V10 plan dual-freeze discipline |
 | **Integration branch** | `main` |
-| **Epic status** | **running** — Wave D scored DEV frozen; H1a/b/c decided; Wave E not started |
+| **Epic status** | **running** — H1 finalized (canonical v2 ARB + supporting v3 SWE-CI); Wave E not started |
 | **Tickets done** | 10 / 12 (T08 and T09 remain WaitingHuman); **3 / 5 hypotheses decided** (H1a UNDECIDED, H1b FAIL, H1c FAIL) |
-| **Next ticket** | Wave E — inherit/hold local strategy from frozen H1; do not inspect val/test; do not start T08 |
-| **Latest handoff** | [051](coordinator-handoff-051.md) |
-| **Last boss action** | 2026-08-17 — continue: attach to pid 131047 at 241/612; restore `:11435` tunnel if down; msi up |
+| **Next ticket** | Wave E — inherit `local-deterministic` (operational, not H1a PASS); do not inspect val/test; do not start T08 |
+| **Latest handoff** | [052](coordinator-handoff-052.md) |
+| **Last boss action** | 2026-08-18 — SWE-CI repair frozen; operational strategy sealed; stop before Wave E |
 
 ## Wave A completion (`1.2.0-eval-dispatch`)
 
@@ -105,7 +105,7 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | Deploy verify | **N/A** this turn (no ACP image/code change); prior arm-wiring record [deploy-verify-v10-wave-d-20260816.md](deploy-verify-v10-wave-d-20260816.md) |
 | **`scored`** | **yes** — `--decide-only` applied after freeze |
 | H1a / H1b / H1c | **UNDECIDED / FAIL / FAIL** (ARB 43 tasks / 6 clusters; Holm family) |
-| `h1_selected_local_strategy` | **not written** (Wave E) |
+| `h1_selected_local_strategy` | **not written in Wave D** (sealed later in handoff 052 as operational B) |
 | Arms | A,B,C0,C1 valid; B ≠ A (`rg` present); C1 never invoked; 3080 not used as C1 |
 | SWE-CI | 96/96 harness-excluded (`No module named 'swe_ci'`); H1 is ARB-DEV only |
 | Contamination | none |
@@ -113,6 +113,27 @@ Epic supervisor state. Prior: [boss-ledger-v9.md](boss-ledger-v9.md) (complete).
 | v1 | not interpreted (still invalid audit) |
 | Second batch | not started |
 | Carried | CT104 external key; CT102 ruff drift |
+
+## Pre-Wave-E SWE-CI repair (scored H1 supporting — frozen)
+
+| Field | Value |
+|---|---|
+| Handoff | [052](coordinator-handoff-052.md) |
+| Experiment version | `1.4.0-h1-sweci-repair` (parent `1.3.0-h1-dev-scored`) |
+| Result set | `results/v10-h1-dev-scored-v3` digest `5db3c0f781b1e4a823bab6579478968fb0e8b1278d4eba4b1e4c2b46c6f4b5ae` |
+| Slots | **96/96** SWE-CI DEV only; `scored=true`; A/B/C0/C1 = 24 each |
+| v2 | **unchanged** digest `13ba38d5…247685`; ARB not rerun |
+| Repair | isolated Wave B python; ACP `.venv` not pip-installed; `semantics_changed: false` |
+| Valid / harness | 96 valid, **0 harness**, 0 infra, 11 evaluated_agent |
+| Official / additional | official_benchmark_pass false 96/96; v10 additional true 96/96 |
+| C1 invoke | **0/24** (`controller_model_invoked=false`) |
+| Canonical H1a/H1b/H1c | **UNDECIDED / FAIL / FAIL** (v2 ARB; not rewritten) |
+| Supporting SWE-CI H1 | FAIL / FAIL / UNDECIDED (wall ~2.6s; not pooled; cannot overturn) |
+| `h1_selected_local_strategy` | `local-deterministic` / `operational_selection_not_hypothesis_pass` |
+| Gate 6 | CT104 external keys **ABSENT** (revoked 2026-08-17) |
+| val/test | not inspected |
+| Wave E | **not started** |
+| Contamination | none |
 
 ## Dual freezes
 
@@ -164,10 +185,12 @@ H2  unclaimed - WaitingHuman FREEZE_FRONTIER_MODEL_IDENTITY_AND_PRICE + credenti
 H3  instrument verified (T07); agent dispatch path cleared under `1.2.0-eval-dispatch`; outcome still unclaimed until scored thresholds
 ```
 
-H1 was decided on ARB DEV only (43 paired tasks). All 96 SWE-CI DEV slots are
-harness-excluded. Do not write `h1_selected_local_strategy` from H1a UNDECIDED.
-The provisional `local-recursive-fallback` selection remains
-`PROVISIONAL_NOT_FOR_H2` and is not an H1 answer. v1 staging is not evidence.
+H1 scientific verdicts remain v2 ARB DEV (43 paired tasks). SWE-CI DEV was
+repaired under `1.4.0-h1-sweci-repair` (96 valid, 0 harness) and is supporting
+coverage only. `h1_selected_local_strategy` is `local-deterministic` with
+`operational_selection_not_hypothesis_pass`. The T06 provisional
+`local-recursive-fallback` / `PROVISIONAL_NOT_FOR_H2` is superseded for Wave E
+inheritance. v1 staging is not evidence.
 
 ## Open human gates before any scored batch
 
@@ -184,13 +207,14 @@ The provisional `local-recursive-fallback` selection remains
    controller_model_invoked=true, endpoint-reported qwen2.5-coder:7b,
    provider=gpu, data_left_homelab=false. Evidence:
    docs/evidence/v10-wave-c/c1-live-smoke-049-qwen7b.json. Does not score H1c.
-5. Decide H1 on dev — CLEARED 2026-08-17 (handoff 051): H1a UNDECIDED,
-   H1b FAIL, H1c FAIL on frozen v2. Wave E owns strategy inherit; there is
-   no H1a PASS winner to re-freeze into D/E/H. Do not inspect val/test.
-6. CT104 external model API key — decide (revoke, or explicitly freeze and accept)
-   before any "local-only" scored batch; carried from Wave A, still open.
-   Wave C made it unusable by the C1 controller (proven live), but the key is
-   still present on all three CT104 workers.
+5. Decide H1 on dev — CLEARED 2026-08-17 (handoff 051) and sealed for
+   Wave E inherit on 2026-08-18 (handoff 052): H1a UNDECIDED, H1b FAIL,
+   H1c FAIL on frozen v2. Operational inherit is `local-deterministic`
+   (`operational_selection_not_hypothesis_pass`). Do not inspect val/test.
+6. CT104 external model API key — CLEARED 2026-08-17: both
+   `MODEL_*_EXTERNAL_API_KEY` removed from CT104 host `.env` and all three
+   workers; re-proved ABSENT. Evidence:
+   `docs/evidence/v10-h1-sweci-repair/gate6-cleared.json`.
 7. FREEZE_2070_MODEL_IDENTITY — CLEARED 2026-08-16 (boss decision + host
    alignment). Frozen name `qwen2.5-coder:7b`, digest `dae161e2…`. CT103
    aligned to CT104. T00/T04 `:3b` kept as history; amendment in
@@ -235,3 +259,4 @@ G1 trust-boundary · G2 C0/C1 telemetry truth · G3 platform freeze · G4 experi
 | 22 | 2026-08-16 | [049](coordinator-handoff-049.md) | Wave D unstarted | Wave C retry **PASS on `c1_proof`**. ACP-host `/api/tags` on configured `msi` (`100.125.235.54:11434`) serves only `qwen2.5-coder:7b` (digest `dae161e2…`); human localhost `:14b`/`llama3` were the 3080 on `buttholecentral`. CT103 `.env` aligned `:3b`→`:7b`; CT104 already `:7b`. Live smoke `c1-live-smoke-049-qwen7b.json`: `controller_backend=model`, `controller_model_invoked=true`, `controller_model_id=qwen2.5-coder:7b` `endpoint_reported`, `provider=gpu`, `data_left_homelab=false`, `route_class=direct_local`, `external_routes_refused=0`, tokens 160/110, `gpu_seconds=null`+missing_fields, `scored=false`. Contamination none. ACP code unchanged; deploy N/A. Freeze amendment recorded; 048 FAIL left intact. 0 paid calls; H1c still unclaimed. |
 | 23 | 2026-08-16 | [050](coordinator-handoff-050.md) | Wave D WaitingHuman | Wave D **not scored**. v1 28/612 staging invalidated (no `rg`; empty retrieval; 2070 down). Harness `1.3.0-h1-dev-scored` ready; next dir `v10-h1-dev-scored-v2`. `msi` offline again (CT103 curl timeout). H1a/H1b/H1c unclaimed. Wave E not started. 0 paid calls. |
 | 24 | 2026-08-17 | [051](coordinator-handoff-051.md) | Wave E (not started) | Wave D **scored**. v2 612/612 frozen digest `13ba38d5…`. Decide-only: H1a UNDECIDED, H1b FAIL, H1c FAIL. Arms A,B,C0,C1 valid; contamination none. C1 invoked 0/153. SWE-CI 96 harness (`swe_ci` missing). v1 not interpreted. No second batch. Wave E / T08 not started. 0 paid calls. |
+| 25 | 2026-08-18 | [052](coordinator-handoff-052.md) | Wave E (not started) | SWE-CI repair `1.4.0-h1-sweci-repair`. v3 96/96 digest `5db3c0f7…`; 0 harness; C1 invoked 0/24. v2 digest unchanged. Canonical H1 UNDECIDED/FAIL/FAIL. Operational B `local-deterministic` not hypothesis PASS. Wave E / T08 not started. 0 paid calls. |

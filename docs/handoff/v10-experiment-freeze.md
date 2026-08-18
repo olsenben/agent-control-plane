@@ -362,6 +362,28 @@ verified-memory) with the reduced scope stated in the report.
 | 2026-08-16 | `EXECUTE_FROZEN_PLATFORM_AGENT_ON_LONGITUDINAL_CORPUS` cleared via generic ACP `maintenance_eval_dispatch.v1` (`agentctl eval dispatch`); `v10-longitudinal` experiment_version → `1.2.0-eval-dispatch`; T07 result set preserved | Unlocks agent outcome path for H3; does **not** claim H3; does **not** rewrite `results/v10-t07-longitudinal-de-v1` |
 | 2026-08-16 | `FREEZE_2070_MODEL_IDENTITY`: `MODEL_2070_NAME` `qwen2.5-coder:3b` → `qwen2.5-coder:7b` (digest `dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364`). T04 seal and T00 baseline still record `:3b` as the original configured name. CT103 host `.env` aligned to CT104. No prompt / budget / sampling / trigger / tool-policy / Qwen-14b patch-author change. | Makes the C1 arm comparable across hosts (G7) before any scored C1 batch. Does **not** start a new experiment version: no scored C1 result exists to invalidate. Does **not** rewrite handoff 048 or `c1-live-smoke-027ad9f.json`. |
 | 2026-08-16 | Wave D scored H1 DEV: `v10-context-ablation` experiment_version → `1.3.0-h1-dev-scored`; frozen controller identity on this manifest is `qwen2.5-coder:7b`; official bindings remain `arb-adapter-1.1.0` / `swe-ci-adapter-1.1.0`. T05 synthetic harness `836086c8…` and `1.2.0-eval-dispatch` longitudinal path are not rewritten. | New experiment version because C1 identity and official bindings differ from the T05 / eval-dispatch harness versions. Splits, seeds, frozen_groups, prompts, sampling, and budgets unchanged. |
+| 2026-08-17 | SWE-CI isolated-verifier repair: `v10-context-ablation` experiment_version → `1.4.0-h1-sweci-repair` (parent `1.3.0-h1-dev-scored`). `_prepare_swe_ci_workspace` / `_score_swe_ci` subprocess the Wave B interpreter `/home/benol/v10-binding-envs/swe-ci/bin/python` against `scripts/swe_ci_binding_probe.py` so `main()` inserts `SWE_CI_CODE/src`. ACP `.venv` is not pip-installed. `semantics_changed: false`. Affected slots: SWE-CI harness only. Canonical H1 remains frozen v2 ARB (`results/v10-h1-dev-scored-v2`). v3 schedules SWE-CI DEV only (96 slots) and does not execute `decide_h1` / ARB. | New experiment version because scored SWE-CI rows would change from harness-excluded to officially scored. Does **not** rewrite `results/v10-h1-dev-scored-v2/**`. Does **not** change C1 trigger, prompts, models, verifier semantics, budgets, seeds, or splits. See POST-WAVE-D PROSPECTIVE DOWNSTREAM SELECTION RULE below. |
 
 Every future entry must state what changed, why, and whether it starts a new
 experiment version.
+
+### POST-WAVE-D PROSPECTIVE DOWNSTREAM SELECTION RULE
+
+This rule is **not** the original H1 preregistration. It is a post-Wave-D
+constraint on how any later local-strategy inheritance (Wave E, H2/H3
+downstream) may use the frozen H1 DEV decision.
+
+1. Canonical H1 evidence is the frozen v2 ARB result set
+   `results/v10-h1-dev-scored-v2` under experiment version
+   `1.3.0-h1-dev-scored` (H1a UNDECIDED, H1b FAIL, H1c FAIL).
+2. An UNDECIDED verdict cannot be rewritten as PASS. H1a met the 8pp
+   success threshold but Holm did not survive; that is UNDECIDED, not a
+   winner. Do not write `h1_selected_local_strategy` from a PASS that
+   did not happen.
+3. This rule is applied to the canonical v2 ARB decision only. SWE-CI
+   v2 slots were harness-excluded and are not paired H1 evidence.
+4. Experiment version `1.4.0-h1-sweci-repair` (v3 SWE-CI-only, 96 DEV
+   slots) repairs the isolated verifier import. It cannot overturn the
+   canonical v2 ARB H1 verdicts, cannot re-open Holm/thresholds/seed,
+   and cannot convert UNDECIDED into PASS. v3 does not execute ARB and
+   does not run `decide_h1` for that result set.

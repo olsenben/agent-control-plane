@@ -1,0 +1,10 @@
+{
+  "2_patch_author_3080": {
+    "status": "pass",
+    "evidence": "url=http://127.0.0.1:11434; models=qwen2.5-coder:14b,qwen2.5-coder:7b,llama3:latest"
+  },
+  "3_c1_2070": {
+    "status": "pass",
+    "evidence": "url=http://127.0.0.1:11435; name=qwen2.5-coder:7b digest=dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364\nall=qwen2.5-coder:7b"
+  }
+}

@@ -1,0 +1,3 @@
+host_sha=c5ccafe4757afec26e9ff3c11498124ba4d196b7
+NO_CONTAINER_SHA
+agentcontrol

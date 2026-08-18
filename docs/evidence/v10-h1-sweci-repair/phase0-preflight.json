@@ -1,0 +1,57 @@
+{
+  "schema": "v10_h1_sweci_repair_phase0_preflight.v1",
+  "agent": "p0-preflight",
+  "status": "blocked",
+  "checks": {
+    "1_result_set_sha256": {
+      "status": "pass",
+      "evidence": "computed=13ba38d5fa72b38a73d65d36b2b334feb3ed4a50da1c379491dc969450247685; expected=13ba38d5fa72b38a73d65d36b2b334feb3ed4a50da1c379491dc969450247685; freeze=13ba38d5fa72b38a73d65d36b2b334feb3ed4a50da1c379491dc969450247685; method=sha256(f'{sha256(execution-order.json)}:{sha256(raw-results.jsonl)}') per suites/context_ablation.py:_freeze_result_set; order_file=da717c2a1b68d5145cc3fdef658f0329b1d4e5870837dce6021db9933b1743c1; raw_file=c830c8a29e6a9d3dafee22dd717acd8982e61bc9485a6135b8d245a582faa5f7; path=maintenance-evals/results/v10-h1-dev-scored-v2"
+    },
+    "2_patch_author_3080": {
+      "status": "pass",
+      "evidence": "url=http://127.0.0.1:11434; models=qwen2.5-coder:14b,qwen2.5-coder:7b,llama3:latest"
+    },
+    "3_c1_2070": {
+      "status": "pass",
+      "evidence": "url=http://127.0.0.1:11435; name=qwen2.5-coder:7b digest=dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364\nall=qwen2.5-coder:7b"
+    },
+    "4_gate6_ct104_keys": {
+      "status": "fail",
+      "evidence": "KEYS_PRESENT_BLOCK; workers_seen=3; present_hits=7; evidence=/mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/gate6-ct104-keys.txt"
+    },
+    "5_acp_deployed_sha": {
+      "status": "pass",
+      "evidence": "expected=c5ccafe4757afec26e9ff3c11498124ba4d196b7; host_sha=c5ccafe4757afec26e9ff3c11498124ba4d196b7; evidence=/mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/acp-deployed-sha.txt; note=matches_expected"
+    },
+    "6_hosts_rg_artifacts": {
+      "status": "pass",
+      "evidence": "ct103=agentcontrol; ct104=agentworker; rg=/home/benol/.local/bin/rg; rg_ver=ripgrep 14.1.1 (rev 4649aa9700); unexpected_test_dirs=none; results_listing=/mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/results-dir-listing.txt; sweci_policy_paths=manifests/splits/swe-ci.yaml; split_policy_path=/mnt/c/Users/benol/Documents/Gitea/ai-sdlc-lab/maintenance-evals/manifests/splits/swe-ci.yaml; policy_exists=yes; policy_has_test_proportion=0.45; no_test_result_dirs=confirmed_via_results-dir-listing"
+    },
+    "7_isolated_verifier": {
+      "status": "pass",
+      "evidence": "python=/home/benol/v10-binding-envs/swe-ci/bin/python; exists=yes; src=/home/benol/v10-external-corpora/swe-ci/code/src; import_ok None\nSWE_CI_CODE /home/benol/v10-external-corpora/swe-ci/code\nsrc /home/benol/v10-external-corpora/swe-ci/code/src"
+    }
+  },
+  "computed": {
+    "result_set_sha256": "13ba38d5fa72b38a73d65d36b2b334feb3ed4a50da1c379491dc969450247685",
+    "execution_order_sha256": "da717c2a1b68d5145cc3fdef658f0329b1d4e5870837dce6021db9933b1743c1",
+    "raw_results_sha256": "c830c8a29e6a9d3dafee22dd717acd8982e61bc9485a6135b8d245a582faa5f7",
+    "hash_method": "sha256(f'{sha256(execution-order.json)}:{sha256(raw-results.jsonl)}') per suites/context_ablation.py:_freeze_result_set",
+    "acp_host_sha": "c5ccafe4757afec26e9ff3c11498124ba4d196b7",
+    "swe_ci_code": "/home/benol/v10-external-corpora/swe-ci/code",
+    "isolated_python": "/home/benol/v10-binding-envs/swe-ci/bin/python"
+  },
+  "blockers": [
+    "Gate6 FAIL: MODEL_2070_EXTERNAL_API_KEY and MODEL_3080_EXTERNAL_API_KEY PRESENT on CT104 host .env and all 3 worker containers (worker-ci-repair, worker-report, worker-rlm-root); evidence gate6-ct104-keys.txt"
+  ],
+  "artifacts": [
+    "ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/phase0-preflight.json",
+    "ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/gate6-ct104-keys.txt",
+    "ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/acp-deployed-sha.txt",
+    "ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/results-dir-listing.txt",
+    "ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/check1-hash.json",
+    "ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/check2-3-models.json",
+    "ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/check4-5-gate-sha.json",
+    "ai-sdlc-lab/agent-control-plane/docs/evidence/v10-h1-sweci-repair/check6-7-ready-verifier.json"
+  ]
+}
