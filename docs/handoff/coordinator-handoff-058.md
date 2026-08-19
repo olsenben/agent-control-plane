@@ -7,26 +7,26 @@
 | Handoff ID | 058 |
 | Date (UTC) | 2026-08-19 |
 | Slice / ticket ID | VExp W0 (A–E) |
-| Tip SHA (ACP) | pending commit |
+| Tip SHA (ACP) | `d39206d3c2184125e9af55eccdde58f6531bcca3` |
 | Epic | Verified Experience Control Plane (not V10) |
-| `stopped_reason` | `deploy_gate_pending` |
+| `stopped_reason` | `context_handoff` |
 
 ## Compact return (for boss)
 
 ```text
 handoff_path: docs/handoff/coordinator-handoff-058.md
-tickets_done: 5 / 5 W0 coded; deploy unverified
-next_ticket_id: W0_DEPLOY_VERIFY then W1
+tickets_done: 5 / 5 W0
+next_ticket_id: W1
 blocker: none
-stopped_reason: deploy_gate_pending
+stopped_reason: context_handoff
 ```
 
 ## Slice outcome
 
-- Goal completed (one sentence): Additive W0 contracts landed without wiring V2 into the solver path.
+- Goal completed (one sentence): Additive W0 contracts landed without wiring V2 into the solver path; hosts pinned; deploy verify PASS.
 - Slice docs: `docs/slice-vexp-w0-a-repo-snapshot.md`, `docs/slice-vexp-w0-b-context-pack-v2.md`, `docs/slice-vexp-w0-c-verification-contract.md`, `docs/slice-vexp-w0-e-baseline-harness.md`
-- Deploy verify path / status: `pending`
-- CT103 tip / CT104 tip: unset until pin
+- Deploy verify path / status: [deploy-verify-vexp-w0-20260819.md](deploy-verify-vexp-w0-20260819.md) `pass`
+- CT103 tip / CT104 tip: `d39206d3c2184125e9af55eccdde58f6531bcca3` both
 
 ## Evidence pointers (paths / IDs only)
 
@@ -45,9 +45,9 @@ stopped_reason: deploy_gate_pending
 
 ## Next coordinator: first actions
 
-1. Finish local ruff/pytest if this handoff predates a green suite.
-2. Fill `docs/handoff/deploy-verify-vexp-w0-YYYYMMDD.md` after CT103+CT104 pin.
-3. Only then open `epic/vexp-w1-*`.
+1. Open W1 branches against `d39206d` (or later docs-only tip) with memory/recursion/2070/repair off.
+2. Do not map `prior_memory` to `authorized_records`.
+3. Record CT102 Actions IDs if needed for the audit trail.
 
 ## Open risks (one line each)
 

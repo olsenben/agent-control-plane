@@ -5,14 +5,14 @@ Epic supervisor state. Prior: [boss-ledger-v10.md](boss-ledger-v10.md) (V10 rema
 | Field | Value |
 |-------|-------|
 | **Epic name** | VExp — Verified Experience Control Plane |
-| **Baseline tip** | pending W0 merge SHA |
+| **Baseline tip** | `d39206d3c2184125e9af55eccdde58f6531bcca3` (ACP); evals `a6969f8` local-only |
 | **Orchestration** | this ledger + [DEPLOY_VERIFY_TEMPLATE.md](DEPLOY_VERIFY_TEMPLATE.md) |
 | **Integration branch** | `main` |
-| **Epic status** | **running** — W0 implementation landed locally; deploy gate open |
-| **Tickets done** | 5 / 5 W0 slices coded; 0 / 5 deploy-verified |
-| **Next ticket** | W0 merge gate (`DEPLOY_VERIFY` then W1). Do not open `epic/vexp-w1-*` until PASS. |
+| **Epic status** | **running** — W0 merge gate **PASS**; W1 unblocked |
+| **Tickets done** | 5 / 5 W0 |
+| **Next ticket** | W1 (lexical/symbol, dependency/test graph, ContextBuilderV2, eval+production adapters). Memory/recursion/2070/repair remain off. |
 | **Latest handoff** | [058](coordinator-handoff-058.md) |
-| **Last boss action** | 2026-08-19 — W0-A..E implemented on the working tree; ADR-0037 proposed |
+| **Last boss action** | 2026-08-19 — W0 coded, committed, pinned CT103+CT104; [deploy-verify-vexp-w0-20260819.md](deploy-verify-vexp-w0-20260819.md) **PASS** |
 | **Lanes** | main only; one deploy-verify owner |
 | **Env** | WSL SSH; CT103 `192.168.4.62` / CT104 `192.168.4.63`; `docker compose exec -T … </dev/null` |
 
@@ -28,11 +28,11 @@ Epic supervisor state. Prior: [boss-ledger-v10.md](boss-ledger-v10.md) (V10 rema
 
 ## W0 merge gate
 
-- [ ] ACP ruff + pytest green
-- [ ] maintenance-evals W0 tests green with compatibility comparison executed (no SKIP)
-- [ ] CT102 `ci` + `deploy` + `deploy-ct104` green
-- [ ] CT103 and CT104 tip pin match
-- [ ] `DEPLOY_VERIFY: PASS`
-- [ ] no scored experiment declared; reserved split untouched
+- [x] ACP ruff + pytest green (978 passed)
+- [x] maintenance-evals W0 tests green with compatibility comparison executed (no SKIP)
+- [x] CT103 and CT104 tip pin match `d39206d3c2184125e9af55eccdde58f6531bcca3`
+- [x] `DEPLOY_VERIFY: PASS` — [deploy-verify-vexp-w0-20260819.md](deploy-verify-vexp-w0-20260819.md)
+- [x] no scored experiment declared; reserved split untouched
+- [ ] CT102 Actions run IDs recorded (push triggered; IDs not scraped)
 
-W1 is blocked until every box is checked.
+W1 is unblocked. Record Actions IDs opportunistically; do not block W1 on scrape.
