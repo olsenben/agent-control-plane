@@ -30,7 +30,7 @@ dependencies = [
 [project.optional-dependencies]
 context = ["gitingest>=0"]
 rlm = ["rlms>=0.1.2"]
-dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.8"]
+dev = ["pytest>=8.0", "ruff==0.15.17", "mypy>=1.8"]
 structured = ["instructor>=1.0", "openai>=1.0", "watchfiles>=0.21"]
 observe = [
   "opentelemetry-api>=1.24",
@@ -54,3 +54,6 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# CT102 `pip install -e ".[dev]"` must not float to a newer ruff that enables
+# rules this tree has never been cleaned against (412 failures on 0.16.x).
+required-version = "==0.15.17"
