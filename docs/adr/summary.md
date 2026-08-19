@@ -94,3 +94,5 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-08-18 `e017a77` / `cc28bb7` — ADR-0036 proposed: opt-in diagnostic memory injection on eval-dispatch; scored H3 and `memory.py` admit/retrieve unchanged
 - 2026-08-19 — ADR-0037 proposed: VExp W0 additive contracts; v1 solver path unchanged; schema digest `f4bf3540…`; W1 blocked on deploy verify
 - 2026-08-18 — ADR-0038 proposed: discriminated v1/v2 context_pack on the job; engine renders by schema_version; eval context_mode keeps H1 arms; production default remains compile_context_pack
+- 2026-08-19 `19db1f2` — ADR-0038 already in the W1 code tip; no additional ADR
+- 2026-08-19 — no ADR: W1 deploy-verify docs, handoff 059, and host-pin script
