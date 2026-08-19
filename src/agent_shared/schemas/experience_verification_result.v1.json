@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-sdlc-lab.local/schemas/experience_verification_result.v1.json",
+  "title": "experience_verification_result.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verification_scope",
+    "authority_domain",
+    "official",
+    "additional",
+    "verified_success",
+    "normalized_failures",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "experience_verification_result.v1"
+    },
+    "verification_scope": {
+      "enum": ["fast", "final"]
+    },
+    "authority_domain": {
+      "enum": ["ct104_advisory", "ct102_production", "eval_harness"]
+    },
+    "official": {
+      "$ref": "#/$defs/command_lane"
+    },
+    "additional": {
+      "$ref": "#/$defs/command_lane"
+    },
+    "verified_success": {
+      "type": "boolean"
+    },
+    "failure_class": {
+      "type": ["string", "null"]
+    },
+    "normalized_failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "started_at": {
+      "type": ["string", "null"]
+    },
+    "finished_at": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "command_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commands", "pass"],
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pass": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

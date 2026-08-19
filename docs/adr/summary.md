@@ -40,6 +40,8 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0033 | Enforce a local-only egress boundary for the C1 recursive controller | proposed | 2026-08-16 | The C1 controller checks every route the shared failover chain offers before sending anything and refuses non-homelab providers outright, so a "local 2070" observation no longer depends on `REPO_EXTERNAL_MODEL_POLICY` happening to be empty; refusals fail soft into the existing deterministic result and are counted in telemetry; `controller_gpu_seconds` is nullable with `controller_missing_fields` instead of a fake `0.0`; `controller_model_id` prefers what the endpoint reports and records its provenance |
 | ADR-0034 | Apply frozen H1 A/B/C0/C1 context inside eval-dispatch | proposed | 2026-08-16 | Eval-dispatch applies the frozen arm policy (A none, B workspace pack, C0/C1 conditional recursive, C1 identity/contamination checks) so scored H1 compares context strategies rather than labels |
 | ADR-0035 | Keep DEEPER_EVAL recursive-policy bake-off out of ACP production | proposed | 2026-08-18 | Stage A P1/P+ stay in maintenance-evals; INSUFFICIENT_SIGNAL does not rewrite ADR-0016/0034 or sealed H1 |
+| ADR-0036 | Keep diagnostic memory injection opt-in and off scored H3 | proposed | 2026-08-18 | `memory.diagnostic_injection=true` is the only path that puts mem-* records on OfficialRLMEngine messages; scored H3 stays untreated |
+| ADR-0037 | Keep VExp W0 contracts additive and leave the v1 solver path unchanged | proposed | 2026-08-19 | Additive RepoSnapshot / ContextPackV2 / ExperienceVerificationResult; `prior_memory` is legacy compatibility not `authorized_records`; production episode finalization derived from `ct102_production`; W2–W6 Protocols not frozen |
 
 ## Review log
 
@@ -88,3 +90,5 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-08-16 `f830401` — no ADR: Wave C retry is host-env identity freeze (`MODEL_2070_NAME` `:3b`→`:7b`) plus live C1 evidence; no new runtime boundary. ADR-0033 follow-up on the 3b/7b divergence is recorded as cleared in that ADR.
 - 2026-08-16 `9447c1c` — ADR-0034 proposed: eval-dispatch applies frozen H1 A/B/C0/C1 context on the exact-SHA workspace path; C1 contamination fails the session as harness; retrieval mode is inspect/read-only
 - 2026-08-18 — ADR-0035 proposed: DEEPER_EVAL Stage A (`1.7.0`) stays eval-only; `INSUFFICIENT_SIGNAL` does not rewrite ADR-0016/0034, sealed H1, or reserved `1.6.0`
+- 2026-08-18 `e017a77` / `cc28bb7` — ADR-0036 proposed: opt-in diagnostic memory injection on eval-dispatch; scored H3 and `memory.py` admit/retrieve unchanged
+- 2026-08-19 — ADR-0037 proposed: VExp W0 additive contracts; v1 solver path unchanged; schema digest `f4bf3540…`; W1 blocked on deploy verify
