@@ -131,6 +131,7 @@ def treatment_integrity_fields(
         "rendered_context_hash": sha256_text(rendered_text),
         "evidence_provider_ids": list(trace.providers_invoked),
         "selected_evidence_ids": list(trace.selected_evidence_ids),
+        "selected_counts_by_class": dict(trace.selected_counts),
     }
 
 

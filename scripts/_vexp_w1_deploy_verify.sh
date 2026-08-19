@@ -157,6 +157,63 @@ for mode in modes:
     print(f"SMOKE_{mode}_OK")
 print("W1_EVAL_SMOKE_OK")
 
+class _ParseTimeout:
+    def run(self, job, workspace, policy, *, artifact_dir=None, **kwargs):
+        from pathlib import Path as _P
+        art = _P(str(artifact_dir))
+        treat = art / "treatment_exposure.json"
+        pack = art / "context_pack.json"
+        rendered = art / "rendered_context.txt"
+        assert treat.is_file(), art
+        assert pack.is_file()
+        assert rendered.is_file()
+        payload = json.loads(treat.read_text())
+        assert payload.get("context_pack_hash")
+        assert payload.get("rendered_context_hash")
+        assert payload.get("context_pack_version") == "context-pack.v2"
+        assert payload.get("sequence_position") == "pre_model_invocation"
+        raise ValueError(
+            "Failed to parse fix output: Expecting ',' delimiter: line 9 column 20 (char 459); "
+            "json retry failed: timed out; missing-json repair failed: timed out"
+        )
+
+sid = dispatch_evaluation(
+    {
+        "schema": "maintenance_eval_dispatch.v1",
+        "eval_run_id": "w1-deploy-parse-timeout",
+        "project": "vexp/mini",
+        "workspace": workspace,
+        "head_sha": sha,
+        "policy_source_sha": "b" * 40,
+        "problem_statement": "Fix foo in src/pkg/foo.py",
+        "arm": "local-deterministic",
+        "context_strategy": "deterministic",
+        "controller_backend": "none",
+        "frontier_escalation": False,
+        "memory": {"policy": "off", "enabled": False, "namespace": "n", "audit_history_action": "retain"},
+        "verification": {"official_commands": [], "v10_additional_commands": []},
+        "limits": {"wall_seconds": 60, "attempts": 1},
+        "evaluation_mode": "patch",
+        "upstream_task_id": "w1-smoke-parse",
+        "context_mode": "context_v2",
+    },
+    engine_factory=lambda _name: _ParseTimeout(),
+)
+record = get_session(sid, "vexp/mini")
+tel = record.get("evaluation_telemetry") or {}
+art = Path(str((record.get("eval_dispatch") or {}).get("artifact_dir") or ""))
+treat = json.loads((art / "treatment_exposure.json").read_text())
+assert record.get("status") == "failed"
+assert record.get("terminal_reason_code") == "evaluated_agent"
+assert tel.get("context_pack_version") == "context-pack.v2"
+assert tel.get("context_pack_hash") == treat["context_pack_hash"]
+assert tel.get("rendered_context_hash") == treat["rendered_context_hash"]
+assert tel.get("repair_attempts") == 0
+assert not tel.get("recursive_invoked")
+print(f"SMOKE_parse_timeout_SESSION={sid}")
+print(f"SMOKE_parse_timeout_PACK_HASH={tel.get('context_pack_hash')}")
+print("SMOKE_parse_timeout_TREATMENT_OK")
+
 from agent_control.config import Settings
 from agent_control.context.v2_dispatch import (
     CONTEXT_MODE_BASELINE_V1,

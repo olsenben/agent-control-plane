@@ -5,14 +5,14 @@ Epic supervisor state. Prior: [boss-ledger-v10.md](boss-ledger-v10.md) (V10 rema
 | Field | Value |
 |-------|-------|
 | **Epic name** | VExp — Verified Experience Control Plane |
-| **Baseline tip** | `19db1f2c21a00dd17f65e8bc1a934f7e4f1b0698` (ACP); evals `f5a1c56` local-only |
+| **Baseline tip** | `2f15d82fa2122c7fbff443a0daf567442025d9e8` (ACP); evals `8ff016b` local-only |
 | **Orchestration** | this ledger + [DEPLOY_VERIFY_TEMPLATE.md](DEPLOY_VERIFY_TEMPLATE.md) |
 | **Integration branch** | `main` |
-| **Epic status** | **running** — W1 merge gate **PASS**; Phase 4 unblocked |
-| **Tickets done** | W0 5/5; W1 coded + deploy-verified |
-| **Next ticket** | W1 Phase 4 DEV bakeoff (A vs B0 vs B1). Memory/recursion/2070/repair remain off. |
-| **Latest handoff** | [059](coordinator-handoff-059.md) |
-| **Last boss action** | 2026-08-19 — W1 coded, committed `19db1f2`, pinned CT103+CT104; [deploy-verify-vexp-w1-20260819.md](deploy-verify-vexp-w1-20260819.md) **PASS** |
+| **Epic status** | **running** — W1 treatment-exposure repair in progress; production default remains v1 |
+| **Tickets done** | W0 5/5; W1 coded + deploy-verified; Phase 4 STOP_REPAIR freeze recorded |
+| **Next ticket** | Finish W1 treatment-exposure repair (do not start WAVE 2). |
+| **Latest handoff** | [060](coordinator-handoff-060.md) |
+| **Last boss action** | 2026-08-19 — treatment provenance persist-before-parse repair coded; official rerun pending |
 | **Lanes** | main only; one deploy-verify owner |
 | **Env** | WSL SSH; CT103 `192.168.4.62` / CT104 `192.168.4.63`; `docker compose exec -T … </dev/null` |
 
@@ -46,6 +46,7 @@ Epic supervisor state. Prior: [boss-ledger-v10.md](boss-ledger-v10.md) (V10 rema
 | W1-D | Builder | W1-0 | Done | pure `ContextBuilder`; no emit inside `build` |
 | W1-F | Exact-SHA workspace | W1-0 | Done | `materialize_exact_sha_workspace`; providers never checkout |
 | W1-E/F | Eval+prod integration | W1-A..D,F | Done | discriminated `context_pack`; production default v1 |
+| W1-TE | Treatment-exposure repair | W1 Phase 4 freeze | In Progress | persist pack/render/TreatmentExposure before `engine.run`; do not mutate v1 freeze |
 
 ## W1 merge gate
 
@@ -54,7 +55,7 @@ Epic supervisor state. Prior: [boss-ledger-v10.md](boss-ledger-v10.md) (V10 rema
 - [x] `DEPLOY_VERIFY: PASS` — [deploy-verify-vexp-w1-20260819.md](deploy-verify-vexp-w1-20260819.md)
 - [x] `baseline_v1` / `context_v2_lexical` / `context_v2` fake-engine smoke
 - [x] production default remains `compile_context_pack`
-- [ ] Phase 4 DEV bakeoff decision (`GO_VERIFIED` / `GO_EVIDENCE_ONLY` / `STOP_REPAIR`)
+- [x] Phase 4 DEV bakeoff decision: **STOP_REPAIR** — [results/vexp-w1-context-v2-dev-v1](../../../../maintenance-evals/results/vexp-w1-context-v2-dev-v1)
 - [ ] CT102 Actions run IDs recorded
 
-Phase 4 is unblocked. Do not flip production default from this freeze.
+Phase 4 freeze: 13/14 slots had treatment integrity; slot 14 (`retry-toolkit-e06` / `context_v2`, `sess-eval-509576c0e89d4e59bba1d48e0fbd806c`) failed as `evaluated_agent` (fix JSON parse + json-retry timeout) and recorded no V2 pack hashes. Verifier lift was 0/14. Production default stays v1. Frozen result set `results/vexp-w1-context-v2-dev-v1` is immutable. Do not start WAVE 2 until a repaired create-only result set has complete treatment exposure.

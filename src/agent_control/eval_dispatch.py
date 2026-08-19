@@ -22,6 +22,10 @@ from collections.abc import Mapping
 from typing import Any, Callable
 
 from agent_control.context.repo_snapshot import RepoSnapshotError
+from agent_control.context.treatment_artifacts import (
+    load_pre_invocation_treatment,
+    persist_pre_invocation_treatment,
+)
 from agent_control.context.v2_dispatch import ContextModeError
 from agent_control.eval_arm_context import apply_eval_context, write_arb_trajectory
 from agent_shared.constants import RiskClass
@@ -158,6 +162,17 @@ def dispatch_evaluation(
         }
     if arm_context.context_pack:
         job["context_pack"] = arm_context.context_pack
+    treatment_fields = persist_pre_invocation_treatment(
+        artifact_dir=artifact_dir,
+        session_id=session_id,
+        run_id=run_id,
+        context_mode=context_mode,
+        project=project,
+        head_sha=head_sha,
+        request=request,
+        arm_context=arm_context,
+        job=job,
+    )
     if arm_context.contamination:
         record = _failed_session(
             session_id=session_id,
@@ -169,14 +184,16 @@ def dispatch_evaluation(
             artifact_dir=artifact_dir,
             workspace=workspace,
         )
-        record["evaluation_telemetry"] = {
-            **(record.get("evaluation_telemetry") or {}),
-            **arm_context.controller_telemetry,
-            "agent_execution": True,
-            "retrieved_files": arm_context.retrieved_files,
-            "c1_contamination": arm_context.contamination,
-            "diagnostic_injection": diagnostic_injection,
-        }
+        record["evaluation_telemetry"] = _failed_treatment_telemetry(
+            arm_context=arm_context,
+            context_mode=context_mode,
+            treatment_fields=treatment_fields,
+            extra={
+                "retrieved_files": arm_context.retrieved_files,
+                "c1_contamination": arm_context.contamination,
+                "diagnostic_injection": diagnostic_injection,
+            },
+        )
         _write_session(session_id, record)
         return session_id
     engine_name = resolve_engine_name()
@@ -201,6 +218,11 @@ def dispatch_evaluation(
             reason=str(exc),
             artifact_dir=artifact_dir,
             workspace=workspace,
+        )
+        record["evaluation_telemetry"] = _failed_treatment_telemetry(
+            arm_context=arm_context,
+            context_mode=context_mode,
+            treatment_fields=treatment_fields,
         )
         _write_session(session_id, record)
         return session_id
@@ -231,6 +253,11 @@ def dispatch_evaluation(
                 reason=f"patch apply failed: {exc}",
                 artifact_dir=artifact_dir,
                 workspace=workspace,
+            )
+            record["evaluation_telemetry"] = _failed_treatment_telemetry(
+                arm_context=arm_context,
+                context_mode=context_mode,
+                treatment_fields=treatment_fields,
             )
             _write_session(session_id, record)
             return session_id
@@ -275,16 +302,17 @@ def dispatch_evaluation(
             artifact_dir=artifact_dir,
             workspace=workspace,
         )
-        record["evaluation_telemetry"] = {
-            **(record.get("evaluation_telemetry") or {}),
-            **arm_context.controller_telemetry,
-            **{k: v for k, v in treatment.items() if k != "treatment_integrity_failed"},
-            "agent_execution": True,
-            "retrieved_files": retrieved_files,
-            "context_mode": context_mode,
-            "repair_attempts": 0,
-            "recursive_invoked": False,
-        }
+        record["evaluation_telemetry"] = _failed_treatment_telemetry(
+            arm_context=arm_context,
+            context_mode=context_mode,
+            treatment_fields={
+                k: v for k, v in treatment.items() if k != "treatment_integrity_failed"
+            },
+            extra={
+                "retrieved_files": retrieved_files,
+                "treatment_integrity_failed": treatment.get("treatment_integrity_failed"),
+            },
+        )
         _write_session(session_id, record)
         return session_id
 
@@ -705,6 +733,33 @@ def _failed_session(
     return record
 
 
+def _failed_treatment_telemetry(
+    *,
+    arm_context: Any,
+    context_mode: str,
+    treatment_fields: dict[str, Any],
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Attach pre-invocation treatment to a failed session. Does not rebuild hashes."""
+    skip = {"treatment_integrity_failed", "experience_events"}
+    payload = {
+        "official_benchmark_pass": False,
+        "v10_additional_verification_pass": False,
+        "agent_execution": True,
+        "solver_attempts": 1,
+        "repair_attempts": 0,
+        "recursive_invoked": bool(arm_context.recursive_invoked),
+        "context_mode": context_mode,
+        **(arm_context.controller_telemetry or {}),
+        **{key: value for key, value in treatment_fields.items() if key not in skip},
+    }
+    if arm_context.experience_events:
+        payload["experience_events"] = list(arm_context.experience_events)
+    if extra:
+        payload.update(extra)
+    return payload
+
+
 def _treatment_integrity(
     *,
     context_mode: str,
@@ -714,9 +769,8 @@ def _treatment_integrity(
     artifact_dir: Path,
     job: dict[str, Any],
 ) -> dict[str, Any]:
-    """Record treatment hashes. A V2 pack with a v1-only prompt is a failed gate."""
-    from agent_shared.hash_utils import canonical_json_hash, sha256_text
-    from agent_shared.models.repo_snapshot import compute_snapshot_id
+    """Link pre-invocation hashes; validate V2 prompt. Do not rebuild a new treatment."""
+    from agent_shared.hash_utils import sha256_text
     from agent_workers.rlm.official_engine import (
         SCHEMA_VERSION_V1,
         SCHEMA_VERSION_V2,
@@ -724,7 +778,27 @@ def _treatment_integrity(
         render_job_context_pack,
     )
 
-    fields: dict[str, Any] = dict(arm_context.treatment_integrity or {})
+    persisted = load_pre_invocation_treatment(artifact_dir)
+    fields: dict[str, Any] = {}
+    if persisted:
+        fields.update(persisted.get("telemetry_fields") or {})
+        for key in (
+            "context_pack_hash",
+            "rendered_context_hash",
+            "context_pack_version",
+            "repo_snapshot_id",
+            "target_sha",
+            "evidence_provider_ids",
+            "selected_evidence_ids",
+            "selected_counts_by_class",
+            "invocation_id",
+            "treatment_exposure_artifact",
+        ):
+            if persisted.get(key) and not fields.get(key):
+                fields[key] = persisted[key]
+    for key, value in (arm_context.treatment_integrity or {}).items():
+        if value not in (None, "", [], {}) and not fields.get(key):
+            fields[key] = value
     if arm_context.experience_events:
         fields["experience_events"] = list(arm_context.experience_events)
     pack_raw = arm_context.context_pack
@@ -732,6 +806,9 @@ def _treatment_integrity(
         pack = load_job_context_pack({"context_pack": pack_raw})
         rendered = render_job_context_pack(pack)
         schema = getattr(pack, "schema_version", None) or SCHEMA_VERSION_V1
+        from agent_shared.hash_utils import canonical_json_hash
+        from agent_shared.models.repo_snapshot import compute_snapshot_id
+
         fields.update(
             {
                 "repo_snapshot_id": compute_snapshot_id(project, head_sha),

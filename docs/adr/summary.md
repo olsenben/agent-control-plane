@@ -43,6 +43,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0036 | Keep diagnostic memory injection opt-in and off scored H3 | proposed | 2026-08-18 | `memory.diagnostic_injection=true` is the only path that puts mem-* records on OfficialRLMEngine messages; scored H3 stays untreated |
 | ADR-0037 | Keep VExp W0 contracts additive and leave the v1 solver path unchanged | proposed | 2026-08-19 | Additive RepoSnapshot / ContextPackV2 / ExperienceVerificationResult; `prior_memory` is legacy compatibility not `authorized_records`; production episode finalization derived from `ct102_production`; W2–W6 Protocols not frozen |
 | ADR-0038 | Expose ContextPack V2 as an optional solver contract via schema_version and context_mode | proposed | 2026-08-18 | Discriminated v1/v2 job pack; engine renders by schema_version; eval `context_mode` keeps H1 arms; production default remains compile_context_pack |
+| ADR-0039 | Persist treatment exposure before model-response handling | proposed | 2026-08-19 | Pre-invocation pack/render/TreatmentExposure artifacts are authoritative; session finalization links them; parse/retry failures keep V2 hashes |
 
 ## Review log
 
@@ -96,3 +97,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-08-18 — ADR-0038 proposed: discriminated v1/v2 context_pack on the job; engine renders by schema_version; eval context_mode keeps H1 arms; production default remains compile_context_pack
 - 2026-08-19 `19db1f2` — ADR-0038 already in the W1 code tip; no additional ADR
 - 2026-08-19 — no ADR: W1 deploy-verify docs, handoff 059, and host-pin script
+- 2026-08-19 — ADR-0039 proposed: persist treatment exposure before model-response handling so parse/retry failures keep V2 hashes
