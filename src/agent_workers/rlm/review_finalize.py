@@ -28,8 +28,16 @@ def finalize_review_result(
     if pack:
         from agent_shared.models.context_pack import ContextPack
 
-        if isinstance(pack, dict):
+        schema = (
+            pack.get("schema_version")
+            if isinstance(pack, dict)
+            else getattr(pack, "schema_version", None)
+        )
+        if schema == "context-pack.v2":
+            pack = None
+        elif isinstance(pack, dict):
             pack = ContextPack.model_validate(pack)
+    if pack:
         pack_blast = pack.blast_radius
         has_pack_data = any(
             [

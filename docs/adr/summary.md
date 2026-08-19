@@ -42,6 +42,7 @@ Index of architecture decisions. Full records live in this directory.
 | ADR-0035 | Keep DEEPER_EVAL recursive-policy bake-off out of ACP production | proposed | 2026-08-18 | Stage A P1/P+ stay in maintenance-evals; INSUFFICIENT_SIGNAL does not rewrite ADR-0016/0034 or sealed H1 |
 | ADR-0036 | Keep diagnostic memory injection opt-in and off scored H3 | proposed | 2026-08-18 | `memory.diagnostic_injection=true` is the only path that puts mem-* records on OfficialRLMEngine messages; scored H3 stays untreated |
 | ADR-0037 | Keep VExp W0 contracts additive and leave the v1 solver path unchanged | proposed | 2026-08-19 | Additive RepoSnapshot / ContextPackV2 / ExperienceVerificationResult; `prior_memory` is legacy compatibility not `authorized_records`; production episode finalization derived from `ct102_production`; W2–W6 Protocols not frozen |
+| ADR-0038 | Expose ContextPack V2 as an optional solver contract via schema_version and context_mode | proposed | 2026-08-18 | Discriminated v1/v2 job pack; engine renders by schema_version; eval `context_mode` keeps H1 arms; production default remains compile_context_pack |
 
 ## Review log
 
@@ -92,3 +93,4 @@ Index of architecture decisions. Full records live in this directory.
 - 2026-08-18 — ADR-0035 proposed: DEEPER_EVAL Stage A (`1.7.0`) stays eval-only; `INSUFFICIENT_SIGNAL` does not rewrite ADR-0016/0034, sealed H1, or reserved `1.6.0`
 - 2026-08-18 `e017a77` / `cc28bb7` — ADR-0036 proposed: opt-in diagnostic memory injection on eval-dispatch; scored H3 and `memory.py` admit/retrieve unchanged
 - 2026-08-19 — ADR-0037 proposed: VExp W0 additive contracts; v1 solver path unchanged; schema digest `f4bf3540…`; W1 blocked on deploy verify
+- 2026-08-18 — ADR-0038 proposed: discriminated v1/v2 context_pack on the job; engine renders by schema_version; eval context_mode keeps H1 arms; production default remains compile_context_pack

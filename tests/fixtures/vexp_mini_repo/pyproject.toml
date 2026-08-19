@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vexp-mini-repo"
+version = "0.0.1"
+description = "Tiny Python fixture for VExp WAVE 1 provider tests"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["src"]

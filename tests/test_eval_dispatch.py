@@ -375,3 +375,52 @@ def test_failed_engine_run_persists_artifact_dir(
     assert artifact_dir.name == "artifacts"
     assert session["status"] == "failed"
 
+
+def test_dispatch_context_mode_v2_attaches_v2_pack(workspace: tuple[Path, str]) -> None:
+    from agent_workers.rlm.fake_engine import FakeRLMEngine
+
+    repo, sha = workspace
+    (repo / "src").mkdir()
+    (repo / "src" / "foo.py").write_text("def helpers():\n    return 1\n", encoding="utf-8")
+    subprocess.check_call(["git", "-C", str(repo), "add", "src/foo.py"])
+    subprocess.check_call(
+        ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "foo"],
+    )
+    sha = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+    captured: list[dict] = []
+
+    class _CaptureEngine(FakeRLMEngine):
+        def run(self, job, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+            captured.append(job)
+            return super().run(job, *args, **kwargs)
+
+    request = {
+        "schema": DISPATCH_SCHEMA,
+        "eval_run_id": "eval-ctx-v2",
+        "project": "synthlab/retry-toolkit",
+        "workspace": str(repo),
+        "head_sha": sha,
+        "policy_source_sha": "2532de7cf5098baa461e49b92e0d338c089cff45",
+        "problem_statement": "Inspect src/foo.py helpers",
+        "arm": "local-deterministic",
+        "context_strategy": "context_v2",
+        "controller_backend": "none",
+        "frontier_escalation": False,
+        "memory": {"policy": "off", "enabled": False, "namespace": "n", "audit_history_action": "retain"},
+        "verification": {"official_commands": [], "v10_additional_commands": []},
+        "limits": {"wall_seconds": 30, "attempts": 1},
+        "evaluation_mode": "retrieval",
+        "upstream_task_id": "sample-v2",
+        "context_mode": "context_v2",
+    }
+    session_id = dispatch_evaluation(request, engine_factory=lambda _name: _CaptureEngine())
+    session = get_session(session_id, "synthlab/retry-toolkit")
+    assert captured
+    assert captured[0]["context_pack"]["schema_version"] == "context-pack.v2"
+    telemetry = session["evaluation_telemetry"]
+    assert telemetry["context_mode"] == "context_v2"
+    assert telemetry["repair_attempts"] == 0
+    assert telemetry["recursive_invoked"] is False
+    assert telemetry["context_pack_hash"]
+    assert telemetry["rendered_context_hash"]
+

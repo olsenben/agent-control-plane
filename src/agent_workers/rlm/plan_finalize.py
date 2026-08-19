@@ -32,11 +32,17 @@ def finalize_plan_result(
     if pack_raw:
         from agent_shared.models.context_pack import ContextPack
 
-        pack = (
-            pack_raw
-            if isinstance(pack_raw, ContextPack)
-            else ContextPack.model_validate(pack_raw)
+        schema = (
+            pack_raw.get("schema_version")
+            if isinstance(pack_raw, dict)
+            else getattr(pack_raw, "schema_version", None)
         )
+        if schema != "context-pack.v2":
+            pack = (
+                pack_raw
+                if isinstance(pack_raw, ContextPack)
+                else ContextPack.model_validate(pack_raw)
+            )
     if pack is not None:
         pack_blast = pack.blast_radius
         has_pack_data = any(

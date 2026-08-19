@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import Any
 
 from agent_control.config import Settings, get_settings
+from agent_control.context.v2_dispatch import (
+    CONTEXT_MODE_BASELINE_V1,
+    resolve_production_context_mode,
+)
 from agent_control.graph.context_pack import compile_context_pack
 from agent_control.memory.preflight import compile_memory_preflight
 from agent_control.memory.preflight_artifacts import (
@@ -207,6 +211,24 @@ def prepare_typed_rlm_dispatch(
     # Context pack: reuse existing or compile; stamp frozen SHAs.
     pack = job.context_pack
     if pack is None and ensure_context_pack:
+        mode = resolve_production_context_mode(settings)
+        if mode != CONTEXT_MODE_BASELINE_V1:
+            _fail_preflight(
+                state_root,
+                session,
+                run_id=job.run_id,
+                reason=(
+                    f"production context_mode={mode!r} is canary-only via "
+                    "agent_control.context.v2_dispatch.from_production; "
+                    "typed RLMJob.context_pack remains compile_context_pack. "
+                    "Set CONTEXT_MODE=baseline_v1 for live Gitea dispatch."
+                ),
+                reason_code="production_v2_canary_not_on_typed_job",
+            )
+            raise PreflightFatalError(
+                f"production context_mode={mode!r} is not attached to typed RLMJob; "
+                "use v2_dispatch.from_production for the V2 canary"
+            )
         try:
             pack = compile_context_pack(
                 job.project,

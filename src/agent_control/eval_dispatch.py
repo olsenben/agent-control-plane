@@ -21,7 +21,9 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Any, Callable
 
-from agent_control.eval_arm_context import apply_arm_context, write_arb_trajectory
+from agent_control.context.repo_snapshot import RepoSnapshotError
+from agent_control.context.v2_dispatch import ContextModeError
+from agent_control.eval_arm_context import apply_eval_context, write_arb_trajectory
 from agent_shared.constants import RiskClass
 from agent_shared.models.intent import CommandIntent
 from agent_workers.patch.apply import ApplyFixError, apply_fix_to_workspace
@@ -129,19 +131,31 @@ def dispatch_evaluation(
     )
     if diagnostic_injection:
         job["persist_official_engine_messages"] = True
-    arm_context = apply_arm_context(
-        arm=str(request.get("arm") or ""),
-        controller_backend=str(request.get("controller_backend") or "none"),
-        workspace=workspace,
-        project=project,
-        question=str(request.get("problem_statement") or ""),
-        session_id=session_id,
-        run_id=run_id,
-        source_sha=head_sha,
-        policy_source_sha=str(request.get("policy_source_sha") or ""),
-        state_root=session_root() / session_id,
-        diagnostic_memory_records=diagnostic_records,
-    )
+    context_mode = str(request.get("context_mode") or "baseline_v1")
+    try:
+        arm_context = apply_eval_context(
+            arm=str(request.get("arm") or ""),
+            controller_backend=str(request.get("controller_backend") or "none"),
+            workspace=workspace,
+            project=project,
+            question=str(request.get("problem_statement") or ""),
+            session_id=session_id,
+            run_id=run_id,
+            source_sha=head_sha,
+            policy_source_sha=str(request.get("policy_source_sha") or ""),
+            state_root=session_root() / session_id,
+            context_mode=context_mode,
+            diagnostic_memory_records=diagnostic_records,
+        )
+    except (ContextModeError, RepoSnapshotError) as exc:
+        raise EvalDispatchError(str(exc)) from exc
+    if context_mode in {"context_v2", "context_v2_lexical"}:
+        job["persist_official_engine_messages"] = True
+        job["limits"] = {
+            **dict(job.get("limits") or {}),
+            "max_depth": 0,
+            "max_child_agents": 0,
+        }
     if arm_context.context_pack:
         job["context_pack"] = arm_context.context_pack
     if arm_context.contamination:
@@ -242,6 +256,38 @@ def dispatch_evaluation(
         if not workspace_traj.exists():
             write_arb_trajectory(workspace_traj, sample_id, retrieved_files)
 
+    treatment = _treatment_integrity(
+        context_mode=context_mode,
+        arm_context=arm_context,
+        project=project,
+        head_sha=head_sha,
+        artifact_dir=artifact_dir,
+        job=job,
+    )
+    if treatment.get("treatment_integrity_failed"):
+        record = _failed_session(
+            session_id=session_id,
+            project=project,
+            head_sha=head_sha,
+            run_id=run_id,
+            reason_code="harness",
+            reason=str(treatment["treatment_integrity_failed"]),
+            artifact_dir=artifact_dir,
+            workspace=workspace,
+        )
+        record["evaluation_telemetry"] = {
+            **(record.get("evaluation_telemetry") or {}),
+            **arm_context.controller_telemetry,
+            **{k: v for k, v in treatment.items() if k != "treatment_integrity_failed"},
+            "agent_execution": True,
+            "retrieved_files": retrieved_files,
+            "context_mode": context_mode,
+            "repair_attempts": 0,
+            "recursive_invoked": False,
+        }
+        _write_session(session_id, record)
+        return session_id
+
     verification = request.get("verification") or {}
     official_ok, additional_ok, claim, infra_failure = _run_verification_commands(
         workspace=workspace,
@@ -310,7 +356,9 @@ def dispatch_evaluation(
             "context_tokens_to_primary": _usage_tokens(result, "prompt"),
             "local_prompt_tokens": _usage_tokens(result, "prompt"),
             "local_completion_tokens": _usage_tokens(result, "completion"),
+            "context_mode": context_mode,
             **arm_context.controller_telemetry,
+            **{k: v for k, v in treatment.items() if k != "treatment_integrity_failed"},
         },
         "engine_summary": getattr(result, "summary", None),
         "eval_dispatch": {
@@ -655,6 +703,73 @@ def _failed_session(
             "engine": resolve_engine_name(),
         }
     return record
+
+
+def _treatment_integrity(
+    *,
+    context_mode: str,
+    arm_context: Any,
+    project: str,
+    head_sha: str,
+    artifact_dir: Path,
+    job: dict[str, Any],
+) -> dict[str, Any]:
+    """Record treatment hashes. A V2 pack with a v1-only prompt is a failed gate."""
+    from agent_shared.hash_utils import canonical_json_hash, sha256_text
+    from agent_shared.models.repo_snapshot import compute_snapshot_id
+    from agent_workers.rlm.official_engine import (
+        SCHEMA_VERSION_V1,
+        SCHEMA_VERSION_V2,
+        load_job_context_pack,
+        render_job_context_pack,
+    )
+
+    fields: dict[str, Any] = dict(arm_context.treatment_integrity or {})
+    if arm_context.experience_events:
+        fields["experience_events"] = list(arm_context.experience_events)
+    pack_raw = arm_context.context_pack
+    if pack_raw and not fields.get("context_pack_hash"):
+        pack = load_job_context_pack({"context_pack": pack_raw})
+        rendered = render_job_context_pack(pack)
+        schema = getattr(pack, "schema_version", None) or SCHEMA_VERSION_V1
+        fields.update(
+            {
+                "repo_snapshot_id": compute_snapshot_id(project, head_sha),
+                "target_sha": head_sha,
+                "context_pack_version": schema,
+                "context_pack_hash": canonical_json_hash(
+                    pack.model_dump(mode="json") if hasattr(pack, "model_dump") else pack_raw
+                ),
+                "rendered_context_hash": sha256_text(rendered),
+                "evidence_provider_ids": list(fields.get("evidence_provider_ids") or []),
+                "selected_evidence_ids": list(fields.get("selected_evidence_ids") or []),
+            }
+        )
+    if context_mode in {"context_v2", "context_v2_lexical"}:
+        if (fields.get("context_pack_version") or "") != SCHEMA_VERSION_V2:
+            fields["treatment_integrity_failed"] = (
+                f"context_mode={context_mode} did not put a V2 pack on the job"
+            )
+            return fields
+        messages_path = artifact_dir / "official_engine_messages.json"
+        if messages_path.is_file():
+            payload = json.loads(messages_path.read_text(encoding="utf-8"))
+            user = str(payload.get("user") or "")
+            if "=== context-pack.v2 ===" not in user:
+                fields["treatment_integrity_failed"] = (
+                    "V2 pack on the job but user prompt is v1-only"
+                )
+            expected = render_job_context_pack(load_job_context_pack(job))
+            if expected and expected not in user:
+                fields["treatment_integrity_failed"] = (
+                    "rendered V2 text was not prepended into the user prompt"
+                )
+            rendered_hash = fields.get("rendered_context_hash")
+            if rendered_hash and sha256_text(expected) != rendered_hash:
+                fields["treatment_integrity_failed"] = (
+                    "rendered_context_hash does not match engine renderer output"
+                )
+    return fields
 
 
 def _usage_tokens(result: Any, kind: str) -> int | None:

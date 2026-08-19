@@ -39,6 +39,11 @@ H1_ARMS = (
     "local-recursive-fallback",
     "local-recursive-2070",
 )
+CONTEXT_MODES = (
+    "baseline_v1",
+    "context_v2_lexical",
+    "context_v2",
+)
 FROZEN_C1_MODEL = "qwen2.5-coder:7b"
 FORBIDDEN_CONTROLLER_MARKERS = ("gpt-4o-mini", "gpt-4.1", "gpt-4o", "openai")
 PATH_RE = re.compile(r"(?:^|\s)([A-Za-z0-9_./-]+\.[A-Za-z0-9]{1,8})\b")
@@ -57,6 +62,8 @@ class ArmContext:
     controller_telemetry: dict[str, Any]
     contamination: str | None = None
     missing_graph_edges: list[str] = field(default_factory=list)
+    treatment_integrity: dict[str, Any] = field(default_factory=dict)
+    experience_events: list[dict[str, Any]] = field(default_factory=list)
 
 
 RecursiveRunner = Callable[..., Any]
@@ -192,6 +199,100 @@ def apply_arm_context(
         contamination=contamination,
         missing_graph_edges=missing,
     )
+
+
+def apply_eval_context(
+    *,
+    arm: str,
+    controller_backend: str,
+    workspace: Path,
+    project: str,
+    question: str,
+    session_id: str,
+    run_id: str,
+    source_sha: str,
+    policy_source_sha: str,
+    state_root: Path,
+    context_mode: str = "baseline_v1",
+    recursive_runner: RecursiveRunner | None = None,
+    diagnostic_memory_records: list[dict] | None = None,
+) -> ArmContext:
+    """Apply H1 arms (baseline_v1) or ContextPack V2 (context_v2*). Memory/recursion off for V2."""
+    from agent_control.context.v2_dispatch import (
+        CONTEXT_MODE_BASELINE_V1,
+        V2_CONTEXT_MODES,
+        from_eval,
+        resolve_context_mode,
+    )
+    from agent_shared.models.evidence_query import ContextTaskSpec
+
+    mode = resolve_context_mode(context_mode)
+    if mode == CONTEXT_MODE_BASELINE_V1:
+        return apply_arm_context(
+            arm=arm,
+            controller_backend=controller_backend,
+            workspace=workspace,
+            project=project,
+            question=question,
+            session_id=session_id,
+            run_id=run_id,
+            source_sha=source_sha,
+            policy_source_sha=policy_source_sha,
+            state_root=state_root,
+            recursive_runner=recursive_runner,
+            diagnostic_memory_records=diagnostic_memory_records,
+        )
+    if mode not in V2_CONTEXT_MODES:
+        raise ValueError(f"unknown context_mode: {mode!r}")
+    built = from_eval(
+        repository_id=project,
+        target_sha=source_sha,
+        workspace_path=workspace,
+        task=ContextTaskSpec(project=project, issue_text=question[:4000]),
+        mode=mode,
+        session_id=session_id,
+        run_id=run_id,
+    )
+    retrieved = _paths_from_v2_pack(built.context_pack)
+    events = [event.model_dump(mode="json") for event in built.events]
+    return ArmContext(
+        arm=arm,
+        context_pack=built.pack_dump,
+        retrieved_files=retrieved,
+        recursive_context_required=False,
+        recursive_invoked=False,
+        invocation_reasons=[],
+        controller_telemetry={
+            "controller_backend": "none",
+            "controller_model_invoked": False,
+            "recursive_invoked": False,
+            "recursive_context_required": False,
+            "context_mode": mode,
+        },
+        treatment_integrity=built.treatment_integrity,
+        experience_events=events,
+    )
+
+
+def _paths_from_v2_pack(pack: Any) -> list[str]:
+    paths: list[str] = []
+    evidence = getattr(pack, "current_evidence", None)
+    if evidence is None:
+        return paths
+    for name in (
+        "lexical",
+        "symbols",
+        "dependency_edges",
+        "tests",
+        "config",
+        "architecture",
+    ):
+        for item in getattr(evidence, name):
+            for ref in item.provenance:
+                text = str(ref).replace("\\", "/").split(":", 1)[0]
+                if "/" in text or text.endswith((".py", ".md", ".toml")):
+                    paths.append(text)
+    return list(dict.fromkeys(paths))
 
 
 def write_arb_trajectory(path: Path, sample_id: str, files: list[str]) -> None:

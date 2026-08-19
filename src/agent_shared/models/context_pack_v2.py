@@ -18,13 +18,18 @@ LEXICAL_SOURCE_V1_SEARCH_HITS = "context_pack.v1.search_hits"
 
 
 class EvidenceItem(BaseModel):
-    """One current-evidence or recursive-evidence item."""
+    """One current-evidence or recursive-evidence item.
+
+    ``id`` defaults to empty so W0 constructions remain valid. Providers should
+    set it via ``compute_evidence_item_id``.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     text: str
     source: str
     provenance: list[str] = Field(default_factory=list)
+    id: str = ""
 
 
 class CurrentEvidence(BaseModel):

@@ -273,6 +273,15 @@ class Settings(BaseSettings):
             "OBSERVE_COOKIE_SECURE=true (public/secure mode)."
         ),
     )
+    context_mode: str = Field(
+        default="baseline_v1",
+        alias="CONTEXT_MODE",
+        description=(
+            "VExp W1: production context compiler. baseline_v1 keeps "
+            "compile_context_pack on typed RLMJob. context_v2 / context_v2_lexical "
+            "are eval/canary factory modes; they do not silently flip live Gitea dispatch."
+        ),
+    )
 
     @property
     def memory_db_path(self) -> Path:

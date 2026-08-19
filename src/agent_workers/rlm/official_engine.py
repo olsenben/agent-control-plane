@@ -45,19 +45,48 @@ FIX_KINDS = frozenset({"fix"})
 READ_ONLY_RISKS = frozenset({"read_only", "read_only_with_repo_context"})
 
 
+SCHEMA_VERSION_V1 = "context_pack.v1"
+SCHEMA_VERSION_V2 = "context-pack.v2"
+
+
+def _schema_version_of(raw: Any) -> str | None:
+    if raw is None:
+        return None
+    version = getattr(raw, "schema_version", None)
+    if version:
+        return str(version)
+    if isinstance(raw, dict):
+        value = raw.get("schema_version")
+        return str(value) if value else None
+    return None
+
+
+def _is_v2_pack(pack: Any) -> bool:
+    return _schema_version_of(pack) == SCHEMA_VERSION_V2
+
+
 def _context_pack_from_job(job: dict[str, Any]):
+    """Load a discriminated v1/v2 pack. Do not coerce V2 into ContextPack."""
     raw = job.get("context_pack")
     if not raw:
         return None
     from agent_shared.models.context_pack import ContextPack
+    from agent_shared.models.context_pack_v2 import ContextPackV2
 
+    if isinstance(raw, ContextPackV2):
+        return raw
     if isinstance(raw, ContextPack):
         return raw
-    return ContextPack.model_validate(raw)
+    schema = _schema_version_of(raw)
+    if schema == SCHEMA_VERSION_V2:
+        return ContextPackV2.model_validate(raw)
+    if schema in (None, SCHEMA_VERSION_V1):
+        return ContextPack.model_validate(raw)
+    raise ValueError(f"unsupported context_pack schema_version: {schema!r}")
 
 
 def _has_graph_blast(pack) -> bool:
-    if pack is None:
+    if pack is None or _is_v2_pack(pack):
         return False
     br = pack.blast_radius
     return bool(
@@ -66,7 +95,56 @@ def _has_graph_blast(pack) -> bool:
 
 
 def _has_prior_memory(pack) -> bool:
-    return bool(pack is not None and pack.prior_memory)
+    if pack is None or _is_v2_pack(pack):
+        return False
+    return bool(pack.prior_memory)
+
+
+def _pack_context_sources(pack) -> list[str]:
+    if pack is None:
+        return []
+    if _is_v2_pack(pack):
+        sources: list[str] = []
+        evidence = pack.current_evidence
+        for name in (
+            "lexical",
+            "symbols",
+            "dependency_edges",
+            "tests",
+            "config",
+            "architecture",
+        ):
+            for item in getattr(evidence, name):
+                if item.source and item.source not in sources:
+                    sources.append(item.source)
+        return sources
+    return list(pack.context_sources)
+
+
+def render_job_context_pack(pack: Any) -> str:
+    """Engine-owned renderer. V2 is never pre-rendered on the job."""
+    if pack is None:
+        return ""
+    if _is_v2_pack(pack):
+        from agent_control.context.v1_adapter import render_v2
+
+        return render_v2(pack)
+    from agent_control.graph.context_pack import render_context_pack_text
+
+    return render_context_pack_text(pack)
+
+
+def _v1_pack_for_parsers(pack: Any):
+    """Structured output premerge is v1-only. V2 has no blast_radius/prior_memory."""
+    if pack is None or _is_v2_pack(pack):
+        return None
+    return pack
+
+
+load_job_context_pack = _context_pack_from_job
+has_graph_blast = _has_graph_blast
+has_prior_memory = _has_prior_memory
+pack_context_sources = _pack_context_sources
 
 
 def _rlms_available() -> bool:
@@ -185,11 +263,9 @@ def assemble_official_engine_prompts(
         max_chars=strategy.read_only_max_prompt_chars,
     )
     if pack is not None:
-        from agent_control.graph.context_pack import render_context_pack_text
-
-        pack_text = render_context_pack_text(pack)
+        pack_text = render_job_context_pack(pack)
         context_text = f"{pack_text}\n\n{context_text}"
-        sources = list(pack.context_sources) + sources
+        sources = _pack_context_sources(pack) + sources
 
     system_prompt, user_prompt = build_official_engine_messages(
         preamble=preamble,
@@ -489,7 +565,7 @@ class OfficialRLMEngine:
             try:
                 parsed = parse_review_output(
                     raw_response,
-                    context_pack=pack,
+                    context_pack=_v1_pack_for_parsers(pack),
                     run_id=job["run_id"],
                     repair_endpoint=to_control_plane_endpoint(resolve_rlm_gpu_endpoint()),
                     repair_timeout_seconds=min(completion_timeout, 60.0),
@@ -516,7 +592,7 @@ class OfficialRLMEngine:
                 try:
                     parsed = parse_plan_output(
                         raw,
-                        context_pack=pack,
+                        context_pack=_v1_pack_for_parsers(pack),
                         run_id=job["run_id"],
                         repair_endpoint=repair_endpoint,
                         repair_timeout_seconds=min(completion_timeout, 60.0),
@@ -560,7 +636,7 @@ class OfficialRLMEngine:
                 try:
                     parsed = parse_fix_output(
                         raw,
-                        context_pack=pack,
+                        context_pack=_v1_pack_for_parsers(pack),
                         run_id=job["run_id"],
                         repair_endpoint=repair_endpoint,
                         repair_timeout_seconds=min(completion_timeout, 60.0),

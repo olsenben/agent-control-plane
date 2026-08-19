@@ -356,3 +356,30 @@ def test_official_engine_clamps_long_summary(tmp_path: Path) -> None:
 
     assert len(result.summary) <= 3500
     assert "truncated to fit Gitea comment limit" in result.summary
+
+
+def test_assemble_prompts_renders_v2_by_schema_version(tmp_path: Path) -> None:
+    from agent_shared.models.context_pack_v2 import (
+        ContextPackV2,
+        ContextTask,
+        CurrentEvidence,
+        EvidenceItem,
+    )
+    from agent_workers.rlm.official_engine import assemble_official_engine_prompts
+
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text("# Demo\n", encoding="utf-8")
+    pack = ContextPackV2(
+        task=ContextTask(project="ai-sdlc-lab/demo-app", issue_text="review foo"),
+        current_evidence=CurrentEvidence(
+            lexical=[EvidenceItem(text="symbol neighbor foo", source="symbol.declaration")]
+        ),
+    )
+    job = _inspect_job()
+    job["context_pack"] = pack.model_dump(mode="json")
+    assembled = assemble_official_engine_prompts(job=job, workspace=workspace)
+    assert assembled["pack"].schema_version == "context-pack.v2"
+    assert "=== context-pack.v2 ===" in assembled["context_text"]
+    assert "symbol neighbor foo" in assembled["user"]
+    assert "=== context_pack.v1 ===" not in assembled["user"]

@@ -10,7 +10,13 @@ from agent_shared.models.plan import PlanResult, PlanStep
 from agent_shared.models.review import ReviewFinding, ReviewResult, stub_blast_radius
 from agent_shared.models.runs import RLMResult
 from agent_workers.rlm.constants import ENGINE_FAKE
-from agent_workers.rlm.official_engine import gather_read_only_context
+from agent_workers.rlm.official_engine import (
+    gather_read_only_context,
+    has_graph_blast,
+    has_prior_memory,
+    load_job_context_pack,
+    pack_context_sources,
+)
 from agent_workers.rlm.task_scope import pick_plan_step_files
 from agent_workers.rlm.plan_finalize import finalize_plan_result
 from agent_workers.rlm.fix_finalize import finalize_fix_result
@@ -18,20 +24,11 @@ from agent_workers.rlm.review_finalize import finalize_review_result
 from agent_workers.rlm.trace import append_trace_event
 
 
-def _has_graph_blast_from_pack(pack) -> bool:
-    br = pack.blast_radius
-    return bool(
-        br.affected_repos or br.affected_services or br.affected_tests or br.related_adrs
-    )
-
-
 def _build_fake_review_result(
     job: dict[str, Any],
     workspace: Path,
     context_broker: Any | None,
 ) -> tuple[ReviewResult, list[str]]:
-    from agent_shared.models.context_pack import ContextPack
-
     task = job.get("command_intent", {}).get("natural_language_task", "")
     sources: list[str] = []
     if context_broker is not None:
@@ -43,16 +40,14 @@ def _build_fake_review_result(
                 if len(sources) >= 3:
                     break
 
-    pack_raw = job.get("context_pack")
-    pack = None
-    if pack_raw:
-        pack = pack_raw if isinstance(pack_raw, ContextPack) else ContextPack.model_validate(pack_raw)
-        sources = list(pack.context_sources) + sources
+    pack = load_job_context_pack(job)
+    if pack is not None:
+        sources = pack_context_sources(pack) + sources
 
     files_inspected = sources[:2] if sources else []
     finding_file = files_inspected[0] if files_inspected else None
     blast = stub_blast_radius()
-    if pack is not None and _has_graph_blast_from_pack(pack):
+    if pack is not None and has_graph_blast(pack):
         blast = pack.blast_radius
 
     review = ReviewResult(
@@ -83,8 +78,6 @@ def _build_fake_plan_result(
     workspace: Path,
     context_broker: Any | None,
 ) -> tuple[PlanResult, list[str]]:
-    from agent_shared.models.context_pack import ContextPack
-
     task = job.get("command_intent", {}).get("natural_language_task", "")
     sources: list[str] = []
     if context_broker is not None:
@@ -96,16 +89,14 @@ def _build_fake_plan_result(
                 if len(sources) >= 3:
                     break
 
-    pack_raw = job.get("context_pack")
-    pack = None
-    if pack_raw:
-        pack = pack_raw if isinstance(pack_raw, ContextPack) else ContextPack.model_validate(pack_raw)
-        sources = list(pack.context_sources) + sources
+    pack = load_job_context_pack(job)
+    if pack is not None:
+        sources = pack_context_sources(pack) + sources
 
     blast = stub_blast_radius()
     ci_hints: list[str] = []
     prior_note = ""
-    if pack is not None and pack.prior_memory:
+    if pack is not None and has_prior_memory(pack):
         first = pack.prior_memory[0]
         prior_run = first.get("run_id") or first.get("source_run_id") or "prior-run"
         prior_note = f" Prior review run {prior_run}."
@@ -113,7 +104,7 @@ def _build_fake_plan_result(
         if findings:
             prior_note += f" Finding {findings[0].get('id', 'F-001')}: {findings[0].get('summary', '')[:80]}."
 
-    if pack is not None and _has_graph_blast_from_pack(pack):
+    if pack is not None and has_graph_blast(pack):
         blast = pack.blast_radius
         ci_hints = list(blast.affected_tests[:3])
 
