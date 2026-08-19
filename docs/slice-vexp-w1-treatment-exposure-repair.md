@@ -1,6 +1,6 @@
 # Slice: VExp W1 treatment-exposure repair
 
-**Status:** implemented
+**Status:** implemented (repaired 14-slot rerun frozen; WAVE 2 not started)
 **Epic:** Verified Experience Control Plane (WAVE 1 repair; WAVE 2 not started)
 **Hard gate:** production default remains `baseline_v1` / `compile_context_pack`; frozen `results/vexp-w1-context-v2-dev-v1` is immutable; solver prompts, model, retry, parser, patch, and verification are unchanged
 **ADR:** [ADR-0039](adr/0039-pre-invocation-treatment-exposure.md) (proposed)
