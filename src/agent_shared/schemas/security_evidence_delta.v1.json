@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-sdlc-lab.local/schemas/security_evidence_delta.v1.schema.json",
+  "title": "security_evidence_delta.v1",
+  "description": "Source vs candidate SAST finding differential. Provider-agnostic. Does not admit patches.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "resolved",
+    "new",
+    "persisting"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "security_evidence_delta.v1"
+    },
+    "source_sha": {
+      "type": ["string", "null"]
+    },
+    "patch_digest": {
+      "type": ["string", "null"]
+    },
+    "candidate_digest": {
+      "type": ["string", "null"]
+    },
+    "source_scan_digest": {
+      "type": ["string", "null"]
+    },
+    "candidate_scan_digest": {
+      "type": ["string", "null"]
+    },
+    "resolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "new": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "persisting": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "digest": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

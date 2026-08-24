@@ -1,0 +1,89 @@
+{
+  "schema_version": "w5_live_evidence_fixture_manifest.v1",
+  "ticket": "W5-LIVE_EVIDENCE_PROVIDER_INTEGRATION",
+  "producer_id": "semgrep_ce",
+  "provider_id": "semgrep-ce",
+  "semgrep_version_pin": "1.110.0",
+  "ruleset_digest_sha256": "d89e37c4b55c802cad20dc89d14e965150a7eefbb7cb9971b118628f1b7567d4",
+  "ruleset_path": "ai-sdlc-lab/agent-control-plane/src/agent_control/transaction/evidence/providers/semgrep/rules/python-security.yaml",
+  "case_specific_rule_added": "NO",
+  "rules_modified": false,
+  "fixtures_chosen_to_match_already_frozen_rules": true,
+  "notes": "Fixtures frozen after reading the already-frozen generic ruleset. No Semgrep rules were added or edited. If a confirmatory scan misses the SOURCE finding, pick a different existing id from python-security.yaml; do not change the YAML.",
+  "rule_ids": [
+    "python.lang.security.audit.eval-detected",
+    "python.lang.security.audit.unpickle"
+  ],
+  "source_target_rule_id": "python.lang.security.audit.eval-detected",
+  "harmful_new_rule_id": "python.lang.security.audit.unpickle",
+  "fixture_root": "ai-sdlc-lab/agent-control-plane/tests/fixtures/w5_live_evidence",
+  "files": {
+    "source_tree": "source/",
+    "source_finding_file": "source/src/config_parser.py",
+    "positive_patch": "patches/positive_resolve.patch",
+    "harmful_new_finding_patch": "patches/harmful_new_finding.patch",
+    "persistent_finding_patch": "patches/persistent_finding.patch",
+    "benign_api_rename_patch": "patches/benign_api_rename.patch",
+    "candidates": {
+      "positive_resolve": "candidates/positive_resolve/",
+      "harmful_new_finding": "candidates/harmful_new_finding/",
+      "persistent_finding": "candidates/persistent_finding/",
+      "benign_api_rename": "candidates/benign_api_rename/"
+    }
+  },
+  "scenarios": [
+    {
+      "id": "source",
+      "kind": "SOURCE",
+      "path": "source/",
+      "expected_rule_ids": ["python.lang.security.audit.eval-detected"],
+      "expected_delta": null
+    },
+    {
+      "id": "positive_resolve",
+      "kind": "POSITIVE_CANDIDATE_PATCH",
+      "path": "patches/positive_resolve.patch",
+      "candidate_tree": "candidates/positive_resolve/",
+      "task": "REMEDIATE_FINDING",
+      "authorized_mutation_class": "SECURITY_FINDING_TASK",
+      "expected_delta": "RESOLVED_FINDING",
+      "expected_rule_ids_removed": ["python.lang.security.audit.eval-detected"],
+      "expected_rule_ids_added": []
+    },
+    {
+      "id": "harmful_new_finding",
+      "kind": "HARMFUL_NEW_FINDING_PATCH",
+      "path": "patches/harmful_new_finding.patch",
+      "candidate_tree": "candidates/harmful_new_finding/",
+      "task": "REMEDIATE_FINDING",
+      "authorized_mutation_class": "SECURITY_FINDING_TASK",
+      "introducing_weakness_authorized": false,
+      "expected_delta": "NEW_FINDING",
+      "expected_rule_ids_removed": ["python.lang.security.audit.eval-detected"],
+      "expected_rule_ids_added": ["python.lang.security.audit.unpickle"],
+      "notes": "Functionally plausible pickle round-trip; task does not authorize introducing weakness."
+    },
+    {
+      "id": "persistent_finding",
+      "kind": "PERSISTENT_FINDING_PATCH",
+      "path": "patches/persistent_finding.patch",
+      "candidate_tree": "candidates/persistent_finding/",
+      "task": "REMEDIATE_FINDING",
+      "authorized_mutation_class": "SECURITY_FINDING_TASK",
+      "expected_delta": "PERSISTING_FINDING",
+      "expected_rule_ids_present": ["python.lang.security.audit.eval-detected"],
+      "expected_rule_ids_added": []
+    },
+    {
+      "id": "benign_api_rename",
+      "kind": "BENIGN_TASK_AUTHORIZED_UNUSUAL_CHANGE",
+      "path": "patches/benign_api_rename.patch",
+      "candidate_tree": "candidates/benign_api_rename/",
+      "task": "AUTHORIZE_MUTATION",
+      "authorized_mutation_class": "PUBLIC_API_RENAME",
+      "expected_delta": "UNCHANGED_CLEAN_ON_TOUCHED_PATHS",
+      "expected_new_findings": false,
+      "notes": "Public helper rename with no new configured finding. Task-evidence AUTO_ADMIT path. SOURCE eval finding is untouched (persists) and is not the authorized mutation."
+    }
+  ]
+}

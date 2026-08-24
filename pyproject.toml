@@ -44,6 +44,10 @@ agentctl = "agent_control.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"agent_control.transaction.evidence.providers.semgrep" = ["rules/*.yaml"]
+"agent_shared" = ["schemas/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]

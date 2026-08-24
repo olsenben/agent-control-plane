@@ -1,0 +1,190 @@
+# Frozen Semgrep CE Python security ruleset snapshot.
+# Generic upstream-style rules only. CASE_SPECIFIC_RULE_ADDED=NO.
+# Do not add demo-app, corpus, or ticket-specific rule ids.
+rules:
+  - id: python.lang.security.audit.dangerous-system-call
+    message: Detected a dangerous system call. Prefer subprocess with shell=False.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: os.system(...)
+          - pattern: os.popen(...)
+          - pattern: os.popen2(...)
+          - pattern: os.popen3(...)
+          - pattern: os.popen4(...)
+          - pattern: commands.getoutput(...)
+          - pattern: commands.getstatusoutput(...)
+
+  - id: python.lang.security.audit.subprocess-shell-true
+    message: subprocess invoked with shell=True. This can allow command injection.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.$FUNC(..., shell=True, ...)
+          - pattern: subprocess.$FUNC(..., shell=True)
+          - pattern: Popen(..., shell=True, ...)
+          - pattern: Popen(..., shell=True)
+
+  - id: python.lang.security.audit.eval-detected
+    message: Detected use of eval/exec on dynamic input. This can allow code injection.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-95"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+          - pattern: eval(..., ...)
+          - pattern: exec(..., ...)
+
+  - id: python.lang.security.audit.unpickle
+    message: Detected pickle deserialization. Untrusted pickle data can execute code.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-502"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: pickle.loads(...)
+          - pattern: pickle.load(...)
+          - pattern: pickle.Unpickler(...)
+          - pattern: cPickle.loads(...)
+          - pattern: cPickle.load(...)
+          - pattern: _pickle.loads(...)
+          - pattern: _pickle.load(...)
+
+  - id: python.lang.security.audit.insecure-hash-algorithm-md5
+    message: Detected MD5 or SHA1. These hashes are not suitable for security-sensitive use.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-327"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.md5()
+          - pattern: hashlib.sha1(...)
+          - pattern: hashlib.sha1()
+          - pattern: md5.new(...)
+          - pattern: sha.new(...)
+
+  - id: python.lang.security.audit.dangerous-yaml-load
+    message: Detected yaml.load without a safe Loader. Prefer yaml.safe_load.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-502"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: yaml.load(...)
+          - pattern: yaml.load(..., Loader=yaml.Loader)
+          - pattern: yaml.load(..., Loader=yaml.UnsafeLoader)
+          - pattern: yaml.load(..., Loader=yaml.FullLoader)
+
+  - id: python.lang.security.audit.flask-debug-true
+    message: Flask debug mode enabled. This can expose an interactive debugger.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-489"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: app.run(..., debug=True, ...)
+          - pattern: app.run(..., debug=True)
+          - pattern: Flask(...).run(..., debug=True, ...)
+
+  - id: python.lang.security.audit.requests-no-timeout
+    message: HTTP request without an explicit timeout can hang indefinitely.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-400"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: requests.get($URL)
+          - pattern: requests.post($URL)
+          - pattern: requests.put($URL)
+          - pattern: requests.delete($URL)
+          - pattern: requests.head($URL)
+          - pattern: requests.patch($URL)
+          - pattern: requests.request($METHOD, $URL)
+
+  - id: python.lang.security.audit.tempfile-mktemp
+    message: tempfile.mktemp is unsafe due to a race. Prefer NamedTemporaryFile or mkstemp.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-377"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern: tempfile.mktemp(...)
+
+  - id: python.lang.security.audit.sql-query-formatted
+    message: SQL query constructed with string formatting. Prefer parameterized queries.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-89"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: $CUR.execute("..." % ...)
+          - pattern: $CUR.execute("...".format(...))
+          - pattern: $CUR.execute(f"...")
+          - pattern: $CUR.execute("..." + $X)
+
+  - id: python.lang.security.audit.hardcoded-password-default
+    message: Possible hardcoded password or secret assignment.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-259"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: password = "..."
+          - pattern: passwd = "..."
+          - pattern: secret = "..."
+          - pattern: api_key = "..."
+          - pattern: token = "..."
+
+  - id: python.lang.security.audit.xml-etree-untrusted
+    message: xml.etree parsing of untrusted data can allow XXE. Prefer defusedxml.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-611"
+      category: security
+      source: generic-upstream-python-security
+    patterns:
+      - pattern-either:
+          - pattern: xml.etree.ElementTree.parse(...)
+          - pattern: xml.etree.ElementTree.fromstring(...)
+          - pattern: ET.parse(...)
+          - pattern: ET.fromstring(...)

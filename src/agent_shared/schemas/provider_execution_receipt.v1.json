@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-sdlc-lab.local/schemas/provider_execution_receipt.v1.schema.json",
+  "title": "provider_execution_receipt.v1",
+  "description": "Execution metadata for an evidence-provider process/container. Fact producer, not admission authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "producer_id",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_execution_receipt.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "producer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "producer_version": {
+      "type": ["string", "null"]
+    },
+    "target": {
+      "enum": ["source", "candidate"]
+    },
+    "outcome": {
+      "enum": [
+        "TOOL_EXECUTION_SUCCESS",
+        "FINDINGS_PRESENT",
+        "TOOL_EXECUTION_FAILURE"
+      ]
+    },
+    "exit_code": {
+      "type": ["integer", "null"]
+    },
+    "timed_out": {
+      "type": "boolean"
+    },
+    "duration_ms": {
+      "type": ["number", "null"]
+    },
+    "stdout_digest": {
+      "type": ["string", "null"]
+    },
+    "stderr_digest": {
+      "type": ["string", "null"]
+    },
+    "raw_artifact_digest": {
+      "type": ["string", "null"]
+    },
+    "ruleset_digest": {
+      "type": ["string", "null"]
+    },
+    "argv": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "network": {
+      "type": ["string", "null"]
+    },
+    "detail": {
+      "type": ["string", "null"]
+    }
+  }
+}

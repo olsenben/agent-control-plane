@@ -1,0 +1,20 @@
+schema_version: verification_profiles.v1
+profiles:
+  - schema_version: verification_profile.v1
+    profile_id: demo-app
+    repository: ai-sdlc-lab/demo-app
+    required_workflows:
+      - workflow_id: ci
+        path: .gitea/workflows/ci.yaml
+        display_name: ci
+        source: verification_profile
+    notes: Demo-app required workflow identity. Exact-SHA bind is unchanged.
+  - schema_version: verification_profile.v1
+    profile_id: w5-live-evidence-fixture
+    repository: ai-sdlc-lab/w5-live-evidence-fixture
+    required_workflows:
+      - workflow_id: ci
+        path: .gitea/workflows/ci.yaml
+        display_name: ci
+        source: verification_profile
+    notes: Disposable W5 live-evidence fixture. Required workflow ci on docker-ci. Exact-SHA bind is unchanged.

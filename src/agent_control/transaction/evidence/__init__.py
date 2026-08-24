@@ -13,6 +13,7 @@ from agent_control.transaction.evidence.project import project_bundle_onto_c_inp
 from agent_control.transaction.evidence.route import (
     build_route,
     classify_change_classes,
+    provider_run_reasons,
     routed_providers,
 )
 
@@ -26,6 +27,7 @@ __all__ = [
     "build_route",
     "classify_change_classes",
     "project_bundle_onto_c_inputs",
+    "provider_run_reasons",
     "routed_providers",
     "run_evidence_bus",
 ]

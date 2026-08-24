@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-sdlc-lab.local/schemas/task_evidence_receipt.v1.schema.json",
+  "title": "task_evidence_receipt.v1",
+  "description": "Live Gitea issue structured-block task/finding receipt. Compiled deterministically from machine-readable fields. No LLM parser. No hidden GOLD. No free-text authorization fallback. Projects onto frozen C unit receipts TASK_NAMED | FAILURE_DIRECT | LOCAL_CREATION. Instances must not invent live issue results.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "gitea_repository",
+    "issue_id",
+    "source_sha",
+    "task_digest",
+    "human_initiator",
+    "requested_action",
+    "authorized_mutation_class",
+    "compiled_from",
+    "llm_parsed",
+    "hidden_gold",
+    "trust_class",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "task_evidence_receipt.v1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gitea_repository": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issue_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "task_id": {
+      "type": ["string", "null"]
+    },
+    "proposal_id": {
+      "type": ["string", "null"]
+    },
+    "transaction_id": {
+      "type": ["string", "null"]
+    },
+    "source_sha": {
+      "description": "Source SHA captured at transaction creation.",
+      "type": "string",
+      "minLength": 7
+    },
+    "patch_digest": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "task_digest": {
+      "description": "Digest of the structured authorization block / task version.",
+      "type": "string",
+      "minLength": 1
+    },
+    "human_initiator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "finding_id": {
+      "type": ["string", "null"]
+    },
+    "provider_id": {
+      "type": ["string", "null"]
+    },
+    "rule_id": {
+      "type": ["string", "null"]
+    },
+    "affected_path": {
+      "type": ["string", "null"]
+    },
+    "affected_location": {
+      "type": ["string", "null"]
+    },
+    "requested_action": {
+      "enum": ["REMEDIATE_FINDING", "AUTHORIZE_MUTATION", "OTHER_STRUCTURED"]
+    },
+    "authorized_mutation_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authorized_change_class": {
+      "type": ["string", "null"]
+    },
+    "receipt_classes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["TASK_NAMED", "FAILURE_DIRECT", "LOCAL_CREATION"]
+      }
+    },
+    "compiled_from": {
+      "const": "GITEA_ISSUE_STRUCTURED_BLOCK"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "source_sha": { "type": "string", "minLength": 7 },
+        "task_digest": { "type": "string", "minLength": 1 },
+        "bound": { "type": "boolean" }
+      }
+    },
+    "unbound_reason": {
+      "enum": [
+        null,
+        "TASK_EVIDENCE_UNBOUND",
+        "TASK_FINDING_MISMATCH",
+        "WRONG_REPO",
+        "WRONG_TASK",
+        "WRONG_SOURCE_SHA",
+        "MISSING_STRUCTURED_BLOCK"
+      ]
+    },
+    "llm_parsed": {
+      "const": false
+    },
+    "hidden_gold": {
+      "const": false
+    },
+    "trust_class": {
+      "const": "TASK_SYSTEM"
+    },
+    "authoritative_when_actor_provided": {
+      "const": false
+    },
+    "free_text_authorization": {
+      "const": false
+    },
+    "status": {
+      "enum": ["PENDING_LIVE", "BOUND", "UNBOUND", "INCOMPLETE"]
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  }
+}

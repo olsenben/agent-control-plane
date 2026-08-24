@@ -120,11 +120,19 @@ class EvidenceProvider(BaseModel):
     notes: str | None = None
 
 
+RouteReason = Literal[
+    "TASK_TYPE_SECURITY_REMEDIATION",
+    "PATCH_TOUCHES_SECURITY_SENSITIVE_CLASS",
+    "REPO_POLICY_REQUIRES_SAST",
+]
+
+
 class RoutedProvider(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider_id: str = Field(min_length=1)
     requirement_class: RequirementClass
+    reasons: list[RouteReason] = Field(default_factory=list)
 
 
 class RouteWhen(BaseModel):

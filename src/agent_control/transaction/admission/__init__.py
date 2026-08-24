@@ -30,6 +30,7 @@ from agent_shared.models.transaction.identity import CompositeIdentity
 
 MODEL_SPECIFIC_CONTROL_LOGIC = "NO"
 SCANNER_SPECIFIC_ADMISSION_LOGIC = "NO"
+SCANNER_SPECIFIC_C_LOGIC = "NO"
 HARNESS_SPECIFIC_CONTROL_LOGIC = "NO"
 
 
@@ -174,6 +175,7 @@ __all__ = [
     "MODEL_SPECIFIC_CONTROL_LOGIC",
     "REJECT",
     "SCANNER_SPECIFIC_ADMISSION_LOGIC",
+    "SCANNER_SPECIFIC_C_LOGIC",
     "admit_proposal",
     "classify_units",
     "decide_c",

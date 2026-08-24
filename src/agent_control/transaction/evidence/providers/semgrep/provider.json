@@ -1,0 +1,37 @@
+{
+  "schema_version": "evidence_provider.v1",
+  "provider_id": "P2",
+  "provider_identity": {
+    "principal_kind": "EVIDENCE_PROVIDER",
+    "identity_id": "semgrep_ce"
+  },
+  "adapter_id": "P2",
+  "adapter_class": "SAST",
+  "producer_id": "semgrep_ce",
+  "producer_version": "1.110.0",
+  "version": "1.110.0",
+  "interchange": {
+    "format": "SARIF",
+    "version": "2.1.0",
+    "vendor_neutral": true,
+    "native_fallback": null,
+    "notes": "Raw SARIF preserved; trust is configured, not inferred from format."
+  },
+  "evidence_types": ["SAST"],
+  "trust_class": "CONFIGURED_SECURITY_TOOL",
+  "requirement_class": "REQUIRED_PROVIDER",
+  "repository_scope": {
+    "scope_kind": "ALL_CONFIGURED"
+  },
+  "timeout_ms": 120000,
+  "trust_inferred_from_format": false,
+  "binding_required": true,
+  "baseline_and_candidate_required": true,
+  "imports_admission_controller": false,
+  "llm_parser": false,
+  "hidden_gold": false,
+  "learned_judge": false,
+  "missing_output_status": "TOOL_FAILURE",
+  "authoritative_when_actor_provided": false,
+  "notes": "PROVIDER_DURABLE_AUTHORITY=NONE. SCANNER_SPECIFIC_C_LOGIC=NO."
+}

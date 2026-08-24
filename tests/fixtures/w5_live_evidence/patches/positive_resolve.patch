@@ -1,0 +1,16 @@
+--- a/src/config_parser.py
++++ b/src/config_parser.py
+@@ -2,10 +2,12 @@
+ 
+ from __future__ import annotations
+ 
++import ast
++
+ 
+ def parse_expression(expr: str) -> object:
+     """Parse a config expression from the local operator file."""
+-    return eval(expr)
++    return ast.literal_eval(expr)
+ 
+ 
+ def supported_names() -> tuple[str, ...]:

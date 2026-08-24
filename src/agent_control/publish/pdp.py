@@ -30,6 +30,7 @@ from agent_control.transaction.admission import (
     HARNESS_SPECIFIC_CONTROL_LOGIC,
     MODEL_SPECIFIC_CONTROL_LOGIC,
     SCANNER_SPECIFIC_ADMISSION_LOGIC,
+    SCANNER_SPECIFIC_C_LOGIC,
     make_escalation,
     wrap_decide_c,
 )
@@ -59,6 +60,7 @@ from agent_control.transaction.evidence import (
     build_route,
     classify_change_classes,
     project_bundle_onto_c_inputs,
+    routed_providers,
     run_evidence_bus,
 )
 from agent_control.transaction.identity import (
@@ -74,6 +76,12 @@ from agent_control.transaction.ledger import (
     make_feedback_record,
 )
 from agent_control.transaction.proposal import finalize_proposal
+from agent_control.transaction.task_freeze import (
+    TASK_FREEZE_FILENAME,
+    freeze_task_issue_at_creation,
+    p4_live_kwargs,
+)
+from agent_control.transaction.trees import MaterializedTrees, materialize_source_candidate_trees
 from agent_control.transaction.witness import StateWitnessError
 from agent_shared.hash_utils import canonical_json_hash, sha256_text
 from agent_shared.models.agent_session import AgentSession
@@ -108,6 +116,7 @@ EVENT_DURABLE_PATCH_CAPABILITY = "durable_patch_capability.v1"
 
 assert MODEL_SPECIFIC_CONTROL_LOGIC == "NO"
 assert SCANNER_SPECIFIC_ADMISSION_LOGIC == "NO"
+assert SCANNER_SPECIFIC_C_LOGIC == "NO"
 assert HARNESS_SPECIFIC_CONTROL_LOGIC == "NO"
 
 
@@ -195,11 +204,17 @@ def in_process_adapter_kwargs(
     units: list[dict[str, Any]],
     p1_passed: bool = True,
     p1_force_failure: bool = False,
+    source_root: str | None = None,
+    candidate_root: str | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Deterministic in-process providers keyed by evidence_route.v1."""
+    """Deterministic in-process providers keyed by evidence_route.v1.
+
+    P2 empty-kwargs synthetic PASS is not the live path. When SAST trees are
+    supplied, P2 runs the live provider; otherwise P2 is omitted and a routed
+    live adapter fail-closes instead of inventing SECURITY_PASS.
+    """
     kwargs: dict[str, dict[str, Any]] = {
         "P1": {"verdict": {"passed": p1_passed, "detail": "in_process_functional"}},
-        "P2": {},
         "P3": {},
         "P4": {
             "task": {
@@ -210,9 +225,24 @@ def in_process_adapter_kwargs(
         },
         "P5": {"units": units},
     }
+    if source_root or candidate_root:
+        p2: dict[str, Any] = {}
+        if source_root:
+            p2["source_root"] = source_root
+        if candidate_root:
+            p2["candidate_root"] = candidate_root
+        kwargs["P2"] = p2
     if p1_force_failure:
         kwargs["P1"] = {"force_failure": True}
     return kwargs
+
+
+def _p2_live_trees(bundle_root: Path) -> dict[str, str]:
+    """Intended SOURCE/CANDIDATE paths. Missing dirs fail-closed in the live P2 adapter."""
+    return {
+        "source_root": str(bundle_root / "source"),
+        "candidate_root": str(bundle_root / "candidate"),
+    }
 
 
 def _identity_for(
@@ -660,6 +690,8 @@ def run_publish_pdp(
     agent_branch: str,
     invoked_by: str = "unknown",
     adapter_kwargs: dict[str, dict[str, Any]] | None = None,
+    repo_url: str | None = None,
+    issue_client: Any | None = None,
 ) -> PdpResult:
     """Evidence bus → frozen C. AUTO_ADMIT mints capability; else no capability."""
     session = load_session_by_run(state_root, project, run_id)
@@ -732,15 +764,58 @@ def run_publish_pdp(
     )
     evidence_path = store_dir / "evidence" / f"{evidence_key}.json"
     cached = _load_json(evidence_path)
-    kwargs = adapter_kwargs or in_process_adapter_kwargs(envelope=envelope, units=units)
+    routed_ids = {item.provider_id for item in routed_providers(route)}
+    trees = MaterializedTrees(
+        source_root=bundle_root / "source",
+        candidate_root=bundle_root / "candidate",
+        source_tree_digest=None,
+        candidate_tree_digest=None,
+        source_ready=False,
+        candidate_ready=False,
+    )
+    if repo_url is not None or "P2" in routed_ids:
+        trees = materialize_source_candidate_trees(
+            bundle_root=bundle_root,
+            source_sha=source_sha or proposal.source_sha,
+            patch_path=patch_path,
+            repo_url=repo_url,
+            project=project,
+            patch_digest=patch_digest,
+            receipt_dir=store_dir,
+        )
+    freeze_result = None
+    if "P4" in routed_ids:
+        freeze_result = freeze_task_issue_at_creation(
+            repository=envelope.repository,
+            provider_task_id=envelope.provider_task_id,
+            store_path=store_dir / TASK_FREEZE_FILENAME,
+            client=issue_client,
+        )
+    if adapter_kwargs is not None:
+        kwargs = dict(adapter_kwargs)
+    else:
+        kwargs = in_process_adapter_kwargs(envelope=envelope, units=units)
+        kwargs["P2"] = {
+            **_p2_live_trees(bundle_root),
+            "artifact_dir": str(store_dir / "evidence" / "p2"),
+        }
+        if freeze_result is not None:
+            kwargs["P4"] = p4_live_kwargs(
+                freeze_result,
+                repository=envelope.repository,
+                task_id=envelope.task_id,
+            )
+    binding: dict[str, Any] = {
+        "repo": envelope.repository,
+        "source_sha": proposal.source_sha,
+        "patch_digest": patch_digest,
+    }
+    if trees.candidate_tree_digest:
+        binding["candidate_digest"] = trees.candidate_tree_digest
     if cached is None:
         check_durable_effect_allowed(state_root, run_id=run_id, phase=PHASE_EVIDENCE)
         evidence = run_evidence_bus(
-            binding={
-                "repo": envelope.repository,
-                "source_sha": proposal.source_sha,
-                "patch_digest": patch_digest,
-            },
+            binding=binding,
             route=route,
             adapter_kwargs=kwargs,
             run_id=run_id,

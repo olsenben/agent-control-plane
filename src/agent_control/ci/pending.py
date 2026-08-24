@@ -163,6 +163,11 @@ def register_pending_ci(
     """Register pending fix for CI observation. Supersedes older pending with same PR/repo."""
     repo = canonical_project(repository)
     now = datetime.now(timezone.utc).isoformat()
+    workflows = list(required_workflows or [])
+    if not workflows:
+        from agent_control.transaction.evidence.profile import required_workflows_for_repository
+
+        workflows = required_workflows_for_repository(repo)
 
     # Supersede older pending records for same PR when SHA advances
     if opened_pr_number is not None:
@@ -183,7 +188,7 @@ def register_pending_ci(
         opened_pr_number=opened_pr_number,
         issue_id=issue_id,
         agent_branch=agent_branch,
-        required_workflows=list(required_workflows or []),
+        required_workflows=list(workflows),
         created_at=now,
         current_verdict="pending",
         artifact_root=artifact_root,

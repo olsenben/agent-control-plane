@@ -21,6 +21,10 @@ CHANGE_PUBLIC_API = "PUBLIC_API_CHANGE"
 REQUIRED = "REQUIRED_PROVIDER"
 OPTIONAL = "OPTIONAL_PROVIDER"
 
+REASON_TASK_TYPE_SECURITY_REMEDIATION = "TASK_TYPE_SECURITY_REMEDIATION"
+REASON_PATCH_TOUCHES_SECURITY_SENSITIVE_CLASS = "PATCH_TOUCHES_SECURITY_SENSITIVE_CLASS"
+REASON_REPO_POLICY_REQUIRES_SAST = "REPO_POLICY_REQUIRES_SAST"
+
 DEPENDENCY_PATH_MARKERS = (
     "requirements.txt",
     "pyproject.toml",
@@ -41,7 +45,19 @@ DEFAULT_ROUTE_RULES: tuple[dict[str, Any], ...] = (
         "rule_id": "security_finding_task",
         "when": {"change_class": CHANGE_SECURITY_FINDING},
         "providers": [
-            {"provider_id": "P2", "requirement_class": REQUIRED},
+            {
+                "provider_id": "P4",
+                "requirement_class": REQUIRED,
+                "reasons": [REASON_TASK_TYPE_SECURITY_REMEDIATION],
+            },
+            {
+                "provider_id": "P2",
+                "requirement_class": REQUIRED,
+                "reasons": [
+                    REASON_PATCH_TOUCHES_SECURITY_SENSITIVE_CLASS,
+                    REASON_REPO_POLICY_REQUIRES_SAST,
+                ],
+            },
             {"provider_id": "P3", "requirement_class": REQUIRED},
         ],
     },
@@ -55,7 +71,13 @@ DEFAULT_ROUTE_RULES: tuple[dict[str, Any], ...] = (
     {
         "rule_id": "security_sensitive_symbol_or_config",
         "when": {"change_class": CHANGE_SECURITY_SENSITIVE},
-        "providers": [{"provider_id": "P2", "requirement_class": REQUIRED}],
+        "providers": [
+            {
+                "provider_id": "P2",
+                "requirement_class": REQUIRED,
+                "reasons": [REASON_PATCH_TOUCHES_SECURITY_SENSITIVE_CLASS],
+            }
+        ],
     },
     {
         "rule_id": "public_api_change",
@@ -136,6 +158,7 @@ def build_route(
                     RoutedProvider(
                         provider_id=str(item["provider_id"]),
                         requirement_class=item["requirement_class"],  # type: ignore[arg-type]
+                        reasons=[str(reason) for reason in (item.get("reasons") or [])],
                     )
                     for item in raw["providers"]
                 ],
@@ -166,6 +189,20 @@ def routed_providers(route: EvidenceRoute) -> list[RoutedProvider]:
     for rule in route.rules:
         for provider in rule.providers:
             existing = by_id.get(provider.provider_id)
-            if existing is None or provider.requirement_class == REQUIRED:
+            if existing is None:
                 by_id[provider.provider_id] = provider
+                continue
+            reasons = list(dict.fromkeys([*existing.reasons, *provider.reasons]))
+            required = (
+                existing.requirement_class == REQUIRED or provider.requirement_class == REQUIRED
+            )
+            by_id[provider.provider_id] = RoutedProvider(
+                provider_id=provider.provider_id,
+                requirement_class=REQUIRED if required else provider.requirement_class,
+                reasons=reasons,
+            )
     return list(by_id.values())
+
+
+def provider_run_reasons(route: EvidenceRoute) -> dict[str, list[str]]:
+    return {item.provider_id: list(item.reasons) for item in routed_providers(route)}

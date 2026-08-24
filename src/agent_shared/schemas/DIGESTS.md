@@ -125,3 +125,17 @@ sha256: 1b0b02bbc53873df83c033686cd8eee68459ab00a57cda4a49a5cec56d783035
 
 experience_record.v1
 sha256: 33b8e0cb86ad29dc810677a9aad26e417ff6eb0b7eb419cd0fd20afaa3b366db
+
+# W5 live evidence provider
+
+verification_profile.v1
+sha256: d66d9f3070597f24c10518373625e08bc0b74955ecd0838337fd5fce9226e041
+
+security_evidence_delta.v1
+sha256: 780a523689ec95a9ef804c3dba2caa06e207be52c654575baef9d7b06d05d76b
+
+provider_execution_receipt.v1
+sha256: c81362e1b03ae30b31ab6cf5a774cc17373925c4b2a90e5e5e36dd16f68d20e5
+
+task_evidence_receipt.v1
+sha256: 2da4290b494368d3b0e003540e265ba3d7b3352becfe5a7c7aea74545c26f3be

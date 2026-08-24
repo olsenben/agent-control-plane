@@ -20,6 +20,7 @@ from agent_control.transaction.evidence.receipts import (
     STATUS_FAIL,
     STATUS_INCOMPLETE,
     STATUS_PASS,
+    STATUS_REQUIRED_EVIDENCE_UNAVAILABLE,
     STATUS_TOOL_FAILURE,
     TRUST_ACTOR_PROVIDED,
     TRUST_AUTHORITATIVE_CI,
@@ -90,8 +91,19 @@ def run_p2_sast(
     force_failure: bool = False,
     force_timeout: bool = False,
     malformed: bool = False,
+    source_root: str | None = None,
+    candidate_root: str | None = None,
+    artifact_dir: str | None = None,
+    executor: Any = None,
+    raw_source_sarif: Any = None,
+    raw_candidate_sarif: Any = None,
+    timeout_sec: float | None = None,
 ) -> dict[str, Any]:
-    """Local SAST / security adapter. Deterministic fixture; optional bandit later."""
+    """P2 SAST adapter.
+
+    Fixture kwargs (findings/force_*) remain for unit isolation. Empty kwargs is
+    not a synthetic PASS — live PDP invokes the real provider package.
+    """
     bind = _bind(binding)
     if force_timeout:
         return _envelope(P2, [], "TIMEOUT", "sast_timeout")
@@ -99,6 +111,19 @@ def run_p2_sast(
         return _envelope(P2, [], STATUS_TOOL_FAILURE, "sast_unavailable")
     if malformed:
         return _envelope(P2, [{"not": "a receipt"}], STATUS_INCOMPLETE, "malformed")
+    if findings is None and not force_timeout and not force_failure and not malformed:
+        from agent_control.transaction.evidence.providers.semgrep.adapter import run_live_p2
+
+        return run_live_p2(
+            binding=binding,
+            source_root=source_root,
+            candidate_root=candidate_root,
+            artifact_dir=artifact_dir,
+            executor=executor,
+            raw_source_sarif=raw_source_sarif,
+            raw_candidate_sarif=raw_candidate_sarif,
+            timeout_sec=timeout_sec,
+        )
     receipts: list[dict[str, Any]] = []
     for item in findings or []:
         status = str(item.get("result_status") or STATUS_PASS)
@@ -171,10 +196,89 @@ def run_p4_task_finding(
     task: Mapping[str, Any] | None = None,
     finding: Mapping[str, Any] | None = None,
     force_failure: bool = False,
+    issue: Mapping[str, Any] | None = None,
+    issue_ref: Mapping[str, Any] | None = None,
+    gitea_client: Any = None,
+    frozen_issue: Any = None,
+    source_findings: Sequence[Mapping[str, Any]] | None = None,
+    source_findings_provided: bool | None = None,
+    expected_issue_id: int | None = None,
+    expected_repository: str | None = None,
+    task_id: str | None = None,
+    proposal_id: str | None = None,
+    transaction_id: str | None = None,
+    unavailable_reason: str | None = None,
 ) -> dict[str, Any]:
     bind = _bind(binding)
     if force_failure:
         return _envelope(P4, [], STATUS_INCOMPLETE, "task_unbound")
+    if unavailable_reason:
+        detail = str(unavailable_reason)
+        receipt = make_receipt(
+            evidence_type=EVIDENCE_TASK_REQUIREMENT,
+            result_status=STATUS_REQUIRED_EVIDENCE_UNAVAILABLE,
+            trust_class=TRUST_TASK_SYSTEM,
+            producer="gitea_task_envelope_finding_adapter",
+            fact="TASK_EVIDENCE_UNAVAILABLE",
+            authorization_class=AUTH_NONE,
+            detail=detail,
+            extra={"reason_code": detail, "llm_parsed": False},
+            **bind,
+        )
+        return _envelope(P4, [receipt], STATUS_TOOL_FAILURE, detail)
+    live_issue = issue
+    if live_issue is None and frozen_issue is None and issue_ref is not None:
+        from agent_control.transaction.evidence.task_receipt import fetch_gitea_issue
+
+        repository = str(
+            issue_ref.get("repository")
+            or issue_ref.get("repo")
+            or bind.get("repo")
+            or ""
+        )
+        issue_id = int(issue_ref.get("issue_id") or issue_ref.get("number") or 0)
+        if gitea_client is None or not repository or issue_id < 1:
+            return _envelope(P4, [], STATUS_INCOMPLETE, "MISSING_STRUCTURED_BLOCK")
+        live_issue = fetch_gitea_issue(gitea_client, repository, issue_id)
+    if live_issue is not None or frozen_issue is not None:
+        from agent_control.transaction.evidence.task_receipt import (
+            derive_task_evidence_receipt,
+            freeze_gitea_issue,
+            task_receipt_to_evidence,
+        )
+
+        freeze = frozen_issue or freeze_gitea_issue(
+            live_issue or {},
+            repository=str(bind.get("repo") or expected_repository or ""),
+        )
+        provided = (
+            bool(source_findings_provided)
+            if source_findings_provided is not None
+            else source_findings is not None
+        )
+        ref_issue_id = None
+        if issue_ref is not None:
+            raw_id = issue_ref.get("issue_id") or issue_ref.get("number")
+            if raw_id is not None:
+                ref_issue_id = int(raw_id)
+        task_receipt = derive_task_evidence_receipt(
+            freeze,
+            binding=bind,
+            expected_issue_id=expected_issue_id or ref_issue_id,
+            expected_repository=expected_repository or bind.get("repo"),
+            source_findings=source_findings,
+            source_findings_provided=provided,
+            task_id=task_id,
+            proposal_id=proposal_id,
+            transaction_id=transaction_id,
+        )
+        converted = task_receipt_to_evidence(task_receipt, binding=bind)
+        return _envelope(
+            P4,
+            converted["receipts"],
+            converted["status"],
+            converted.get("detail"),
+        )
     receipts: list[dict[str, Any]] = []
     if task:
         files = list(task.get("authorized_files") or [])
