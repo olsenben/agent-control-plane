@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Iterable, Sequence
+from urllib.parse import unquote, urlparse
 
 # Named product assertion: CT104 workers must not hold durable write/signing
 # credentials. Invoked at process start (agentctl worker run) and from
@@ -44,6 +47,11 @@ CT104_WORKER_QUEUES: Final[frozenset[str]] = frozenset(
 # GITEA_BOT_TOKEN substitute. Do not give workers GITEA_BOT_TOKEN.
 GIT_CREDENTIALS_CLONE_ONLY_PATH: Final[Path] = Path("/root/.git-credentials")
 
+# SHA-256 (hex) of known write PATs that must never appear in the clone helper.
+# Comma or whitespace separated. Never put the token itself in this variable.
+FORBIDDEN_GIT_TOKEN_HASH_ENV: Final[str] = "CT104_FORBIDDEN_GIT_TOKEN_SHA256"
+_SHA256_HEX_RE: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{64}$")
+
 
 class WorkerCredentialError(RuntimeError):
     """Raised when CT104 is configured with forbidden durable credentials."""
@@ -78,6 +86,85 @@ def _nonempty_env(name: str) -> bool:
     return bool(os.environ.get(name, "").strip())
 
 
+def _forbidden_git_token_hashes() -> set[str]:
+    raw = os.environ.get(FORBIDDEN_GIT_TOKEN_HASH_ENV, "")
+    hashes: set[str] = set()
+    for part in re.split(r"[\s,]+", raw.strip()):
+        if not part:
+            continue
+        digest = part.strip().lower()
+        if _SHA256_HEX_RE.fullmatch(digest):
+            hashes.add(digest)
+    return hashes
+
+
+def _git_credentials_password_hashes(path: Path) -> list[str]:
+    """Return SHA-256 hex of stored passwords. Never returns secret values."""
+    digests: list[str] = []
+    text = path.read_text(encoding="utf-8", errors="replace")
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        parsed = urlparse(stripped)
+        password = unquote(parsed.password or "")
+        if not password:
+            continue
+        digests.append(hashlib.sha256(password.encode("utf-8")).hexdigest())
+    return digests
+
+
+def collect_clone_helper_violations() -> list[DurableCredentialViolation]:
+    """Fail closed on write-capable clone helpers. Never logs secret values.
+
+    Git ``credential.helper=store`` will offer the stored secret for fetch and
+    push. Env-only PASS cannot hide a write PAT in that file.
+    """
+    violations: list[DurableCredentialViolation] = []
+    path = GIT_CREDENTIALS_CLONE_ONLY_PATH
+    try:
+        present = path.is_file()
+    except OSError:
+        return violations
+    if not present:
+        return violations
+    try:
+        writable = os.access(path, os.W_OK)
+        denylist = _forbidden_git_token_hashes()
+        digests = _git_credentials_password_hashes(path)
+    except OSError:
+        violations.append(
+            DurableCredentialViolation(
+                code="UNREADABLE_GIT_CREDENTIALS_STORE",
+                env_name="GIT_CREDENTIALS_CLONE_ONLY_PATH",
+            )
+        )
+        return violations
+    if writable:
+        violations.append(
+            DurableCredentialViolation(
+                code="WRITABLE_GIT_CREDENTIALS_STORE",
+                env_name="GIT_CREDENTIALS_CLONE_ONLY_PATH",
+            )
+        )
+    if not denylist:
+        violations.append(
+            DurableCredentialViolation(
+                code="HTTPS_STORE_UNVERIFIED",
+                env_name=FORBIDDEN_GIT_TOKEN_HASH_ENV,
+            )
+        )
+        return violations
+    if any(digest in denylist for digest in digests):
+        violations.append(
+            DurableCredentialViolation(
+                code="FORBIDDEN_TOKEN_IN_CLONE_HELPER",
+                env_name="GIT_CREDENTIALS_CLONE_ONLY_PATH",
+            )
+        )
+    return violations
+
+
 def collect_durable_credential_violations() -> list[DurableCredentialViolation]:
     """Return name-only violations. Never includes secret values."""
     violations: list[DurableCredentialViolation] = []
@@ -108,27 +195,29 @@ def collect_durable_credential_violations() -> list[DurableCredentialViolation]:
         violations.append(
             DurableCredentialViolation(code="FORBIDDEN_ENV_PRESENT", env_name=key)
         )
+    violations.extend(collect_clone_helper_violations())
     return violations
 
 
 def git_credentials_clone_only_note() -> str:
-    """Document the git-credentials mount as clone-only; never log file contents.
+    """Document the git-credentials mount; never log file contents.
 
-    The assertion does not read ``GIT_CREDENTIALS_CLONE_ONLY_PATH``. Presence of
-    that file does not satisfy write-token absence; env write tokens stay forbidden.
+    The assertion inspects helper presence and password hashes against
+    ``CT104_FORBIDDEN_GIT_TOKEN_SHA256``. Env write tokens stay forbidden.
     """
     return (
-        "git-credentials mount is clone-only and must not contain a write PAT; "
-        "it does not satisfy write-token absence. Workers must not receive "
-        f"GITEA_BOT_TOKEN. clone_only_path={GIT_CREDENTIALS_CLONE_ONLY_PATH}"
+        "git-credentials mount is a clone helper and is inspected; a write PAT "
+        "in that file is a fail-closed violation even when env tokens are absent. "
+        "Workers must not receive GITEA_BOT_TOKEN. "
+        f"clone_only_path={GIT_CREDENTIALS_CLONE_ONLY_PATH}"
     )
 
 
 def assert_worker_durable_credentials_absent() -> None:
     """Fail closed unless WORKER_DURABLE_CREDENTIALS_PRESENT=NO holds.
 
-    CT104_ALLOW_WRITE_TOKEN_DEBT is ignored. A clone-only git-credentials
-    file, if present, does not permit env write tokens.
+    CT104_ALLOW_WRITE_TOKEN_DEBT is ignored. A git-credentials store, if
+    present, is inspected; env-only PASS cannot hide a write-capable helper.
     """
     violations = collect_durable_credential_violations()
     if not violations:

@@ -46,6 +46,7 @@ TB2_TOKENS = (
 def _clear_durable_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("WORKER_DURABLE_CREDENTIALS_PRESENT", raising=False)
     monkeypatch.delenv("CT104_ALLOW_WRITE_TOKEN_DEBT", raising=False)
+    monkeypatch.delenv("CT104_FORBIDDEN_GIT_TOKEN_SHA256", raising=False)
     for name in FORBIDDEN_DURABLE_ENV_NAMES:
         monkeypatch.delenv(name, raising=False)
     for key in list(os.environ):
@@ -117,12 +118,82 @@ def test_git_credentials_does_not_satisfy_write_token_absence(
         assert_worker_durable_credentials_absent()
 
 
+def test_git_credentials_unverified_store_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _clear_durable_env(monkeypatch)
+    monkeypatch.delenv("CT104_FORBIDDEN_GIT_TOKEN_SHA256", raising=False)
+    creds = tmp_path / ".git-credentials"
+    creds.write_text("https://user:clone-only@git.example.invalid\n", encoding="utf-8")
+    creds.chmod(0o444)
+    monkeypatch.setattr(
+        "agent_workers.settings.GIT_CREDENTIALS_CLONE_ONLY_PATH",
+        creds,
+    )
+    with pytest.raises(WorkerCredentialError, match="CT104_FORBIDDEN_GIT_TOKEN_SHA256"):
+        assert_worker_durable_credentials_absent()
+    codes = {v.code for v in collect_durable_credential_violations()}
+    assert "HTTPS_STORE_UNVERIFIED" in codes
+
+
+def test_git_credentials_denylisted_write_token_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _clear_durable_env(monkeypatch)
+    import hashlib
+
+    secret = "write-capable-pat"
+    digest = hashlib.sha256(secret.encode()).hexdigest()
+    monkeypatch.setenv("CT104_FORBIDDEN_GIT_TOKEN_SHA256", digest)
+    creds = tmp_path / ".git-credentials"
+    creds.write_text(f"https://oauth2:{secret}@git.example.invalid\n", encoding="utf-8")
+    creds.chmod(0o444)
+    monkeypatch.setattr(
+        "agent_workers.settings.GIT_CREDENTIALS_CLONE_ONLY_PATH",
+        creds,
+    )
+    with pytest.raises(WorkerCredentialError, match="GIT_CREDENTIALS_CLONE_ONLY_PATH"):
+        assert_worker_durable_credentials_absent()
+    codes = {v.code for v in collect_durable_credential_violations()}
+    assert "FORBIDDEN_TOKEN_IN_CLONE_HELPER" in codes
+
+
+def test_git_credentials_writable_store_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _clear_durable_env(monkeypatch)
+    import hashlib
+
+    monkeypatch.setenv(
+        "CT104_FORBIDDEN_GIT_TOKEN_SHA256",
+        hashlib.sha256(b"unrelated").hexdigest(),
+    )
+    creds = tmp_path / ".git-credentials"
+    creds.write_text("https://user:clone-only@git.example.invalid\n", encoding="utf-8")
+    creds.chmod(0o644)
+    monkeypatch.setattr(
+        "agent_workers.settings.GIT_CREDENTIALS_CLONE_ONLY_PATH",
+        creds,
+    )
+    with pytest.raises(WorkerCredentialError, match="GIT_CREDENTIALS_CLONE_ONLY_PATH"):
+        assert_worker_durable_credentials_absent()
+    codes = {v.code for v in collect_durable_credential_violations()}
+    assert "WRITABLE_GIT_CREDENTIALS_STORE" in codes
+
+
 def test_git_credentials_clone_only_ok_without_env_tokens(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _clear_durable_env(monkeypatch)
+    import hashlib
+
+    monkeypatch.setenv(
+        "CT104_FORBIDDEN_GIT_TOKEN_SHA256",
+        hashlib.sha256(b"write-token").hexdigest(),
+    )
     creds = tmp_path / ".git-credentials"
     creds.write_text("https://user:clone-only@git.example.invalid\n", encoding="utf-8")
+    creds.chmod(0o444)
     monkeypatch.setattr(
         "agent_workers.settings.GIT_CREDENTIALS_CLONE_ONLY_PATH",
         creds,

@@ -43,13 +43,15 @@ services:
       AGENT_CACHE_DIR: /mnt/agent-cache
       AGENT_STATE_ROOT: /data/agent-state
       GIT_TERMINAL_PROMPT: "0"
+      # SHA-256 of known write PATs; required when git-credentials is mounted.
+      CT104_FORBIDDEN_GIT_TOKEN_SHA256: ${CT104_FORBIDDEN_GIT_TOKEN_SHA256:-}
       # CT103-only gate; force off so a copied CT103 .env cannot crash workers
       FIX_CI_REPAIR_ENABLED: "false"
     volumes:
       - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
       - ${AGENT_CACHE_HOST_PATH:-/mnt/agent-cache}:/mnt/agent-cache
       - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
-      # Clone-only; must not be a write PAT. Env write tokens stay forbidden.
+      # Inspected clone helper; must not contain a write PAT. Env write tokens stay forbidden.
       - ${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}:/root/.git-credentials:ro
       - ./config/git-worker.gitconfig:/root/.gitconfig:ro
 
@@ -92,6 +94,7 @@ services:
       AGENT_CACHE_DIR: /mnt/agent-cache
       AGENT_STATE_ROOT: /data/agent-state
       GIT_TERMINAL_PROMPT: "0"
+      CT104_FORBIDDEN_GIT_TOKEN_SHA256: ${CT104_FORBIDDEN_GIT_TOKEN_SHA256:-}
       # Dispatch gate lives on CT103; worker only executes enqueued repair jobs
       FIX_CI_REPAIR_ENABLED: "false"
       FIX_REMOTE_PUBLISH_ENABLED: "false"
@@ -102,6 +105,6 @@ services:
       - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
       - ${AGENT_CACHE_HOST_PATH:-/mnt/agent-cache}:/mnt/agent-cache
       - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
-      # Clone-only; must not be a write PAT. Env write tokens stay forbidden.
+      # Inspected clone helper; must not contain a write PAT. Env write tokens stay forbidden.
       - ${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}:/root/.git-credentials:ro
       - ./config/git-worker.gitconfig:/root/.gitconfig:ro
