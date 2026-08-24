@@ -102,6 +102,15 @@ def build_readiness_report(settings: Settings, *, strict: bool = False) -> tuple
         if result.get("status") != "ok":
             models_all_ok = False
 
+    # Nested transaction checks are informational. CT102/Gitea down must not
+    # 503 a process whose redis+state_dir are healthy (avoid restart loops).
+    try:
+        from agent_control.transaction.readiness import collect_transaction_checks
+
+        checks["transaction"] = collect_transaction_checks(settings)
+    except Exception as exc:  # noqa: BLE001
+        checks["transaction"] = {"status": "error", "error": type(exc).__name__}
+
     if not core_ok:
         return {"status": "not_ready", "checks": checks}, 503
 

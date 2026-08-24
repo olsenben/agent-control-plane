@@ -82,6 +82,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
+        # Process liveness only. Nested transaction / CT102 checks live on /readyz.
         return {"status": "ok"}
 
     @app.get("/readyz")

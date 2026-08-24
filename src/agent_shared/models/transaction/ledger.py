@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +19,17 @@ DurableOutcome = Literal[
     "VERIFICATION_MISSING",
     "TRANSACTION_FINALIZED",
     "OTHER_TYPED",
+]
+TransactionControlEventType = Literal[
+    "PUBLISH_REQUESTED",
+    "RUN_CANCELLED",
+    "REFUSED_CANCELLED_RUN",
+    "RUN_TIMED_OUT",
+    "REFUSED_TIMED_OUT_RUN",
+    "STUCK_TRANSACTION",
+    "RETRY_EXHAUSTED",
+    "RECONCILE_BEFORE_RETRY",
+    "ALREADY_APPLIED",
 ]
 GraphEdgeType = Literal[
     "HUMAN_INITIATED_TASK",
@@ -105,6 +116,14 @@ class SoftwareTransaction(BaseModel):
     append_only: Literal[True] = True
     event_seq: int = Field(ge=0)
     notes: str | None = None
+    event_id: str | None = None
+    event_type: str | None = None
+    component: str | None = None
+    principal: IdentityPrincipal | None = None
+    timestamp: str | None = None
+    code_revision: str | None = None
+    policy_revision: str | None = None
+    payload_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class TransactionGraphEdge(BaseModel):
@@ -198,3 +217,23 @@ class SoftwareTransactionAttestation(BaseModel):
     public_transparency_log: Literal[False] = False
     issued_at: str | None = None
     notes: str | None = None
+
+
+class TransactionControlEvent(BaseModel):
+    """Operability ledger event. Additive; does not replace software_transaction.v1."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["transaction_control_event.v1"] = "transaction_control_event.v1"
+    event_id: str = Field(min_length=1)
+    transaction_id: str = Field(min_length=1)
+    event_type: str = Field(min_length=1)
+    component: str = Field(min_length=1)
+    principal: IdentityPrincipal | None = None
+    timestamp: str = Field(min_length=1)
+    code_revision: str | None = None
+    policy_revision: str | None = None
+    payload_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    payload: dict[str, Any] = Field(default_factory=dict)
+    repository: str | None = None
+    run_id: str | None = None

@@ -7,6 +7,7 @@ from agent_control.transaction.identity import (
     control_plane,
     fixture_actor_identity,
     human_initiator,
+    verifier,
     worker_credential_assertion,
 )
 from agent_shared.models.transaction.task import PolicyContext, RequestedChange, TaskEnvelope
@@ -58,3 +59,29 @@ def test_tb1_forbidden_env_fail_closed() -> None:
     result = worker_credential_assertion(env={"GITEA_BOT_TOKEN": "x"})
     assert result["ok"] is False
     assert result["WORKER_DURABLE_CREDENTIALS_PRESENT"] == "YES"
+
+
+def test_verified_by_and_published_by_optional() -> None:
+    human = human_initiator("alice")
+    actor = fixture_actor_identity(run_id="r1")
+    plane = control_plane()
+    identity = attribution(on_behalf_of=human, executed_by=actor, authorized_by=plane)
+    assert identity.verified_by is None
+    assert identity.published_by is None
+    assert identity.initiated_by is identity.ON_BEHALF_OF
+    assert identity.executed_by is identity.EXECUTED_BY
+    assert identity.authorized_by is identity.AUTHORIZED_BY
+    verifier_p = verifier("ct102-actions")
+    publisher = control_plane()
+    full = attribution(
+        on_behalf_of=human,
+        executed_by=actor,
+        authorized_by=plane,
+        verified_by=verifier_p,
+        published_by=publisher,
+    )
+    assert full.verified_by is not None
+    assert full.verified_by.principal_kind == "VERIFIER"
+    assert full.published_by is not None
+    assert full.published_by.principal_kind == "CONTROL_PLANE"
+    assert full.initiated_by.identity_id == "alice"

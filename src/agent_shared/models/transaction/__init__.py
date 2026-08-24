@@ -19,6 +19,7 @@ from agent_shared.models.transaction.identity import CompositeIdentity, Identity
 from agent_shared.models.transaction.ledger import (
     SoftwareTransaction,
     SoftwareTransactionAttestation,
+    TransactionControlEvent,
     TransactionGraphEdge,
 )
 from agent_shared.models.transaction.proposal import PatchProposal
@@ -40,6 +41,7 @@ __all__ = [
     "SoftwareTransaction",
     "SoftwareTransactionAttestation",
     "TaskEnvelope",
+    "TransactionControlEvent",
     "TransactionGraphEdge",
     "VerificationEvidenceBundle",
 ]

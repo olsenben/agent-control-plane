@@ -99,3 +99,9 @@ class PublishIntent(BaseModel):
     expected_commit_sha: str
     created_at: str
     activated: bool = False
+    publish_effect_id: str | None = None
+    transaction_id: str | None = None
+    capability_id: str | None = None
+    patch_digest: str | None = None
+    source_sha: str | None = None
+    intended_pr_title: str | None = None

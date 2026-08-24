@@ -4,11 +4,19 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from agent_shared.models.transaction.identity import IdentityPrincipal
 
 ISSUER = "authoritative_control_plane"
+
+CapabilityLifecycle = Literal[
+    "MINTED",
+    "CONSUMING",
+    "CONSUMED",
+    "EXPIRED",
+    "INVALIDATED",
+]
 
 
 class DurablePatchCapability(BaseModel):
@@ -39,8 +47,18 @@ class DurablePatchCapability(BaseModel):
     expires_conceptually: Literal[True] = True
     does_not_authorize_subsequent_edits: Literal[True] = True
     consumed: bool = False
+    lifecycle: CapabilityLifecycle = "MINTED"
     issuer_identity: str = ISSUER
     capability_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def derive_consumed_from_lifecycle(self) -> DurablePatchCapability:
+        lifecycle = self.lifecycle
+        if self.consumed and lifecycle == "MINTED":
+            lifecycle = "CONSUMED"
+            object.__setattr__(self, "lifecycle", lifecycle)
+        object.__setattr__(self, "consumed", lifecycle == "CONSUMED")
+        return self
 
 
 class CapabilityPublicReceipt(BaseModel):
@@ -56,6 +74,7 @@ class CapabilityPublicReceipt(BaseModel):
     issued_at: str
     expires_at: str | None = None
     consumed: bool
+    lifecycle: CapabilityLifecycle = "MINTED"
     expired: bool = False
     replayed: bool = False
     issuer: str = ISSUER

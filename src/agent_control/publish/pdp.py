@@ -642,6 +642,21 @@ def run_publish_pdp(
         identity=identity,
     )
     patch_digest = proposal.patch_digest
+    from agent_control.transaction.barriers import (
+        KIND_CANCELLED,
+        KIND_TIMED_OUT,
+        DurableBarrierError,
+        PHASE_EVIDENCE,
+        PHASE_MINT,
+        barrier_kinds,
+        check_durable_effect_allowed,
+        persist_escalate_barrier,
+        persist_reject_barrier,
+    )
+
+    kinds = barrier_kinds(state_root, run_id)
+    if KIND_CANCELLED in kinds or KIND_TIMED_OUT in kinds:
+        check_durable_effect_allowed(state_root, run_id=run_id, phase=PHASE_EVIDENCE)
     units = units_from_changed_files(changed, list(envelope.authorized_files or authorized_files))
     change_classes = classify_change_classes(
         changed_files=changed,
@@ -671,6 +686,7 @@ def run_publish_pdp(
     cached = _load_json(evidence_path)
     kwargs = adapter_kwargs or in_process_adapter_kwargs(envelope=envelope, units=units)
     if cached is None:
+        check_durable_effect_allowed(state_root, run_id=run_id, phase=PHASE_EVIDENCE)
         evidence = run_evidence_bus(
             binding={
                 "repo": envelope.repository,
@@ -762,6 +778,10 @@ def run_publish_pdp(
         payload=admission.model_dump(mode="json"),
     )
     if admission.decision == AUTO_ADMIT:
+        try:
+            check_durable_effect_allowed(state_root, run_id=run_id, phase=PHASE_MINT)
+        except DurableBarrierError:
+            return result
         cap_id = canonical_json_hash(
             {
                 "proposal_id": proposal.proposal_id,
@@ -842,6 +862,12 @@ def run_publish_pdp(
         result.escalation = escalation
         esc_path = store_dir / "escalations" / f"{escalation.escalation_id}.json"
         _atomic_write_json(esc_path, escalation.model_dump(mode="json"))
+        persist_escalate_barrier(
+            state_root,
+            run_id=run_id,
+            transaction_id=transaction_id,
+            project=project,
+        )
         _append_typed_event(
             state_root,
             event_type=EVENT_ADMISSION_ESCALATION,
@@ -859,6 +885,12 @@ def run_publish_pdp(
         return result
     reject_path = store_dir / "decisions" / f"{admission.decision_digest}.json"
     _atomic_write_json(reject_path, admission.model_dump(mode="json"))
+    persist_reject_barrier(
+        state_root,
+        run_id=run_id,
+        transaction_id=transaction_id,
+        project=project,
+    )
     _record_ledger(
         state_root,
         store_dir,

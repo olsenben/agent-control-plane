@@ -27,7 +27,6 @@ from agent_control.publish.remote import (
 from agent_control.publish.state import (
     cas_transition,
     load_publish_record,
-    save_publish_intent,
 )
 from agent_control.publish.validate import ValidationError, validate_and_commit
 from agent_control.session.reasons import classify_broker_reject
@@ -35,7 +34,6 @@ from agent_shared.bundles.inbox import BundleError, copy_bundle_to_snapshot, loa
 from agent_shared.models.approval import FixAuthorizationBinding
 from agent_shared.models.bundle import AuthoritativePublishResult
 from agent_shared.models.fix import FixResult
-from agent_shared.models.publish import PublishIntent
 from agent_shared.project_ids import split_project
 
 
@@ -138,19 +136,40 @@ def _run_broker_pdp(
     """Frozen C PDP. Returns (pdp, None) on AUTO_ADMIT else (None, reject dict)."""
     from agent_control.publish.pdp import run_publish_pdp
     from agent_control.transaction.admission import AUTO_ADMIT, ESCALATE
+    from agent_control.transaction.barriers import DurableBarrierError
 
-    pdp = run_publish_pdp(
-        state_root=state_root,
-        project=project,
-        run_id=run_id,
-        bundle_id=bundle_id,
-        bundle_root=bundle_root,
-        manifest=manifest,
-        authorized_files=authorized_files,
-        source_sha=source_sha,
-        agent_branch=agent_branch,
-        invoked_by=invoked_by,
-    )
+    try:
+        pdp = run_publish_pdp(
+            state_root=state_root,
+            project=project,
+            run_id=run_id,
+            bundle_id=bundle_id,
+            bundle_root=bundle_root,
+            manifest=manifest,
+            authorized_files=authorized_files,
+            source_sha=source_sha,
+            agent_branch=agent_branch,
+            invoked_by=invoked_by,
+        )
+    except DurableBarrierError as exc:
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind=kind,
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=[exc.code],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=record.project if record else project,
+            run_id=run_id,
+            broker_reason=exc.code.lower(),
+            detail=[exc.code],
+        )
+        return None, {"ok": False, "reason": exc.code, "published": False}
     if pdp.decision == AUTO_ADMIT:
         return pdp, None
     cas_transition(
@@ -443,6 +462,34 @@ def broker_publish_fix(
     if pdp_reject is not None:
         return pdp_reject
 
+    from agent_control.transaction.barriers import (
+        DurableBarrierError,
+        PHASE_PUBLISH,
+        check_durable_effect_allowed,
+    )
+
+    try:
+        check_durable_effect_allowed(state_root, run_id=run_id, phase=PHASE_PUBLISH)
+    except DurableBarrierError as exc:
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="fix",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=[exc.code],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason=exc.code.lower(),
+            detail=[exc.code],
+        )
+        return {"ok": False, "reason": exc.code, "published": False}
+
     commit_msg = build_commit_message(
         run_id=run_id,
         binding=binding,
@@ -548,16 +595,26 @@ def broker_publish_fix(
         )
         return {"ok": False, "reason": "claim_failed"}
 
-    intent = PublishIntent(
+    from agent_control.publish.state import load_publish_intent
+    from agent_control.transaction.ledger import record_publish_requested
+
+    existing_intent = load_publish_intent(state_root, project, validated.commit_sha)
+    cap_id = pdp.capability.capability_id if getattr(pdp, "capability", None) else None
+    record_publish_requested(
+        state_root,
+        project=project,
+        transaction_id=str(getattr(pdp, "transaction_id", None) or run_id),
+        capability_id=cap_id,
+        patch_digest=str(getattr(pdp, "patch_digest", None) or validated.patch_sha256),
+        repo=project,
+        source_sha=trusted_sha,
+        target_branch=agent_branch,
+        expected_commit_sha=validated.commit_sha,
         run_id=run_id,
         bundle_id=bundle_id,
         kind="fix",
-        project=project,
-        agent_branch=agent_branch,
-        expected_commit_sha=validated.commit_sha,
-        created_at=_now(),
+        publish_effect_id=existing_intent.publish_effect_id if existing_intent else None,
     )
-    save_publish_intent(state_root, intent)
 
     # Pending-CI intent before push (PR number may be filled later)
     register_pending_ci(
@@ -608,15 +665,6 @@ def broker_publish_fix(
                 broker_reason="stale_base",
             )
             return {"ok": False, "reason": "stale_base"}
-
-        push_commit(
-            workspace=validated.workspace,
-            commit_sha=validated.commit_sha,
-            agent_branch=agent_branch,
-            base_ref=base_ref,
-            repo_url=repo_url,
-            settings=settings,
-        )
     except RemoteMutationError as exc:
         release_approval_claim(state_root, claimed)
         cas_transition(
@@ -638,6 +686,9 @@ def broker_publish_fix(
         )
         return {"ok": False, "reason": exc.stage, "detail": str(exc), "stale": exc.stale}
     except Exception as exc:
+        from agent_control.transaction.retry import classify_exception as _classify
+
+        classification = _classify(exc, request_sent=False)
         release_approval_claim(state_root, claimed)
         cas_transition(
             state_root,
@@ -646,8 +697,8 @@ def broker_publish_fix(
             attempt_id=attempt_id,
             bundle_id=bundle_id,
             from_state="remote_pending",
-            to_state="failed_retryable",
-            messages=[str(exc)],
+            to_state="failed_terminal" if classification.terminal else "failed_retryable",
+            messages=[str(exc), classification.retry_class],
         )
         _terminalize_broker_reject(
             state_root,
@@ -656,7 +707,151 @@ def broker_publish_fix(
             broker_reason="push_failed",
             detail=[str(exc)],
         )
-        return {"ok": False, "reason": "push_failed", "detail": str(exc)}
+        return {
+            "ok": False,
+            "reason": classification.retry_class,
+            "detail": str(exc),
+            "retry_class": classification.retry_class,
+        }
+
+    push_applied = False
+    try:
+        push_commit(
+            workspace=validated.workspace,
+            commit_sha=validated.commit_sha,
+            agent_branch=agent_branch,
+            base_ref=base_ref,
+            repo_url=repo_url,
+            settings=settings,
+        )
+        push_applied = True
+    except RemoteMutationError as exc:
+        release_approval_claim(state_root, claimed)
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="fix",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="remote_pending",
+            to_state="failed_retryable" if not exc.stale else "failed_terminal",
+            messages=[str(exc)],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason="stale_base" if exc.stale else (exc.stage or "push_failed"),
+            detail=[str(exc)],
+        )
+        return {"ok": False, "reason": exc.stage, "detail": str(exc), "stale": exc.stale}
+    except Exception as exc:
+        from agent_control.transaction.ledger import append_transaction_control_event
+        from agent_control.transaction.reconcile import (
+            ExpectedPublishEffect,
+            inspect_expected_effect,
+            observe_from_client,
+        )
+        from agent_control.transaction.retry import (
+            PERMANENT,
+            classify_exception as _classify_push,
+            exhaustion_event_payload,
+            record_retry_attempt,
+        )
+        from agent_shared.models.transaction.ledger import TransactionControlEvent
+
+        classification = _classify_push(exc, request_sent=True)
+        if classification.requires_reconcile:
+            expected = ExpectedPublishEffect(
+                repo=project,
+                branch=agent_branch,
+                commit_sha=validated.commit_sha,
+                transaction_id=str(getattr(pdp, "transaction_id", None) or run_id),
+                run_id=run_id,
+                bundle_id=bundle_id,
+            )
+            observed = observe_from_client(client, expected)
+            decision = inspect_expected_effect(expected, observed)
+            if decision.already_applied:
+                push_applied = True
+            else:
+                budget = record_retry_attempt(state_root, run_id=run_id, scope="gitea_publish")
+                terminal = bool(budget.get("exhausted")) or decision.retry_class == PERMANENT
+                if budget.get("exhausted"):
+                    exhausted = exhaustion_event_payload(
+                        budget,
+                        transaction_id=str(getattr(pdp, "transaction_id", None) or run_id),
+                    )
+                    append_transaction_control_event(
+                        state_root,
+                        TransactionControlEvent(
+                            event_id=str(exhausted["event_id"]),
+                            transaction_id=str(exhausted["transaction_id"]),
+                            event_type="RETRY_EXHAUSTED",
+                            component="publish_broker",
+                            timestamp=str(exhausted["timestamp"]),
+                            payload_digest=str(exhausted["payload_digest"]),
+                            payload=exhausted,
+                            repository=project,
+                            run_id=run_id,
+                        ),
+                        project=project,
+                    )
+                release_approval_claim(state_root, claimed)
+                cas_transition(
+                    state_root,
+                    run_id=run_id,
+                    kind="fix",
+                    attempt_id=attempt_id,
+                    bundle_id=bundle_id,
+                    from_state="remote_pending",
+                    to_state="failed_terminal" if terminal else "failed_retryable",
+                    messages=[str(exc), classification.retry_class, decision.reason],
+                )
+                if terminal:
+                    _terminalize_broker_reject(
+                        state_root,
+                        project=project,
+                        run_id=run_id,
+                        broker_reason="push_failed",
+                        detail=[str(exc), str(budget.get("exhaustion_code") or classification.retry_class)],
+                    )
+                return {
+                    "ok": False,
+                    "reason": classification.retry_class,
+                    "retry_class": classification.retry_class,
+                    "next_action": decision.next_action,
+                    "reconcile_status": decision.status,
+                    "detail": str(exc),
+                }
+        else:
+            release_approval_claim(state_root, claimed)
+            cas_transition(
+                state_root,
+                run_id=run_id,
+                kind="fix",
+                attempt_id=attempt_id,
+                bundle_id=bundle_id,
+                from_state="remote_pending",
+                to_state="failed_terminal" if classification.terminal else "failed_retryable",
+                messages=[str(exc), classification.retry_class],
+            )
+            _terminalize_broker_reject(
+                state_root,
+                project=project,
+                run_id=run_id,
+                broker_reason="push_failed",
+                detail=[str(exc)],
+            )
+            return {
+                "ok": False,
+                "reason": classification.retry_class if classification.terminal else "push_failed",
+                "detail": str(exc),
+                "retry_class": classification.retry_class,
+            }
+
+    if not push_applied:
+        return {"ok": False, "reason": "push_failed"}
 
     # Load fix_result from snapshot for PR body if present
     fix_result = FixResult(files_changed=list(binding.allowed_files))
@@ -1006,6 +1201,34 @@ def broker_publish_repair(
     if pdp_reject is not None:
         return pdp_reject
 
+    from agent_control.transaction.barriers import (
+        DurableBarrierError as _RepairBarrierError,
+        PHASE_PUBLISH as _REPAIR_PUBLISH,
+        check_durable_effect_allowed as _check_repair_publish,
+    )
+
+    try:
+        _check_repair_publish(state_root, run_id=run_id, phase=_REPAIR_PUBLISH)
+    except _RepairBarrierError as exc:
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="repair",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=[exc.code],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason=exc.code.lower(),
+            detail=[exc.code],
+        )
+        return {"ok": False, "reason": exc.code, "published": False}
+
     try:
         validated = validate_and_commit(
             settings=settings,
@@ -1078,16 +1301,29 @@ def broker_publish_repair(
         }
 
     # Supersede intent before push
-    intent = PublishIntent(
+    from agent_control.publish.state import load_publish_intent as _load_repair_intent
+    from agent_control.transaction.ledger import record_publish_requested as _record_repair_publish
+
+    existing_repair_intent = _load_repair_intent(state_root, project, validated.commit_sha)
+    _record_repair_publish(
+        state_root,
+        project=project,
+        transaction_id=str(getattr(pdp, "transaction_id", None) or run_id),
+        capability_id=(
+            pdp.capability.capability_id if getattr(pdp, "capability", None) else None
+        ),
+        patch_digest=str(getattr(pdp, "patch_digest", None) or validated.patch_sha256),
+        repo=project,
+        source_sha=expected_head_commit_sha,
+        target_branch=agent_branch,
+        expected_commit_sha=validated.commit_sha,
         run_id=run_id,
         bundle_id=bundle_id,
         kind="repair",
-        project=project,
-        agent_branch=agent_branch,
-        expected_commit_sha=validated.commit_sha,
-        created_at=_now(),
+        publish_effect_id=(
+            existing_repair_intent.publish_effect_id if existing_repair_intent else None
+        ),
     )
-    save_publish_intent(state_root, intent)
     register_pending_ci(
         state_root,
         fix_run_id=run_id,

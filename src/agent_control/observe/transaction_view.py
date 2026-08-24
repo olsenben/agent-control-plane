@@ -74,6 +74,7 @@ _PUBLIC_CAPABILITY_KEYS = (
     "patch_digest",
     "source_sha",
     "repo",
+    "lifecycle",
 )
 
 _MAX_STR_LEN = 500
@@ -85,7 +86,15 @@ _UNAVAILABLE = "unavailable"
 
 def transaction_log_category(event_type: str) -> str | None:
     """Observatory log-category tag for transaction ledger types."""
-    if event_type in {SOFTWARE_TRANSACTION_TYPE, GRAPH_EDGE_TYPE}:
+    if event_type in {
+        SOFTWARE_TRANSACTION_TYPE,
+        GRAPH_EDGE_TYPE,
+        "transaction_control_event.v1",
+        "PUBLISH_REQUESTED",
+        "STUCK_TRANSACTION",
+        "RUN_CANCELLED",
+        "RUN_TIMED_OUT",
+    }:
         return TRANSACTION_LOG_CATEGORY
     return None
 
@@ -481,6 +490,7 @@ def _capability_status(
             "status": _UNAVAILABLE,
             "capability_digest": None,
             "consumed": None,
+            "lifecycle": None,
             "expired": None,
             "replayed": None,
             "issuer": None,
@@ -491,12 +501,17 @@ def _capability_status(
             if key in capability and not _is_secret_or_scanner_key(key):
                 public[key] = capability[key]
     status = "none"
-    if durable_outcome == "AUTO_ADMITTED_CAPABILITY_MINTED":
+    lifecycle = str(public.get("lifecycle") or "")
+    if durable_outcome == "AUTO_ADMITTED_CAPABILITY_MINTED" or lifecycle == "MINTED":
         status = "minted"
-    elif durable_outcome == "PUBLISHED" or public.get("consumed") is True:
+    if lifecycle == "CONSUMING":
+        status = "consuming"
+    elif durable_outcome == "PUBLISHED" or public.get("consumed") is True or lifecycle == "CONSUMED":
         status = "consumed"
-    elif public.get("expired") is True:
+    elif public.get("expired") is True or lifecycle == "EXPIRED":
         status = "expired"
+    elif lifecycle == "INVALIDATED":
+        status = "invalidated"
     elif public.get("replayed") is True:
         status = "replayed"
     elif public.get("capability_id") or public.get("capability_digest"):
@@ -508,6 +523,7 @@ def _capability_status(
         "status": status,
         "capability_digest": _opt_str(public.get("capability_digest")),
         "consumed": public.get("consumed") if isinstance(public.get("consumed"), bool) else None,
+        "lifecycle": lifecycle or None,
         "expired": public.get("expired") if isinstance(public.get("expired"), bool) else None,
         "replayed": public.get("replayed") if isinstance(public.get("replayed"), bool) else None,
         "issuer": _opt_str(public.get("issuer")),

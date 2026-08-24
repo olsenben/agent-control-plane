@@ -54,11 +54,15 @@ def attribution(
     on_behalf_of: IdentityPrincipal,
     executed_by: IdentityPrincipal,
     authorized_by: IdentityPrincipal | None = None,
+    verified_by: IdentityPrincipal | None = None,
+    published_by: IdentityPrincipal | None = None,
 ) -> CompositeIdentity:
     return CompositeIdentity(
         ON_BEHALF_OF=on_behalf_of,
         EXECUTED_BY=executed_by,
         AUTHORIZED_BY=authorized_by,
+        verified_by=verified_by,
+        published_by=published_by,
     )
 
 

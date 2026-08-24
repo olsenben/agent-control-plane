@@ -16,6 +16,7 @@ from agent_control.transaction.witness import StateWitnessError, check_state_wit
 from agent_shared.hash_utils import canonical_json_hash
 from agent_shared.models.transaction.capability import (
     ISSUER,
+    CapabilityLifecycle,
     CapabilityPublicReceipt,
     DurablePatchCapability,
 )
@@ -24,10 +25,42 @@ from agent_shared.models.transaction.identity import IdentityPrincipal
 CAPABILITY_ALREADY_CONSUMED = "CAPABILITY_ALREADY_CONSUMED"
 CAPABILITY_CONSUMED = "CONSUMED"
 CAPABILITY_EXPIRED = "CAPABILITY_EXPIRED"
+LIFECYCLE_MINTED: CapabilityLifecycle = "MINTED"
+LIFECYCLE_CONSUMING: CapabilityLifecycle = "CONSUMING"
+LIFECYCLE_CONSUMED: CapabilityLifecycle = "CONSUMED"
+LIFECYCLE_EXPIRED: CapabilityLifecycle = "EXPIRED"
+LIFECYCLE_INVALIDATED: CapabilityLifecycle = "INVALIDATED"
 
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def lifecycle_of(record: Mapping[str, Any]) -> CapabilityLifecycle:
+    raw = record.get("lifecycle")
+    if raw in {
+        LIFECYCLE_MINTED,
+        LIFECYCLE_CONSUMING,
+        LIFECYCLE_CONSUMED,
+        LIFECYCLE_EXPIRED,
+        LIFECYCLE_INVALIDATED,
+    }:
+        return raw  # type: ignore[return-value]
+    if record.get("consumed") is True:
+        return LIFECYCLE_CONSUMED
+    return LIFECYCLE_MINTED
+
+
+def consumed_from_lifecycle(lifecycle: CapabilityLifecycle) -> bool:
+    return lifecycle == LIFECYCLE_CONSUMED
+
+
+def _apply_lifecycle(item: dict[str, Any], lifecycle: CapabilityLifecycle) -> dict[str, Any]:
+    item["lifecycle"] = lifecycle
+    item["consumed"] = consumed_from_lifecycle(lifecycle)
+    if lifecycle == LIFECYCLE_CONSUMED and not item.get("consumed_at"):
+        item["consumed_at"] = utc_now()
+    return item
 
 
 class CapabilityStore(Protocol):
@@ -45,6 +78,8 @@ class InMemoryCapabilityStore:
 
     def put(self, record: dict[str, Any]) -> None:
         cap_id = str(record["capability_id"])
+        if "lifecycle" not in record:
+            _apply_lifecycle(record, lifecycle_of(record))
         with self._lock:
             self._items[cap_id] = dict(record)
 
@@ -58,10 +93,11 @@ class InMemoryCapabilityStore:
             item = self._items.get(capability_id)
             if item is None:
                 raise KeyError(capability_id)
-            if item.get("consumed") is True:
+            lifecycle = lifecycle_of(item)
+            if lifecycle in {LIFECYCLE_CONSUMED, LIFECYCLE_INVALIDATED, LIFECYCLE_EXPIRED}:
                 raise CapabilityAlreadyConsumed(capability_id)
-            item["consumed"] = True
-            item["consumed_at"] = utc_now()
+            _apply_lifecycle(item, LIFECYCLE_CONSUMING)
+            _apply_lifecycle(item, LIFECYCLE_CONSUMED)
             return dict(item)
 
 
@@ -78,6 +114,8 @@ class FilesystemCapabilityStore:
 
     def put(self, record: dict[str, Any]) -> None:
         cap_id = str(record["capability_id"])
+        if "lifecycle" not in record:
+            _apply_lifecycle(record, lifecycle_of(record))
         path = self._path(cap_id)
         tmp = path.with_suffix(".json.tmp")
         with self._lock:
@@ -103,11 +141,14 @@ class FilesystemCapabilityStore:
                 if not path.is_file():
                     raise KeyError(capability_id)
                 item = json.loads(path.read_text(encoding="utf-8"))
-                if item.get("consumed") is True:
+                lifecycle = lifecycle_of(item)
+                if lifecycle in {LIFECYCLE_CONSUMED, LIFECYCLE_INVALIDATED, LIFECYCLE_EXPIRED}:
                     raise CapabilityAlreadyConsumed(capability_id)
-                item["consumed"] = True
-                item["consumed_at"] = utc_now()
+                _apply_lifecycle(item, LIFECYCLE_CONSUMING)
                 tmp = path.with_suffix(".json.tmp")
+                tmp.write_text(json.dumps(item, indent=2, sort_keys=True), encoding="utf-8")
+                os.replace(tmp, path)
+                _apply_lifecycle(item, LIFECYCLE_CONSUMED)
                 tmp.write_text(json.dumps(item, indent=2, sort_keys=True), encoding="utf-8")
                 os.replace(tmp, path)
                 return item
@@ -126,6 +167,9 @@ class CapabilityAlreadyConsumed(RuntimeError):
 def public_receipt(record: Mapping[str, Any], *, replayed: bool = False) -> CapabilityPublicReceipt:
     expires = record.get("expires_at")
     expired = bool(expires and utc_now() > str(expires))
+    lifecycle = lifecycle_of(record)
+    if expired and lifecycle in {LIFECYCLE_MINTED, LIFECYCLE_CONSUMING}:
+        lifecycle = LIFECYCLE_EXPIRED
     return CapabilityPublicReceipt(
         capability_id=str(record["capability_id"]),
         repo=str(record["repo"]),
@@ -134,7 +178,8 @@ def public_receipt(record: Mapping[str, Any], *, replayed: bool = False) -> Capa
         allowed_target_branch=str(record["allowed_target_branch"]),
         issued_at=str(record["issued_at"]),
         expires_at=str(expires) if expires else None,
-        consumed=bool(record.get("consumed")),
+        consumed=consumed_from_lifecycle(lifecycle),
+        lifecycle=lifecycle,
         expired=expired,
         replayed=replayed,
         issuer=str(record.get("issuer") or ISSUER),
@@ -188,6 +233,7 @@ def mint_capability(
     record = body.model_dump(mode="json")
     record["capability_digest"] = digest
     record["secret"] = secret
+    _apply_lifecycle(record, LIFECYCLE_MINTED)
     store.put(record)
     return DurablePatchCapability.model_validate(
         {key: value for key, value in record.items() if key != "secret"}
@@ -207,6 +253,7 @@ def wrap_capability(
     payload["issued_at"] = utc_now()
     payload["expires_at"] = expires_at
     payload["consumed"] = False
+    payload["lifecycle"] = LIFECYCLE_MINTED
     payload["issuer_identity"] = ISSUER
     return payload
 
@@ -226,12 +273,19 @@ def consume_capability(
     stored = store.get(capability_id)
     if stored is None:
         raise KeyError(capability_id)
-    if stored.get("consumed") is True:
+    lifecycle = lifecycle_of(stored)
+    if lifecycle == LIFECYCLE_CONSUMED or stored.get("consumed") is True:
         raise CapabilityAlreadyConsumed(capability_id)
     expires = stored.get("expires_at")
     now = now_iso or utc_now()
-    if expires and now > str(expires):
+    if (expires and now > str(expires)) or lifecycle == LIFECYCLE_EXPIRED:
+        if lifecycle != LIFECYCLE_EXPIRED:
+            stored = dict(stored)
+            _apply_lifecycle(stored, LIFECYCLE_EXPIRED)
+            store.put(stored)
         return {"status": CAPABILITY_EXPIRED, "allowed": False, "reasons": ["expired"]}
+    if lifecycle == LIFECYCLE_INVALIDATED:
+        raise CapabilityAlreadyConsumed(capability_id)
     expected = {
         "source_sha": stored.get("source_sha"),
         "patch_digest": stored.get("patch_digest"),
@@ -269,3 +323,15 @@ def consume_capability(
 def worker_facing_payload(record: Mapping[str, Any]) -> dict[str, Any]:
     """Strip secret material. Worker APIs must use this, never the store record."""
     return public_receipt(record).model_dump(mode="json")
+
+
+def invalidate_capability(store: CapabilityStore, capability_id: str) -> dict[str, Any]:
+    stored = store.get(capability_id)
+    if stored is None:
+        raise KeyError(capability_id)
+    if lifecycle_of(stored) == LIFECYCLE_CONSUMED:
+        raise CapabilityAlreadyConsumed(capability_id)
+    updated = dict(stored)
+    _apply_lifecycle(updated, LIFECYCLE_INVALIDATED)
+    store.put(updated)
+    return updated
