@@ -66,8 +66,37 @@ def process_inbound(
     event_type: str,
     event_id: str,
     handler: Callable[[], Any],
+    *,
+    run_id: str | None = None,
+    transaction_id: str | None = None,
+    proposal_id: str | None = None,
+    phase: str | None = None,
 ) -> dict[str, Any]:
     """Invoke handler at most once per incoming_event_id. Duplicates replay the first result."""
+    if run_id and phase:
+        from agent_control.transaction.barriers import (
+            DurableBarrierError,
+            check_durable_effect_allowed,
+        )
+
+        try:
+            check_durable_effect_allowed(
+                state_root,
+                run_id=run_id,
+                phase=phase,  # type: ignore[arg-type]
+                event_id=event_id,
+                transaction_id=transaction_id,
+                proposal_id=proposal_id,
+            )
+        except DurableBarrierError as exc:
+            return {
+                "status": "REFUSED_STALE",
+                "event_id": str(event_id),
+                "event_type": str(event_type),
+                "reason": exc.code,
+                "transaction_id": transaction_id or run_id,
+                "proposal_id": proposal_id,
+            }
     path = inbound_path(state_root, event_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     with _LOCK:

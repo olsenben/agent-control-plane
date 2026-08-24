@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -37,6 +38,7 @@ REFUSED_ESCALATED = "REFUSED_ESCALATED"
 REFUSED_REJECTED = "REFUSED_REJECTED"
 REFUSED_REJECTED_REPLAY = "REFUSED_REJECTED_REPLAY"
 REFUSED_LATE_EVIDENCE = "REFUSED_LATE_EVIDENCE"
+REFUSED_STALE_EVENT = "REFUSED_STALE_EVENT"
 
 _DURABLE_PHASES = frozenset(
     {PHASE_WORKER, PHASE_EVIDENCE, PHASE_ADMISSION, PHASE_MINT, PHASE_PUBLISH}
@@ -294,6 +296,51 @@ def persist_escalate_barrier(
     )
 
 
+def refused_stale_event_dir(state_root: Path) -> Path:
+    return Path(state_root) / "transaction" / "refused_stale_events"
+
+
+def record_refused_stale_event(
+    state_root: Path,
+    *,
+    event_id: str,
+    transaction_id: str,
+    proposal_id: str | None,
+    reason: str,
+    current_state: Sequence[str] | str,
+    run_id: str | None = None,
+    phase: str | None = None,
+) -> dict[str, Any]:
+    """Capture a refused late handler. Control-plane memory only; never fed into C."""
+    if isinstance(current_state, str):
+        kinds = [current_state]
+    else:
+        kinds = [str(item) for item in current_state]
+    payload = {
+        "schema_version": "refused_stale_event.v1",
+        "event_id": str(event_id),
+        "transaction_id": str(transaction_id),
+        "proposal_id": proposal_id,
+        "reason": str(reason),
+        "current_state": kinds,
+        "run_id": run_id,
+        "phase": phase,
+        "timestamp": utc_now(),
+        "feeds_controller": False,
+    }
+    path = refused_stale_event_dir(state_root) / f"{_safe_id(event_id)}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(tmp, path)
+    return payload
+
+
+def _safe_id(value: str) -> str:
+    text = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in str(value))
+    return (text[:160] if text else "unknown")
+
+
 def persist_reject_barrier(
     state_root: Path,
     *,
@@ -325,23 +372,43 @@ def check_durable_effect_allowed(
     *,
     run_id: str,
     phase: Literal["worker", "evidence", "admission", "mint", "publish"],
+    event_id: str | None = None,
+    transaction_id: str | None = None,
+    proposal_id: str | None = None,
 ) -> None:
     """Refuse late durable-boundary work. Distinct cancel vs timeout vs escalate vs reject."""
     if phase not in _DURABLE_PHASES:
         raise ValueError(phase)
     kinds = barrier_kinds(state_root, run_id)
+    code: str | None = None
+    kind: str | None = None
     if KIND_CANCELLED in kinds:
-        raise DurableBarrierError(REFUSED_CANCELLED_RUN, run_id=run_id, kind=KIND_CANCELLED)
-    if KIND_TIMED_OUT in kinds:
-        raise DurableBarrierError(REFUSED_TIMED_OUT_RUN, run_id=run_id, kind=KIND_TIMED_OUT)
-    if KIND_ESCALATED in kinds and phase in {PHASE_MINT, PHASE_PUBLISH}:
-        raise DurableBarrierError(REFUSED_ESCALATED, run_id=run_id, kind=KIND_ESCALATED)
-    if KIND_REJECTED in kinds:
+        code, kind = REFUSED_CANCELLED_RUN, KIND_CANCELLED
+    elif KIND_TIMED_OUT in kinds:
+        code, kind = REFUSED_TIMED_OUT_RUN, KIND_TIMED_OUT
+    elif KIND_ESCALATED in kinds and phase in {PHASE_MINT, PHASE_PUBLISH}:
+        code, kind = REFUSED_ESCALATED, KIND_ESCALATED
+    elif KIND_REJECTED in kinds:
+        kind = KIND_REJECTED
         if phase == PHASE_EVIDENCE:
-            raise DurableBarrierError(REFUSED_LATE_EVIDENCE, run_id=run_id, kind=KIND_REJECTED)
-        if phase == PHASE_MINT:
-            raise DurableBarrierError(REFUSED_REJECTED_REPLAY, run_id=run_id, kind=KIND_REJECTED)
-        if phase == PHASE_PUBLISH:
-            raise DurableBarrierError(REFUSED_REJECTED, run_id=run_id, kind=KIND_REJECTED)
-        if phase in {PHASE_WORKER, PHASE_ADMISSION}:
-            raise DurableBarrierError(REFUSED_REJECTED, run_id=run_id, kind=KIND_REJECTED)
+            code = REFUSED_LATE_EVIDENCE
+        elif phase == PHASE_MINT:
+            code = REFUSED_REJECTED_REPLAY
+        else:
+            code = REFUSED_REJECTED
+    if code is None or kind is None:
+        return
+    barrier = load_barrier(state_root, run_id) or {}
+    txid = transaction_id or str(barrier.get("transaction_id") or run_id)
+    stale_id = event_id or f"{phase}:{run_id}:{code}"
+    record_refused_stale_event(
+        state_root,
+        event_id=stale_id,
+        transaction_id=txid,
+        proposal_id=proposal_id,
+        reason=code,
+        current_state=sorted(kinds),
+        run_id=run_id,
+        phase=phase,
+    )
+    raise DurableBarrierError(code, run_id=run_id, kind=kind)

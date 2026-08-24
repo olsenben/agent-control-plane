@@ -25,6 +25,10 @@ from agent_shared.models.transaction.identity import IdentityPrincipal
 CAPABILITY_ALREADY_CONSUMED = "CAPABILITY_ALREADY_CONSUMED"
 CAPABILITY_CONSUMED = "CONSUMED"
 CAPABILITY_CONSUMING = "CAPABILITY_CONSUMING"
+CLAIM_ACQUIRED = "CLAIM_ACQUIRED"
+ALREADY_CLAIMED = "ALREADY_CLAIMED"
+ALREADY_CONSUMED = "ALREADY_CONSUMED"
+INVALIDATED = "INVALIDATED"
 CAPABILITY_EXPIRED = "CAPABILITY_EXPIRED"
 CAPABILITY_NOT_CONSUMING = "CAPABILITY_NOT_CONSUMING"
 LIFECYCLE_MINTED: CapabilityLifecycle = "MINTED"
@@ -102,10 +106,12 @@ class InMemoryCapabilityStore:
             if item is None:
                 raise KeyError(capability_id)
             lifecycle = lifecycle_of(item)
-            if lifecycle in {LIFECYCLE_CONSUMED, LIFECYCLE_INVALIDATED, LIFECYCLE_EXPIRED}:
-                raise CapabilityAlreadyConsumed(capability_id)
             if lifecycle == LIFECYCLE_CONSUMING:
-                return dict(item)
+                raise CapabilityAlreadyClaimed(capability_id)
+            if lifecycle == LIFECYCLE_INVALIDATED:
+                raise CapabilityInvalidated(capability_id)
+            if lifecycle != LIFECYCLE_MINTED:
+                raise CapabilityAlreadyConsumed(capability_id)
             _apply_lifecycle(item, LIFECYCLE_CONSUMING)
             return dict(item)
 
@@ -163,13 +169,15 @@ class FilesystemCapabilityStore:
             return None
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def _with_file_lock(self, capability_id: str):
+    def _with_file_lock(self, capability_id: str, *, claim: bool = False):
         path = self._path(capability_id)
         lock_path = path.with_suffix(".lock")
         try:
             fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             os.close(fd)
         except FileExistsError as exc:
+            if claim:
+                raise CapabilityAlreadyClaimed(capability_id) from exc
             raise CapabilityAlreadyConsumed(capability_id) from exc
         return path, lock_path
 
@@ -180,16 +188,18 @@ class FilesystemCapabilityStore:
 
     def begin_consume_atomic(self, capability_id: str) -> dict[str, Any]:
         with self._lock:
-            path, lock_path = self._with_file_lock(capability_id)
+            path, lock_path = self._with_file_lock(capability_id, claim=True)
             try:
                 if not path.is_file():
                     raise KeyError(capability_id)
                 item = json.loads(path.read_text(encoding="utf-8"))
                 lifecycle = lifecycle_of(item)
-                if lifecycle in {LIFECYCLE_CONSUMED, LIFECYCLE_INVALIDATED, LIFECYCLE_EXPIRED}:
-                    raise CapabilityAlreadyConsumed(capability_id)
                 if lifecycle == LIFECYCLE_CONSUMING:
-                    return item
+                    raise CapabilityAlreadyClaimed(capability_id)
+                if lifecycle == LIFECYCLE_INVALIDATED:
+                    raise CapabilityInvalidated(capability_id)
+                if lifecycle != LIFECYCLE_MINTED:
+                    raise CapabilityAlreadyConsumed(capability_id)
                 _apply_lifecycle(item, LIFECYCLE_CONSUMING)
                 self._persist(path, item)
                 return item
@@ -252,6 +262,22 @@ class CapabilityAlreadyConsumed(RuntimeError):
     def __init__(self, capability_id: str) -> None:
         self.capability_id = capability_id
         super().__init__(CAPABILITY_ALREADY_CONSUMED)
+
+
+class CapabilityAlreadyClaimed(RuntimeError):
+    code = ALREADY_CLAIMED
+
+    def __init__(self, capability_id: str) -> None:
+        self.capability_id = capability_id
+        super().__init__(ALREADY_CLAIMED)
+
+
+class CapabilityInvalidated(RuntimeError):
+    code = INVALIDATED
+
+    def __init__(self, capability_id: str) -> None:
+        self.capability_id = capability_id
+        super().__init__(INVALIDATED)
 
 
 class CapabilityNotConsuming(RuntimeError):
@@ -407,7 +433,7 @@ def consume_capability(
         raise
     try:
         begun = store.begin_consume_atomic(capability_id)
-    except CapabilityAlreadyConsumed:
+    except (CapabilityAlreadyConsumed, CapabilityAlreadyClaimed, CapabilityInvalidated):
         raise
     receipt = public_receipt(begun)
     return {

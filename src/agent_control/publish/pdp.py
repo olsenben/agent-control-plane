@@ -43,8 +43,11 @@ from agent_control.transaction.preflight import (
     incomplete_admission_decision,
 )
 from agent_control.transaction.capability import (
+    ALREADY_CLAIMED,
     CAPABILITY_ALREADY_CONSUMED,
+    CapabilityAlreadyClaimed,
     CapabilityAlreadyConsumed,
+    CapabilityInvalidated,
     CapabilityNotConsuming,
     FilesystemCapabilityStore,
     complete_consumed_capability,
@@ -610,6 +613,18 @@ def witness_and_consume(
             "status": CAPABILITY_ALREADY_CONSUMED,
             "reasons": [CAPABILITY_ALREADY_CONSUMED],
         }
+    except CapabilityAlreadyClaimed:
+        return {
+            "allowed": False,
+            "status": ALREADY_CLAIMED,
+            "reasons": [ALREADY_CLAIMED],
+        }
+    except CapabilityInvalidated as exc:
+        return {
+            "allowed": False,
+            "status": exc.code,
+            "reasons": [exc.code],
+        }
     return consumed
 
 
@@ -851,7 +866,13 @@ def run_publish_pdp(
     )
     if admission.decision == AUTO_ADMIT:
         try:
-            check_durable_effect_allowed(state_root, run_id=run_id, phase=PHASE_MINT)
+            check_durable_effect_allowed(
+                state_root,
+                run_id=run_id,
+                phase=PHASE_MINT,
+                transaction_id=transaction_id,
+                proposal_id=str(proposal.proposal_id),
+            )
         except DurableBarrierError:
             return result
         cap_id = canonical_json_hash(
