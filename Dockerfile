@@ -20,8 +20,9 @@ COPY docs/AGENT_CARD.md ./docs/AGENT_CARD.md
 RUN pip install --no-cache-dir -e ".[dev]"
 # In-image Semgrep CE FACT PRODUCER (pinned). Distinct process + sanitized env.
 # Always-on compose must not grow docker.sock; runner prefers this local binary.
-RUN pip install --no-cache-dir semgrep==1.110.0 \
-    && semgrep --version 2>&1 | grep -F "1.110.0"
+# setuptools<81 keeps pkg_resources for Semgrep 1.110.0 otel instrumentation on Py3.12.
+RUN pip install --no-cache-dir semgrep==1.110.0 "setuptools<81" \
+    && SEMGREP_SEND_METRICS=off semgrep --version 2>&1 | grep -F "1.110.0"
 
 EXPOSE 8080
 
