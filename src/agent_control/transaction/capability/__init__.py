@@ -24,7 +24,9 @@ from agent_shared.models.transaction.identity import IdentityPrincipal
 
 CAPABILITY_ALREADY_CONSUMED = "CAPABILITY_ALREADY_CONSUMED"
 CAPABILITY_CONSUMED = "CONSUMED"
+CAPABILITY_CONSUMING = "CAPABILITY_CONSUMING"
 CAPABILITY_EXPIRED = "CAPABILITY_EXPIRED"
+CAPABILITY_NOT_CONSUMING = "CAPABILITY_NOT_CONSUMING"
 LIFECYCLE_MINTED: CapabilityLifecycle = "MINTED"
 LIFECYCLE_CONSUMING: CapabilityLifecycle = "CONSUMING"
 LIFECYCLE_CONSUMED: CapabilityLifecycle = "CONSUMED"
@@ -58,6 +60,8 @@ def consumed_from_lifecycle(lifecycle: CapabilityLifecycle) -> bool:
 def _apply_lifecycle(item: dict[str, Any], lifecycle: CapabilityLifecycle) -> dict[str, Any]:
     item["lifecycle"] = lifecycle
     item["consumed"] = consumed_from_lifecycle(lifecycle)
+    if lifecycle == LIFECYCLE_CONSUMING and not item.get("consuming_at"):
+        item["consuming_at"] = utc_now()
     if lifecycle == LIFECYCLE_CONSUMED and not item.get("consumed_at"):
         item["consumed_at"] = utc_now()
     return item
@@ -69,6 +73,10 @@ class CapabilityStore(Protocol):
     def get(self, capability_id: str) -> dict[str, Any] | None: ...
 
     def consume_atomic(self, capability_id: str) -> dict[str, Any]: ...
+
+    def begin_consume_atomic(self, capability_id: str) -> dict[str, Any]: ...
+
+    def complete_consume_atomic(self, capability_id: str) -> dict[str, Any]: ...
 
 
 class InMemoryCapabilityStore:
@@ -88,6 +96,32 @@ class InMemoryCapabilityStore:
             item = self._items.get(capability_id)
             return dict(item) if item is not None else None
 
+    def begin_consume_atomic(self, capability_id: str) -> dict[str, Any]:
+        with self._lock:
+            item = self._items.get(capability_id)
+            if item is None:
+                raise KeyError(capability_id)
+            lifecycle = lifecycle_of(item)
+            if lifecycle in {LIFECYCLE_CONSUMED, LIFECYCLE_INVALIDATED, LIFECYCLE_EXPIRED}:
+                raise CapabilityAlreadyConsumed(capability_id)
+            if lifecycle == LIFECYCLE_CONSUMING:
+                return dict(item)
+            _apply_lifecycle(item, LIFECYCLE_CONSUMING)
+            return dict(item)
+
+    def complete_consume_atomic(self, capability_id: str) -> dict[str, Any]:
+        with self._lock:
+            item = self._items.get(capability_id)
+            if item is None:
+                raise KeyError(capability_id)
+            lifecycle = lifecycle_of(item)
+            if lifecycle == LIFECYCLE_CONSUMED:
+                return dict(item)
+            if lifecycle != LIFECYCLE_CONSUMING:
+                raise CapabilityNotConsuming(capability_id)
+            _apply_lifecycle(item, LIFECYCLE_CONSUMED)
+            return dict(item)
+
     def consume_atomic(self, capability_id: str) -> dict[str, Any]:
         with self._lock:
             item = self._items.get(capability_id)
@@ -96,7 +130,8 @@ class InMemoryCapabilityStore:
             lifecycle = lifecycle_of(item)
             if lifecycle in {LIFECYCLE_CONSUMED, LIFECYCLE_INVALIDATED, LIFECYCLE_EXPIRED}:
                 raise CapabilityAlreadyConsumed(capability_id)
-            _apply_lifecycle(item, LIFECYCLE_CONSUMING)
+            if lifecycle == LIFECYCLE_MINTED:
+                _apply_lifecycle(item, LIFECYCLE_CONSUMING)
             _apply_lifecycle(item, LIFECYCLE_CONSUMED)
             return dict(item)
 
@@ -128,6 +163,63 @@ class FilesystemCapabilityStore:
             return None
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def _with_file_lock(self, capability_id: str):
+        path = self._path(capability_id)
+        lock_path = path.with_suffix(".lock")
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+        except FileExistsError as exc:
+            raise CapabilityAlreadyConsumed(capability_id) from exc
+        return path, lock_path
+
+    def _persist(self, path: Path, item: dict[str, Any]) -> None:
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(item, indent=2, sort_keys=True), encoding="utf-8")
+        os.replace(tmp, path)
+
+    def begin_consume_atomic(self, capability_id: str) -> dict[str, Any]:
+        with self._lock:
+            path, lock_path = self._with_file_lock(capability_id)
+            try:
+                if not path.is_file():
+                    raise KeyError(capability_id)
+                item = json.loads(path.read_text(encoding="utf-8"))
+                lifecycle = lifecycle_of(item)
+                if lifecycle in {LIFECYCLE_CONSUMED, LIFECYCLE_INVALIDATED, LIFECYCLE_EXPIRED}:
+                    raise CapabilityAlreadyConsumed(capability_id)
+                if lifecycle == LIFECYCLE_CONSUMING:
+                    return item
+                _apply_lifecycle(item, LIFECYCLE_CONSUMING)
+                self._persist(path, item)
+                return item
+            finally:
+                lock_path.unlink(missing_ok=True)
+
+    def complete_consume_atomic(self, capability_id: str) -> dict[str, Any]:
+        with self._lock:
+            try:
+                path, lock_path = self._with_file_lock(capability_id)
+            except CapabilityAlreadyConsumed:
+                item = self.get(capability_id)
+                if item is not None and lifecycle_of(item) == LIFECYCLE_CONSUMED:
+                    return item
+                raise
+            try:
+                if not path.is_file():
+                    raise KeyError(capability_id)
+                item = json.loads(path.read_text(encoding="utf-8"))
+                lifecycle = lifecycle_of(item)
+                if lifecycle == LIFECYCLE_CONSUMED:
+                    return item
+                if lifecycle != LIFECYCLE_CONSUMING:
+                    raise CapabilityNotConsuming(capability_id)
+                _apply_lifecycle(item, LIFECYCLE_CONSUMED)
+                self._persist(path, item)
+                return item
+            finally:
+                lock_path.unlink(missing_ok=True)
+
     def consume_atomic(self, capability_id: str) -> dict[str, Any]:
         path = self._path(capability_id)
         lock_path = path.with_suffix(".lock")
@@ -144,13 +236,11 @@ class FilesystemCapabilityStore:
                 lifecycle = lifecycle_of(item)
                 if lifecycle in {LIFECYCLE_CONSUMED, LIFECYCLE_INVALIDATED, LIFECYCLE_EXPIRED}:
                     raise CapabilityAlreadyConsumed(capability_id)
-                _apply_lifecycle(item, LIFECYCLE_CONSUMING)
-                tmp = path.with_suffix(".json.tmp")
-                tmp.write_text(json.dumps(item, indent=2, sort_keys=True), encoding="utf-8")
-                os.replace(tmp, path)
+                if lifecycle == LIFECYCLE_MINTED:
+                    _apply_lifecycle(item, LIFECYCLE_CONSUMING)
+                    self._persist(path, item)
                 _apply_lifecycle(item, LIFECYCLE_CONSUMED)
-                tmp.write_text(json.dumps(item, indent=2, sort_keys=True), encoding="utf-8")
-                os.replace(tmp, path)
+                self._persist(path, item)
                 return item
             finally:
                 lock_path.unlink(missing_ok=True)
@@ -162,6 +252,14 @@ class CapabilityAlreadyConsumed(RuntimeError):
     def __init__(self, capability_id: str) -> None:
         self.capability_id = capability_id
         super().__init__(CAPABILITY_ALREADY_CONSUMED)
+
+
+class CapabilityNotConsuming(RuntimeError):
+    code = CAPABILITY_NOT_CONSUMING
+
+    def __init__(self, capability_id: str) -> None:
+        self.capability_id = capability_id
+        super().__init__(CAPABILITY_NOT_CONSUMING)
 
 
 def public_receipt(record: Mapping[str, Any], *, replayed: bool = False) -> CapabilityPublicReceipt:
@@ -308,10 +406,29 @@ def consume_capability(
     except StateWitnessError:
         raise
     try:
-        consumed = store.consume_atomic(capability_id)
+        begun = store.begin_consume_atomic(capability_id)
     except CapabilityAlreadyConsumed:
         raise
-    receipt = public_receipt(consumed)
+    receipt = public_receipt(begun)
+    return {
+        "status": CAPABILITY_CONSUMING,
+        "allowed": True,
+        "reasons": ["exact_binding"],
+        "receipt": receipt.model_dump(mode="json"),
+    }
+
+
+def complete_consumed_capability(
+    *,
+    capability_id: str,
+    store: CapabilityStore,
+) -> dict[str, Any]:
+    stored = store.get(capability_id)
+    if stored is None:
+        raise KeyError(capability_id)
+    already = lifecycle_of(stored) == LIFECYCLE_CONSUMED
+    completed = store.complete_consume_atomic(capability_id)
+    receipt = public_receipt(completed, replayed=already)
     return {
         "status": CAPABILITY_CONSUMED,
         "allowed": True,

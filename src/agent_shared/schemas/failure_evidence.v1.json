@@ -1,0 +1,231 @@
+{
+  "$defs": {
+    "TruncationMeta": {
+      "additionalProperties": false,
+      "description": "Audit-only truncation metadata.",
+      "properties": {
+        "assertion_summary_truncated": {
+          "default": false,
+          "title": "Assertion Summary Truncated",
+          "type": "boolean"
+        },
+        "exception_summary_truncated": {
+          "default": false,
+          "title": "Exception Summary Truncated",
+          "type": "boolean"
+        },
+        "file_paths_truncated": {
+          "default": false,
+          "title": "File Paths Truncated",
+          "type": "boolean"
+        },
+        "symbol_names_truncated": {
+          "default": false,
+          "title": "Symbol Names Truncated",
+          "type": "boolean"
+        },
+        "traceback_frames_truncated": {
+          "default": false,
+          "title": "Traceback Frames Truncated",
+          "type": "boolean"
+        }
+      },
+      "title": "TruncationMeta",
+      "type": "object"
+    }
+  },
+  "$id": "https://ai-sdlc-lab.local/schemas/failure_evidence.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Normalized, bounded verifier failure for repair input.",
+  "properties": {
+    "assertion_summary": {
+      "default": "",
+      "title": "Assertion Summary",
+      "type": "string"
+    },
+    "attempt_number": {
+      "minimum": 0,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "command": {
+      "title": "Command",
+      "type": "string"
+    },
+    "command_id": {
+      "title": "Command Id",
+      "type": "string"
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "evidence_hash": {
+      "default": "",
+      "title": "Evidence Hash",
+      "type": "string"
+    },
+    "exception_summary": {
+      "default": "",
+      "title": "Exception Summary",
+      "type": "string"
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exit Code"
+    },
+    "failing_test_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Failing Test Ids",
+      "type": "array"
+    },
+    "failing_test_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Failing Test Paths",
+      "type": "array"
+    },
+    "failure_class": {
+      "enum": [
+        "assertion_failure",
+        "test_failure",
+        "exception",
+        "syntax_error",
+        "timeout",
+        "unknown"
+      ],
+      "title": "Failure Class",
+      "type": "string"
+    },
+    "failure_id": {
+      "title": "Failure Id",
+      "type": "string"
+    },
+    "file_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "File Paths",
+      "type": "array"
+    },
+    "normalizer_version": {
+      "default": "failure_evidence_normalizer.v1",
+      "title": "Normalizer Version",
+      "type": "string"
+    },
+    "patch_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patch Hash"
+    },
+    "schema_version": {
+      "const": "failure_evidence.v1",
+      "default": "failure_evidence.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "stderr_artifact_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stderr Artifact Ref"
+    },
+    "stdout_artifact_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stdout Artifact Ref"
+    },
+    "symbol_names": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Symbol Names",
+      "type": "array"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "traceback_locations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Traceback Locations",
+      "type": "array"
+    },
+    "truncation": {
+      "$ref": "#/$defs/TruncationMeta"
+    },
+    "verification_artifact_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verification Artifact Ref"
+    },
+    "verifier_id": {
+      "title": "Verifier Id",
+      "type": "string"
+    },
+    "verifier_scope": {
+      "const": "fast",
+      "default": "fast",
+      "title": "Verifier Scope",
+      "type": "string"
+    }
+  },
+  "required": [
+    "failure_id",
+    "task_id",
+    "session_id",
+    "attempt_number",
+    "verifier_id",
+    "command_id",
+    "command",
+    "display_name",
+    "failure_class"
+  ],
+  "title": "failure_evidence.v1",
+  "type": "object"
+}

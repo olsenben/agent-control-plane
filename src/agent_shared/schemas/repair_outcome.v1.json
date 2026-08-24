@@ -1,0 +1,200 @@
+{
+  "$defs": {
+    "RepairAttemptRecord": {
+      "additionalProperties": false,
+      "description": "Audit record for one repair attempt.",
+      "properties": {
+        "applied": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Applied"
+        },
+        "attempt_number": {
+          "default": 1,
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Attempt Number",
+          "type": "integer"
+        },
+        "authorized": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authorized"
+        },
+        "fast_verify_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fast Verify Status"
+        },
+        "final_candidate": {
+          "default": "patch0",
+          "enum": [
+            "patch0",
+            "patch1"
+          ],
+          "title": "Final Candidate",
+          "type": "string"
+        },
+        "parse_success": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parse Success"
+        },
+        "patch1_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Patch1 Hash"
+        },
+        "policy_rejected": {
+          "default": false,
+          "title": "Policy Rejected",
+          "type": "boolean"
+        },
+        "repair_invoked": {
+          "default": false,
+          "title": "Repair Invoked",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "repair_attempt_record.v1",
+          "default": "repair_attempt_record.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "RepairAttemptRecord",
+      "type": "object"
+    },
+    "RepairGate": {
+      "additionalProperties": false,
+      "description": "Pure repair eligibility gate from frozen FastVerify0 observation.",
+      "properties": {
+        "repair_eligible": {
+          "title": "Repair Eligible",
+          "type": "boolean"
+        },
+        "repair_gate_reason": {
+          "title": "Repair Gate Reason",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "repair_gate.v1",
+          "default": "repair_gate.v1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repair_eligible",
+        "repair_gate_reason"
+      ],
+      "title": "RepairGate",
+      "type": "object"
+    }
+  },
+  "$id": "https://ai-sdlc-lab.local/schemas/repair_outcome.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Result of repair orchestration for one arm.",
+  "properties": {
+    "attempt_record": {
+      "$ref": "#/$defs/RepairAttemptRecord"
+    },
+    "final_candidate": {
+      "default": "patch0",
+      "enum": [
+        "patch0",
+        "patch1"
+      ],
+      "title": "Final Candidate",
+      "type": "string"
+    },
+    "patch0_hash": {
+      "default": "",
+      "title": "Patch0 Hash",
+      "type": "string"
+    },
+    "patch1_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patch1 Hash"
+    },
+    "repair_attempts": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Repair Attempts",
+      "type": "integer"
+    },
+    "repair_completed": {
+      "default": false,
+      "title": "Repair Completed",
+      "type": "boolean"
+    },
+    "repair_gate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RepairGate"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "repair_invoked": {
+      "default": false,
+      "title": "Repair Invoked",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "repair_outcome.v1",
+      "default": "repair_outcome.v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "title": "repair_outcome.v1",
+  "type": "object"
+}

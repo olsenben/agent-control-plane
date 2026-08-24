@@ -20,6 +20,14 @@ KIND_CANCELLED = "CANCELLED"
 KIND_TIMED_OUT = "TIMED_OUT"
 KIND_ESCALATED = "ESCALATED"
 KIND_REJECTED = "REJECTED"
+KIND_CANCEL_TOO_LATE = "CANCEL_TOO_LATE"
+KIND_CANCEL_PENDING_RECONCILIATION = "CANCEL_PENDING_RECONCILIATION"
+
+CANCEL_TOO_LATE = "CANCEL_TOO_LATE"
+CANCELLED_NO_EFFECT = "CANCELLED_NO_EFFECT"
+CANCELLED_PRE_EFFECT = "CANCELLED_PRE_EFFECT"
+CANCEL_PENDING_RECONCILIATION = "CANCEL_PENDING_RECONCILIATION"
+AUTHORIZED_PARTIAL_EFFECT = "AUTHORIZED_PARTIAL_EFFECT"
 
 RUN_CANCELLED = "RUN_CANCELLED"
 REFUSED_CANCELLED_RUN = "REFUSED_CANCELLED_RUN"
@@ -76,6 +84,10 @@ def _write_barrier(state_root: Path, payload: dict[str, Any]) -> dict[str, Any]:
         merged["updated_at"] = utc_now()
         if payload.get("transaction_id") and not merged.get("transaction_id"):
             merged["transaction_id"] = payload["transaction_id"]
+        if payload.get("cancel_disposition"):
+            merged["cancel_disposition"] = payload["cancel_disposition"]
+        if payload.get("detail"):
+            merged["detail"] = payload["detail"]
         body = merged
     else:
         body = dict(payload)
@@ -145,6 +157,93 @@ def mark_run_cancelled(
         component="barriers",
     )
     record["event"] = event
+    return record
+
+
+def cancel_transaction(
+    state_root: Path,
+    run_id: str,
+    *,
+    transaction_id: str | None = None,
+    project: str | None = None,
+    gitea_client: Any | None = None,
+    observed: Any | None = None,
+) -> dict[str, Any]:
+    """Cancel a run and record point-of-no-return disposition.
+
+    Never reports CANCELLED_NO_EFFECT when a remote effect already exists.
+    """
+    from agent_control.publish.state import find_intent_by_run_id
+    from agent_control.transaction.reconcile import (
+        ExpectedPublishEffect,
+        inspect_expected_effect,
+        observe_from_client,
+        transaction_marker,
+    )
+
+    txid = transaction_id or run_id
+    intent = find_intent_by_run_id(state_root, run_id)
+    disposition = CANCELLED_PRE_EFFECT
+    extra_kind = None
+    detail: dict[str, Any] = {}
+    observed_gitea = observed
+    if intent is not None:
+        disposition = CANCEL_PENDING_RECONCILIATION
+        extra_kind = KIND_CANCEL_PENDING_RECONCILIATION
+        expected = ExpectedPublishEffect(
+            repo=intent.project,
+            branch=intent.agent_branch,
+            commit_sha=intent.expected_commit_sha,
+            transaction_id=intent.transaction_id or txid,
+            run_id=intent.run_id,
+            bundle_id=intent.bundle_id,
+            marker=transaction_marker(run_id=intent.run_id, bundle_id=intent.bundle_id),
+        )
+        if observed_gitea is None and gitea_client is not None:
+            observed_gitea = observe_from_client(gitea_client, expected)
+        if observed_gitea is not None:
+            decision = inspect_expected_effect(expected, observed_gitea)
+            if decision.already_applied or decision.status == "CONFLICT":
+                disposition = CANCEL_TOO_LATE
+                extra_kind = KIND_CANCEL_TOO_LATE
+                detail = {"authorized_partial_effect": AUTHORIZED_PARTIAL_EFFECT}
+            elif decision.status == "NOT_APPLIED":
+                disposition = CANCELLED_NO_EFFECT
+                extra_kind = None
+    record = _write_barrier(
+        state_root,
+        {
+            "run_id": run_id,
+            "transaction_id": txid,
+            "project": project,
+            "kind": KIND_CANCELLED,
+            "timestamp": utc_now(),
+            "cancel_disposition": disposition,
+            "detail": detail,
+        },
+    )
+    if extra_kind is not None:
+        record = _write_barrier(
+            state_root,
+            {
+                "run_id": run_id,
+                "transaction_id": txid,
+                "project": project,
+                "kind": extra_kind,
+                "timestamp": utc_now(),
+                "cancel_disposition": disposition,
+                "detail": detail,
+            },
+        )
+    event = _event(
+        event_type=RUN_CANCELLED,
+        run_id=run_id,
+        transaction_id=txid,
+        component="barriers",
+        extra={"cancel_disposition": disposition, **detail},
+    )
+    record["event"] = event
+    record["cancel_disposition"] = disposition
     return record
 
 

@@ -1,0 +1,64 @@
+{
+  "$id": "https://ai-sdlc-lab.local/schemas/repair_context.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Frozen inputs available to the repair model.",
+  "properties": {
+    "context_pack_hash": {
+      "title": "Context Pack Hash",
+      "type": "string"
+    },
+    "edit_policy_hash": {
+      "title": "Edit Policy Hash",
+      "type": "string"
+    },
+    "failure_evidence_hash": {
+      "title": "Failure Evidence Hash",
+      "type": "string"
+    },
+    "instruction_id": {
+      "const": "repair_instruction.v1",
+      "default": "repair_instruction.v1",
+      "title": "Instruction Id",
+      "type": "string"
+    },
+    "patch0_hash": {
+      "title": "Patch0 Hash",
+      "type": "string"
+    },
+    "repair_instruction": {
+      "default": "The previous patch failed the bounded verifier. Repair the implementation using the provided failure evidence. Preserve valid changes. Respect edit_policy. Return one FixResult in the existing format.",
+      "title": "Repair Instruction",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "repair_context.v1",
+      "default": "repair_context.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "snapshot_sha": {
+      "title": "Snapshot Sha",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "session_id",
+    "snapshot_sha",
+    "patch0_hash",
+    "context_pack_hash",
+    "edit_policy_hash",
+    "failure_evidence_hash"
+  ],
+  "title": "repair_context.v1",
+  "type": "object"
+}

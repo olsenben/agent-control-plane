@@ -47,6 +47,7 @@ class ObservedGitea:
     branch_sha: str | None = None
     prs: tuple[dict[str, Any], ...] = ()
     read_error: str | None = None
+    source_sha: str | None = None
 
 
 @dataclass(frozen=True)
@@ -211,3 +212,174 @@ def observe_from_client(
                 prs = []
             return ObservedGitea(branch_exists=False, branch_sha=None, prs=tuple(prs))
         return ObservedGitea(read_error=type(exc).__name__)
+
+
+ALREADY_CONVERGED = "ALREADY_CONVERGED"
+SAFE_TO_CONTINUE = "SAFE_TO_CONTINUE"
+WAITING_EXTERNAL = "WAITING_EXTERNAL"
+RETRY_READ = "RETRY_READ"
+RECREATE_MISSING_PR = "RECREATE_MISSING_PR"
+CANCELLED_NO_EFFECT = "CANCELLED_NO_EFFECT"
+CANCEL_TOO_LATE = "CANCEL_TOO_LATE"
+SOURCE_DRIFT = "SOURCE_DRIFT"
+EXTERNAL_STATE_CONFLICT = "EXTERNAL_STATE_CONFLICT"
+MANUAL_INTERVENTION_REQUIRED = "MANUAL_INTERVENTION_REQUIRED"
+
+TransactionReconcileStatus = Literal[
+    "ALREADY_CONVERGED",
+    "SAFE_TO_CONTINUE",
+    "WAITING_EXTERNAL",
+    "RETRY_READ",
+    "RECREATE_MISSING_PR",
+    "CANCELLED_NO_EFFECT",
+    "CANCEL_TOO_LATE",
+    "SOURCE_DRIFT",
+    "EXTERNAL_STATE_CONFLICT",
+    "MANUAL_INTERVENTION_REQUIRED",
+]
+
+AUTHORIZED_PARTIAL_EFFECT = "AUTHORIZED_PARTIAL_EFFECT"
+
+
+@dataclass(frozen=True)
+class TransactionReconcileResult:
+    status: TransactionReconcileStatus
+    inspect: ReconcileDecision | None = None
+    reason: str = ""
+    cancelled: bool = False
+    capability_lifecycle: str | None = None
+    barrier_kinds: tuple[str, ...] = ()
+    publish_effect_id: str | None = None
+    matched_pr: dict[str, Any] | None = None
+    detail: dict[str, Any] = field(default_factory=dict)
+
+
+def reconcile_transaction(
+    state_root: Any,
+    transaction_id: str,
+    *,
+    gitea_client: Any = None,
+    cancelled: bool = False,
+    observed: ObservedGitea | None = None,
+) -> TransactionReconcileResult:
+    """Typed reconcile over durable intent, capability, barriers, and ObservedGitea.
+
+    Never pushes a different patch. RECREATE_MISSING_PR may only open the exact intended PR.
+    """
+    from pathlib import Path
+
+    from agent_control.publish.state import find_intent_by_transaction_id
+    from agent_control.transaction.barriers import (
+        KIND_CANCELLED,
+        barrier_kinds,
+    )
+    from agent_control.transaction.capability import FilesystemCapabilityStore, lifecycle_of
+    from agent_control.transaction.retry import MANUAL_INTERVENTION, PERMANENT
+
+    root = Path(state_root)
+    intent = find_intent_by_transaction_id(root, transaction_id)
+    run_id = intent.run_id if intent is not None else transaction_id
+    kinds = frozenset(barrier_kinds(root, run_id))
+    cancelled_flag = bool(cancelled) or KIND_CANCELLED in kinds
+    cap_lifecycle: str | None = None
+    if intent is not None and intent.capability_id:
+        stored = FilesystemCapabilityStore(root / "transaction" / "capabilities").get(
+            intent.capability_id
+        )
+        if stored is not None:
+            cap_lifecycle = lifecycle_of(stored)
+
+    if intent is None:
+        if cancelled_flag:
+            return TransactionReconcileResult(
+                status="CANCELLED_NO_EFFECT",
+                reason="no_intent_cancelled",
+                cancelled=True,
+                capability_lifecycle=cap_lifecycle,
+                barrier_kinds=tuple(sorted(kinds)),
+            )
+        if gitea_client is None and observed is None:
+            return TransactionReconcileResult(
+                status="WAITING_EXTERNAL",
+                reason="no_intent_insufficient_observation",
+                cancelled=False,
+                capability_lifecycle=cap_lifecycle,
+                barrier_kinds=tuple(sorted(kinds)),
+            )
+        return TransactionReconcileResult(
+            status="MANUAL_INTERVENTION_REQUIRED",
+            reason="no_durable_intent",
+            cancelled=False,
+            capability_lifecycle=cap_lifecycle,
+            barrier_kinds=tuple(sorted(kinds)),
+            detail={"retry_class": MANUAL_INTERVENTION},
+        )
+
+    expected = ExpectedPublishEffect(
+        repo=intent.project,
+        branch=intent.agent_branch,
+        commit_sha=intent.expected_commit_sha,
+        transaction_id=intent.transaction_id or transaction_id,
+        run_id=intent.run_id,
+        bundle_id=intent.bundle_id,
+        marker=transaction_marker(run_id=intent.run_id, bundle_id=intent.bundle_id),
+    )
+    observed_gitea = observed
+    if observed_gitea is None and gitea_client is not None:
+        observed_gitea = observe_from_client(gitea_client, expected)
+    if observed_gitea is None:
+        return TransactionReconcileResult(
+            status="WAITING_EXTERNAL",
+            reason="insufficient_observation",
+            cancelled=cancelled_flag,
+            capability_lifecycle=cap_lifecycle,
+            barrier_kinds=tuple(sorted(kinds)),
+            publish_effect_id=intent.publish_effect_id,
+        )
+
+    decision = inspect_expected_effect(expected, observed_gitea)
+    base: dict[str, Any] = {
+        "cancelled": cancelled_flag,
+        "capability_lifecycle": cap_lifecycle,
+        "barrier_kinds": tuple(sorted(kinds)),
+        "publish_effect_id": intent.publish_effect_id,
+        "inspect": decision,
+        "matched_pr": decision.matched_pr,
+        "reason": decision.reason,
+    }
+    if observed_gitea.read_error:
+        return TransactionReconcileResult(status="RETRY_READ", **base)
+    if (
+        intent.source_sha
+        and observed_gitea.source_sha
+        and intent.source_sha != observed_gitea.source_sha
+        and decision.status in {"NOT_APPLIED", "STILL_AMBIGUOUS"}
+    ):
+        return TransactionReconcileResult(status="SOURCE_DRIFT", **base)
+    if decision.status == "CONFLICT":
+        return TransactionReconcileResult(
+            status="EXTERNAL_STATE_CONFLICT",
+            detail={"retry_class": PERMANENT, "fail_closed": True},
+            **base,
+        )
+    if decision.status == "ALREADY_APPLIED":
+        if decision.matched_pr is not None:
+            return TransactionReconcileResult(status="ALREADY_CONVERGED", **base)
+        if cancelled_flag:
+            return TransactionReconcileResult(
+                status="CANCEL_TOO_LATE",
+                detail={"authorized_partial_effect": AUTHORIZED_PARTIAL_EFFECT},
+                **base,
+            )
+        return TransactionReconcileResult(status="RECREATE_MISSING_PR", **base)
+    if decision.status == "NOT_APPLIED":
+        if cancelled_flag:
+            return TransactionReconcileResult(status="CANCELLED_NO_EFFECT", **base)
+        return TransactionReconcileResult(status="SAFE_TO_CONTINUE", **base)
+    if decision.status == "STILL_AMBIGUOUS":
+        return TransactionReconcileResult(status="WAITING_EXTERNAL", **base)
+    return TransactionReconcileResult(
+        status="MANUAL_INTERVENTION_REQUIRED",
+        detail={"retry_class": MANUAL_INTERVENTION},
+        **base,
+    )

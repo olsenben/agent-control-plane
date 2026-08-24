@@ -195,10 +195,12 @@ def worker_durable_credential_readiness() -> dict[str, Any]:
 
     violations = collect_durable_credential_violations()
     names = [item.env_name for item in violations]
+    codes = [item.code for item in violations]
     passed = not violations
     return {
         "status": "ok" if passed else "error",
         "WORKER_DURABLE_CREDENTIALS_PRESENT_ASSERTION": "PASS" if passed else "FAIL",
         "ok": passed,
         "violation_env_names": names,
+        "violation_codes": codes,
     }

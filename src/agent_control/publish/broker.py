@@ -200,6 +200,14 @@ def _run_broker_pdp(
     return None, _pdp_reject_payload(pdp)
 
 
+def _complete_broker_capability(pdp: object) -> None:
+    from agent_control.publish.pdp import witness_and_complete_consume
+
+    if getattr(pdp, "capability", None) is None:
+        return
+    witness_and_complete_consume(pdp)  # type: ignore[arg-type]
+
+
 def broker_publish_fix(
     *,
     state_root: Path,
@@ -616,6 +624,10 @@ def broker_publish_fix(
         publish_effect_id=existing_intent.publish_effect_id if existing_intent else None,
     )
 
+    from agent_control.transaction.failpoints import FailpointAbort, hit as hit_failpoint
+
+    hit_failpoint("after_intent_before_push", run_id=run_id, state_root=state_root)
+
     # Pending-CI intent before push (PR number may be filled later)
     register_pending_ci(
         state_root,
@@ -685,6 +697,8 @@ def broker_publish_fix(
             detail=[str(exc)],
         )
         return {"ok": False, "reason": exc.stage, "detail": str(exc), "stale": exc.stale}
+    except FailpointAbort:
+        raise
     except Exception as exc:
         from agent_control.transaction.retry import classify_exception as _classify
 
@@ -745,6 +759,8 @@ def broker_publish_fix(
             detail=[str(exc)],
         )
         return {"ok": False, "reason": exc.stage, "detail": str(exc), "stale": exc.stale}
+    except FailpointAbort:
+        raise
     except Exception as exc:
         from agent_control.transaction.ledger import append_transaction_control_event
         from agent_control.transaction.reconcile import (
@@ -774,6 +790,8 @@ def broker_publish_fix(
             decision = inspect_expected_effect(expected, observed)
             if decision.already_applied:
                 push_applied = True
+                if decision.matched_pr is not None:
+                    _complete_broker_capability(pdp)
             else:
                 budget = record_retry_attempt(state_root, run_id=run_id, scope="gitea_publish")
                 terminal = bool(budget.get("exhausted")) or decision.retry_class == PERMANENT
@@ -853,6 +871,8 @@ def broker_publish_fix(
     if not push_applied:
         return {"ok": False, "reason": "push_failed"}
 
+    hit_failpoint("after_push_before_ack", run_id=run_id, state_root=state_root)
+
     # Load fix_result from snapshot for PR body if present
     fix_result = FixResult(files_changed=list(binding.allowed_files))
     result_file = snapshot / "fix_result.json"
@@ -884,6 +904,8 @@ def broker_publish_fix(
             title=title,
             body=pr_body,
         )
+    except FailpointAbort:
+        raise
     except RemoteMutationError as exc:
         # Push succeeded — partial recovery path
         cas_transition(
@@ -904,6 +926,8 @@ def broker_publish_fix(
             "detail": str(exc),
         }
 
+    hit_failpoint("after_pr_before_ack", run_id=run_id, state_root=state_root)
+
     # Update pending CI with PR number
     register_pending_ci(
         state_root,
@@ -914,6 +938,9 @@ def broker_publish_fix(
         issue_id=approval.issue_id,
         agent_branch=agent_branch,
     )
+
+    hit_failpoint("after_ci_request_before_reducer", run_id=run_id, state_root=state_root)
+    _complete_broker_capability(pdp)
 
     consume_approval_on_pr_open(
         state_root,
@@ -1446,6 +1473,7 @@ def broker_publish_repair(
 
     from agent_control.publish.pdp import record_published_transaction as _record_published
 
+    _complete_broker_capability(pdp)
     _record_published(
         state_root,
         pdp,

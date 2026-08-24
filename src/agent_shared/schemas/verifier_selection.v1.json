@@ -1,0 +1,65 @@
+{
+  "$id": "https://ai-sdlc-lab.local/schemas/verifier_selection.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic fast-verifier binding chosen by control plane.",
+  "properties": {
+    "command_ref": {
+      "title": "Command Ref",
+      "type": "string"
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "output_limit_bytes": {
+      "default": 1048576,
+      "minimum": 1,
+      "title": "Output Limit Bytes",
+      "type": "integer"
+    },
+    "provenance_hash": {
+      "default": "",
+      "title": "Provenance Hash",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "verifier_selection.v1",
+      "default": "verifier_selection.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "const": "fast",
+      "default": "fast",
+      "title": "Scope",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "eval_manifest",
+        "registry"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "timeout_s": {
+      "default": 120,
+      "minimum": 1,
+      "title": "Timeout S",
+      "type": "integer"
+    },
+    "verifier_id": {
+      "title": "Verifier Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "verifier_id",
+    "source",
+    "command_ref",
+    "display_name"
+  ],
+  "title": "verifier_selection.v1",
+  "type": "object"
+}

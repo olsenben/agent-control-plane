@@ -1,0 +1,177 @@
+{
+  "$id": "https://ai-sdlc-lab.local/schemas/authoritative_handoff.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Frozen provenance bundle passed to authoritative dual verification.",
+  "properties": {
+    "arm": {
+      "enum": [
+        "control",
+        "treatment"
+      ],
+      "title": "Arm",
+      "type": "string"
+    },
+    "context_pack_hash": {
+      "title": "Context Pack Hash",
+      "type": "string"
+    },
+    "edit_policy_hash": {
+      "title": "Edit Policy Hash",
+      "type": "string"
+    },
+    "failure_evidence_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Evidence Hash"
+    },
+    "fast_verify0_hash": {
+      "title": "Fast Verify0 Hash",
+      "type": "string"
+    },
+    "fast_verify1_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fast Verify1 Hash"
+    },
+    "final_candidate": {
+      "default": "patch0",
+      "enum": [
+        "patch0",
+        "patch1"
+      ],
+      "title": "Final Candidate",
+      "type": "string"
+    },
+    "handoff_hash": {
+      "default": "",
+      "title": "Handoff Hash",
+      "type": "string"
+    },
+    "invocation_id": {
+      "title": "Invocation Id",
+      "type": "string"
+    },
+    "patch0_authorized": {
+      "default": true,
+      "title": "Patch0 Authorized",
+      "type": "boolean"
+    },
+    "patch0_hash": {
+      "title": "Patch0 Hash",
+      "type": "string"
+    },
+    "patch1_authorized": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patch1 Authorized"
+    },
+    "patch1_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patch1 Hash"
+    },
+    "repair_action": {
+      "title": "Repair Action",
+      "type": "string"
+    },
+    "repair_attempts": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Repair Attempts",
+      "type": "integer"
+    },
+    "repair_eligible": {
+      "title": "Repair Eligible",
+      "type": "boolean"
+    },
+    "repair_gate_reason": {
+      "title": "Repair Gate Reason",
+      "type": "string"
+    },
+    "repair_request_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repair Request Hash"
+    },
+    "repo_snapshot_id": {
+      "default": "",
+      "title": "Repo Snapshot Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "authoritative_handoff.v1",
+      "default": "authoritative_handoff.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "snapshot_sha": {
+      "title": "Snapshot Sha",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "verifier_selection_hash": {
+      "default": "",
+      "title": "Verifier Selection Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "session_id",
+    "invocation_id",
+    "snapshot_sha",
+    "context_pack_hash",
+    "edit_policy_hash",
+    "arm",
+    "repair_action",
+    "patch0_hash",
+    "fast_verify0_hash",
+    "repair_eligible",
+    "repair_gate_reason"
+  ],
+  "title": "authoritative_handoff.v1",
+  "type": "object"
+}

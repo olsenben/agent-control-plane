@@ -1,0 +1,55 @@
+{
+  "$id": "https://ai-sdlc-lab.local/schemas/repair_budget.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Frozen W2 budget constants.",
+  "properties": {
+    "max_fast_verify_attempts": {
+      "const": 2,
+      "default": 2,
+      "title": "Max Fast Verify Attempts",
+      "type": "integer"
+    },
+    "max_fast_verify_wallclock_s": {
+      "default": 120,
+      "title": "Max Fast Verify Wallclock S",
+      "type": "integer"
+    },
+    "max_repair_attempts": {
+      "const": 1,
+      "default": 1,
+      "title": "Max Repair Attempts",
+      "type": "integer"
+    },
+    "max_repair_input_chars": {
+      "default": 24000,
+      "title": "Max Repair Input Chars",
+      "type": "integer"
+    },
+    "max_total_generation_calls": {
+      "const": 2,
+      "default": 2,
+      "title": "Max Total Generation Calls",
+      "type": "integer"
+    },
+    "max_total_task_wallclock_s": {
+      "default": 1800,
+      "title": "Max Total Task Wallclock S",
+      "type": "integer"
+    },
+    "remaining_repair_attempts": {
+      "default": 1,
+      "minimum": 0,
+      "title": "Remaining Repair Attempts",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "repair_budget.v1",
+      "default": "repair_budget.v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "title": "repair_budget.v1",
+  "type": "object"
+}

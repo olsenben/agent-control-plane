@@ -34,7 +34,9 @@ from agent_control.transaction.admission import (
 from agent_control.transaction.capability import (
     CAPABILITY_ALREADY_CONSUMED,
     CapabilityAlreadyConsumed,
+    CapabilityNotConsuming,
     FilesystemCapabilityStore,
+    complete_consumed_capability,
     consume_capability,
     mint_capability,
     public_receipt,
@@ -597,6 +599,25 @@ def witness_and_consume(
             "reasons": [CAPABILITY_ALREADY_CONSUMED],
         }
     return consumed
+
+
+def witness_and_complete_consume(result: PdpResult) -> dict[str, Any]:
+    """Complete CONSUMING -> CONSUMED after confirmed Gitea success. Idempotent if already CONSUMED."""
+    if result.capability is None:
+        return {"allowed": False, "status": "NO_CAPABILITY", "reasons": ["NO_CAPABILITY"]}
+    try:
+        return complete_consumed_capability(
+            capability_id=result.capability.capability_id,
+            store=result.store,
+        )
+    except CapabilityNotConsuming as exc:
+        return {"allowed": False, "status": exc.code, "reasons": [exc.code]}
+    except CapabilityAlreadyConsumed:
+        return {
+            "allowed": False,
+            "status": CAPABILITY_ALREADY_CONSUMED,
+            "reasons": [CAPABILITY_ALREADY_CONSUMED],
+        }
 
 
 def run_publish_pdp(

@@ -1,0 +1,221 @@
+{
+  "$defs": {
+    "VerifierSelection": {
+      "additionalProperties": false,
+      "description": "Deterministic fast-verifier binding chosen by control plane.",
+      "properties": {
+        "command_ref": {
+          "title": "Command Ref",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "output_limit_bytes": {
+          "default": 1048576,
+          "minimum": 1,
+          "title": "Output Limit Bytes",
+          "type": "integer"
+        },
+        "provenance_hash": {
+          "default": "",
+          "title": "Provenance Hash",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "verifier_selection.v1",
+          "default": "verifier_selection.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "const": "fast",
+          "default": "fast",
+          "title": "Scope",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "eval_manifest",
+            "registry"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "timeout_s": {
+          "default": 120,
+          "minimum": 1,
+          "title": "Timeout S",
+          "type": "integer"
+        },
+        "verifier_id": {
+          "title": "Verifier Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "verifier_id",
+        "source",
+        "command_ref",
+        "display_name"
+      ],
+      "title": "VerifierSelection",
+      "type": "object"
+    }
+  },
+  "$id": "https://ai-sdlc-lab.local/schemas/fast_verification_result.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Advisory fast verification outcome; never final authority.",
+  "properties": {
+    "attempt_number": {
+      "minimum": 0,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "can_finalize_episode": {
+      "const": false,
+      "default": false,
+      "title": "Can Finalize Episode",
+      "type": "boolean"
+    },
+    "duration_seconds": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Seconds"
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exit Code"
+    },
+    "failure_origin": {
+      "enum": [
+        "evaluated_agent",
+        "infrastructure",
+        "harness",
+        "none"
+      ],
+      "title": "Failure Origin",
+      "type": "string"
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "patch_hash": {
+      "title": "Patch Hash",
+      "type": "string"
+    },
+    "result_hash": {
+      "default": "",
+      "title": "Result Hash",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "fast_verification_result.v1",
+      "default": "fast_verification_result.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "snapshot_sha": {
+      "title": "Snapshot Sha",
+      "type": "string"
+    },
+    "started_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Started At"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "error",
+        "timeout",
+        "unavailable",
+        "blocked",
+        "infrastructure"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "stderr_artifact_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stderr Artifact Ref"
+    },
+    "stdout_artifact_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stdout Artifact Ref"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "verifier_selection": {
+      "$ref": "#/$defs/VerifierSelection"
+    }
+  },
+  "required": [
+    "task_id",
+    "session_id",
+    "snapshot_sha",
+    "patch_hash",
+    "attempt_number",
+    "status",
+    "failure_origin",
+    "verifier_selection"
+  ],
+  "title": "fast_verification_result.v1",
+  "type": "object"
+}

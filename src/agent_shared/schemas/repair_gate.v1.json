@@ -1,0 +1,28 @@
+{
+  "$id": "https://ai-sdlc-lab.local/schemas/repair_gate.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Pure repair eligibility gate from frozen FastVerify0 observation.",
+  "properties": {
+    "repair_eligible": {
+      "title": "Repair Eligible",
+      "type": "boolean"
+    },
+    "repair_gate_reason": {
+      "title": "Repair Gate Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "repair_gate.v1",
+      "default": "repair_gate.v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "repair_eligible",
+    "repair_gate_reason"
+  ],
+  "title": "repair_gate.v1",
+  "type": "object"
+}

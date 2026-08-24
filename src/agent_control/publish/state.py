@@ -163,3 +163,33 @@ def find_intent_by_repo_sha(
     head_sha: str,
 ) -> PublishIntent | None:
     return load_publish_intent(state_root, repository, head_sha)
+
+
+def iter_publish_intents(state_root: Path) -> list[PublishIntent]:
+    root = Path(state_root) / "publish-intents"
+    if not root.is_dir():
+        return []
+    found: list[PublishIntent] = []
+    for path in sorted(root.rglob("*.json")):
+        if path.name.endswith(".tmp"):
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            found.append(PublishIntent.model_validate(data))
+        except (json.JSONDecodeError, ValueError, OSError):
+            continue
+    return found
+
+
+def find_intent_by_transaction_id(state_root: Path, transaction_id: str) -> PublishIntent | None:
+    for intent in iter_publish_intents(state_root):
+        if intent.transaction_id == transaction_id or intent.run_id == transaction_id:
+            return intent
+    return None
+
+
+def find_intent_by_run_id(state_root: Path, run_id: str) -> PublishIntent | None:
+    for intent in iter_publish_intents(state_root):
+        if intent.run_id == run_id:
+            return intent
+    return None

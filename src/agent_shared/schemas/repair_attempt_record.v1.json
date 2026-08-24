@@ -1,0 +1,102 @@
+{
+  "$id": "https://ai-sdlc-lab.local/schemas/repair_attempt_record.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Audit record for one repair attempt.",
+  "properties": {
+    "applied": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Applied"
+    },
+    "attempt_number": {
+      "default": 1,
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "authorized": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authorized"
+    },
+    "fast_verify_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fast Verify Status"
+    },
+    "final_candidate": {
+      "default": "patch0",
+      "enum": [
+        "patch0",
+        "patch1"
+      ],
+      "title": "Final Candidate",
+      "type": "string"
+    },
+    "parse_success": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parse Success"
+    },
+    "patch1_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patch1 Hash"
+    },
+    "policy_rejected": {
+      "default": false,
+      "title": "Policy Rejected",
+      "type": "boolean"
+    },
+    "repair_invoked": {
+      "default": false,
+      "title": "Repair Invoked",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "repair_attempt_record.v1",
+      "default": "repair_attempt_record.v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "title": "repair_attempt_record.v1",
+  "type": "object"
+}

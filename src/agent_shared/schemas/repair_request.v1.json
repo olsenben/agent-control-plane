@@ -1,0 +1,66 @@
+{
+  "$id": "https://ai-sdlc-lab.local/schemas/repair_request.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded repair model call request.",
+  "properties": {
+    "attempt_number": {
+      "default": 1,
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Attempt Number",
+      "type": "integer"
+    },
+    "context_pack_hash": {
+      "title": "Context Pack Hash",
+      "type": "string"
+    },
+    "edit_policy_hash": {
+      "title": "Edit Policy Hash",
+      "type": "string"
+    },
+    "evidence_hash": {
+      "title": "Evidence Hash",
+      "type": "string"
+    },
+    "instruction_id": {
+      "const": "repair_instruction.v1",
+      "default": "repair_instruction.v1",
+      "title": "Instruction Id",
+      "type": "string"
+    },
+    "patch0_hash": {
+      "title": "Patch0 Hash",
+      "type": "string"
+    },
+    "request_hash": {
+      "default": "",
+      "title": "Request Hash",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "repair_request.v1",
+      "default": "repair_request.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "session_id",
+    "patch0_hash",
+    "evidence_hash",
+    "context_pack_hash",
+    "edit_policy_hash"
+  ],
+  "title": "repair_request.v1",
+  "type": "object"
+}

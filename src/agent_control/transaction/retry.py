@@ -18,6 +18,8 @@ RetryClass = Literal[
     "NON_RETRYABLE",
     "AMBIGUOUS_EXTERNAL_EFFECT",
     "RECONCILE_BEFORE_RETRY",
+    "TERMINAL_POLICY",
+    "MANUAL_INTERVENTION",
 ]
 
 TRANSIENT: RetryClass = "TRANSIENT"
@@ -26,9 +28,12 @@ PERMANENT: RetryClass = "PERMANENT"
 NON_RETRYABLE: RetryClass = "NON_RETRYABLE"
 AMBIGUOUS_EXTERNAL_EFFECT: RetryClass = "AMBIGUOUS_EXTERNAL_EFFECT"
 RECONCILE_BEFORE_RETRY: RetryClass = "RECONCILE_BEFORE_RETRY"
+RETRY_SAFE: RetryClass = TRANSIENT
+TERMINAL_POLICY: RetryClass = "TERMINAL_POLICY"
+MANUAL_INTERVENTION: RetryClass = "MANUAL_INTERVENTION"
 
-RETRYABLE_CLASSES = frozenset({TRANSIENT, RETRYABLE})
-TERMINAL_CLASSES = frozenset({PERMANENT, NON_RETRYABLE})
+RETRYABLE_CLASSES = frozenset({TRANSIENT, RETRYABLE, RETRY_SAFE})
+TERMINAL_CLASSES = frozenset({PERMANENT, NON_RETRYABLE, TERMINAL_POLICY, MANUAL_INTERVENTION})
 RECONCILE_CLASSES = frozenset({AMBIGUOUS_EXTERNAL_EFFECT, RECONCILE_BEFORE_RETRY})
 
 RETRY_SCOPES = (
@@ -78,12 +83,14 @@ class FailureClassification:
 
 
 def canonical_retry_class(retry_class: str) -> RetryClass:
-    if retry_class in {TRANSIENT, RETRYABLE}:
+    if retry_class in {TRANSIENT, RETRYABLE, RETRY_SAFE}:
         return TRANSIENT
-    if retry_class in {PERMANENT, NON_RETRYABLE}:
+    if retry_class in {PERMANENT, NON_RETRYABLE, TERMINAL_POLICY}:
         return PERMANENT
     if retry_class in {AMBIGUOUS_EXTERNAL_EFFECT, RECONCILE_BEFORE_RETRY}:
         return AMBIGUOUS_EXTERNAL_EFFECT
+    if retry_class == MANUAL_INTERVENTION:
+        return PERMANENT
     raise ValueError(retry_class)
 
 
@@ -134,14 +141,24 @@ def classify_exception(
     return _class(NON_RETRYABLE, "unclassified_non_retryable")
 
 
+def classify_terminal_policy(reason: str = "digest_mismatch") -> FailureClassification:
+    """G0/G1 / digest mismatch: terminal policy, never a Gitea retry."""
+    return _class(TERMINAL_POLICY, reason)
+
+
+def classify_manual_intervention(reason: str = "EXTERNAL_STATE_CONFLICT") -> FailureClassification:
+    return _class(MANUAL_INTERVENTION, reason)
+
+
 def _class(retry_class: RetryClass, reason: str) -> FailureClassification:
     canonical = canonical_retry_class(retry_class)
+    terminal = canonical == PERMANENT or retry_class in {TERMINAL_POLICY, MANUAL_INTERVENTION}
     return FailureClassification(
         retry_class=retry_class,
         canonical_class=canonical,
         requires_reconcile=canonical == AMBIGUOUS_EXTERNAL_EFFECT,
         retryable=canonical == TRANSIENT,
-        terminal=canonical == PERMANENT,
+        terminal=terminal,
         reason=reason,
     )
 
