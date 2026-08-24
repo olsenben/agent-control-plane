@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from agent_control.config import get_settings
 from agent_control.events import AgentEvent, append_event
 from agent_control.publish.envelope import (
     build_task_envelope,
@@ -782,6 +783,7 @@ def run_publish_pdp(
             project=project,
             patch_digest=patch_digest,
             receipt_dir=store_dir,
+            settings=get_settings(),
         )
     freeze_result = None
     if "P4" in routed_ids:
