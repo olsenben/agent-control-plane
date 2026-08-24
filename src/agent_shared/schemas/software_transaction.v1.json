@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-sdlc-lab.local/schemas/software_transaction.v1.schema.json",
+  "title": "software_transaction.v1",
+  "description": "Append-only software-transaction ledger record. Do not overwrite historical decisions; policy/evidence updates produce new events. Namespaceable by tenant/org and repository. Authoritative composite identity is required.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "transaction_id",
+    "tenant_id",
+    "org_id",
+    "repository",
+    "task",
+    "actor",
+    "patch",
+    "evidence",
+    "decision",
+    "capability",
+    "durable_outcome",
+    "identity",
+    "recorded_at",
+    "append_only",
+    "event_seq"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "software_transaction.v1"
+    },
+    "transaction_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "tenant_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "org_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "repository": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "task_digest"],
+      "properties": {
+        "task_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "task_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "provider_task_id": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_identity", "worker_identity"],
+      "properties": {
+        "session_id": {
+          "type": ["string", "null"]
+        },
+        "actor_identity": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "worker_identity": {
+          "$ref": "#/$defs/identity_principal"
+        }
+      }
+    },
+    "patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_sha", "patch_digest"],
+      "properties": {
+        "proposal_id": {
+          "type": ["string", "null"]
+        },
+        "source_sha": {
+          "$ref": "#/$defs/source_sha"
+        },
+        "patch_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_id", "bundle_digest"],
+      "properties": {
+        "bundle_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "bundle_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "decision_digest"],
+      "properties": {
+        "decision": {
+          "enum": [
+            "AUTO_ADMIT",
+            "REJECT",
+            "ESCALATE"
+          ]
+        },
+        "decision_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "escalation_id": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "capability": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["admission_decision_digest"],
+      "properties": {
+        "capability_id": {
+          "type": ["string", "null"]
+        },
+        "admission_decision_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "capability_digest": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "durable_outcome": {
+      "enum": [
+        "AUTO_ADMITTED_CAPABILITY_MINTED",
+        "ESCALATED_NO_CAPABILITY",
+        "REJECTED_NO_CAPABILITY",
+        "PUBLISHED",
+        "VERIFICATION_PASSED",
+        "VERIFICATION_FAILED",
+        "VERIFICATION_MISSING",
+        "TRANSACTION_FINALIZED",
+        "OTHER_TYPED"
+      ]
+    },
+    "identity": {
+      "$ref": "#/$defs/composite_identity"
+    },
+    "recorded_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "append_only": {
+      "const": true
+    },
+    "event_seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "nonempty": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha": {
+      "type": "string",
+      "minLength": 7
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "principal_kind": {
+      "enum": [
+        "HUMAN_INITIATOR",
+        "AGENT_WORKER",
+        "CONTROL_PLANE",
+        "VERIFIER",
+        "EVIDENCE_PROVIDER"
+      ]
+    },
+    "identity_principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal_kind", "identity_id"],
+      "properties": {
+        "principal_kind": {
+          "$ref": "#/$defs/principal_kind"
+        },
+        "identity_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "issuer": {
+          "type": ["string", "null"]
+        },
+        "namespace": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "composite_identity": {
+      "description": "Object is authoritative. ON_BEHALF_OF = human initiator; EXECUTED_BY = agent/service; AUTHORIZED_BY = control-plane or human override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ON_BEHALF_OF", "EXECUTED_BY", "AUTHORIZED_BY"],
+      "properties": {
+        "ON_BEHALF_OF": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "EXECUTED_BY": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "AUTHORIZED_BY": {
+          "$ref": "#/$defs/identity_principal"
+        }
+      }
+    }
+  }
+}

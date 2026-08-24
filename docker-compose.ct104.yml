@@ -1,6 +1,25 @@
 # CT104 worker host only (steelleg). Redis and control-plane live on CT103.
 # Usage: docker compose -f docker-compose.ct104.yml up -d --build
 # Requires REDIS_URL in .env pointing at CT103 Tailscale IP (see docs/ct104.md).
+#
+# WORKER_DURABLE_CREDENTIALS_PRESENT=NO: fail-closed product assertion.
+# env_file .env is loaded first; null entries below unset CT103 durable
+# tokens so a copied control-plane .env cannot inject them.
+# git-credentials mounts are clone-only HTTPS helpers, not GITEA_BOT_TOKEN.
+
+x-ct104-fail-closed-env: &ct104-fail-closed-env
+  WORKER_DURABLE_CREDENTIALS_PRESENT: "NO"
+  GITEA_BOT_TOKEN: null
+  GITEA_AGENT_TOKEN: null
+  GITEA_WEBHOOK_SECRET: null
+  AGENTFACTS_SIGNING_SECRET: null
+  OBSERVE_SHARED_TOKEN: null
+  OBSERVE_OAUTH_CLIENT_SECRET: null
+  BROKER_SIGNING_SECRET: null
+  DURABLE_CAPABILITY_SIGNING_SECRET: null
+  DEPLOY_SSH_KEY: null
+  DEPLOY_CT104_SSH_KEY: null
+  CT104_ALLOW_WRITE_TOKEN_DEBT: null
 
 services:
   worker-rlm-root:
@@ -18,6 +37,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *ct104-fail-closed-env
       REDIS_URL: ${REDIS_URL}
       AGENT_RUNS_DIR: /mnt/agent-runs
       AGENT_CACHE_DIR: /mnt/agent-cache
@@ -29,6 +49,7 @@ services:
       - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
       - ${AGENT_CACHE_HOST_PATH:-/mnt/agent-cache}:/mnt/agent-cache
       - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
+      # Clone-only; must not be a write PAT. Env write tokens stay forbidden.
       - ${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}:/root/.git-credentials:ro
       - ./config/git-worker.gitconfig:/root/.gitconfig:ro
 
@@ -40,6 +61,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *ct104-fail-closed-env
       REDIS_URL: ${REDIS_URL}
       AGENT_RUNS_DIR: /mnt/agent-runs
       AGENT_STATE_ROOT: /data/agent-state
@@ -64,6 +86,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *ct104-fail-closed-env
       REDIS_URL: ${REDIS_URL}
       AGENT_RUNS_DIR: /mnt/agent-runs
       AGENT_CACHE_DIR: /mnt/agent-cache
@@ -79,5 +102,6 @@ services:
       - ${AGENT_RUNS_HOST_PATH:-/mnt/agent-runs}:/mnt/agent-runs
       - ${AGENT_CACHE_HOST_PATH:-/mnt/agent-cache}:/mnt/agent-cache
       - ${AGENT_STATE_HOST_PATH:-/mnt/agent-state}:/data/agent-state
+      # Clone-only; must not be a write PAT. Env write tokens stay forbidden.
       - ${GIT_CREDENTIALS_HOST_PATH:-/home/deploy/.git-credentials}:/root/.git-credentials:ro
       - ./config/git-worker.gitconfig:/root/.gitconfig:ro

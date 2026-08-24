@@ -1,0 +1,13 @@
+transaction_control:
+  enabled: false
+  task_providers:
+    - GITEA_ISSUE
+    - SECURITY_FINDING_FIXTURE
+  actor_provider_id: fixture_deterministic
+  evidence_adapters:
+    - P1
+    - P2
+    - P3
+    - P4
+    - P5
+  auto_admit_policy_id: w5_evidence_policy.v1

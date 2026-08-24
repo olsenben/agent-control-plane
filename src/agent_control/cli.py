@@ -536,6 +536,15 @@ def worker_run(queues: tuple[str, ...], concurrency: int) -> None:
         )
     if concurrency != 1:
         raise click.ClickException("only --concurrency 1 is supported at MVP")
+    from agent_workers.settings import (
+        WorkerCredentialError,
+        assert_ct104_worker_process_credentials,
+    )
+
+    try:
+        assert_ct104_worker_process_credentials(queues)
+    except WorkerCredentialError as exc:
+        raise click.ClickException(str(exc)) from exc
     settings = get_settings()
     click.echo(
         json.dumps({"queues": queues, "concurrency": concurrency, "status": "starting"}),

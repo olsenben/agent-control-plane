@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "durable_patch_capability.v1.json",
+  "title": "durable_patch_capability.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "issuer",
+    "repo",
+    "source_sha",
+    "patch_digest",
+    "allowed_target_branch",
+    "policy_digest",
+    "verification_digest",
+    "admission_decision_digest",
+    "one_shot",
+    "expires_conceptually"
+  ],
+  "properties": {
+    "schema_version": { "const": "durable_patch_capability.v1" },
+    "issuer": { "const": "authoritative_control_plane" },
+    "repo": { "type": "string" },
+    "source_sha": { "type": "string" },
+    "patch_digest": { "type": "string" },
+    "allowed_target_branch": { "type": "string" },
+    "policy_digest": { "type": "string" },
+    "verification_digest": { "type": "string" },
+    "admission_decision_digest": { "type": "string" },
+    "one_shot": { "type": "boolean" },
+    "expires_conceptually": { "type": "boolean" },
+    "does_not_authorize_subsequent_edits": { "type": "boolean" }
+  }
+}

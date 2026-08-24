@@ -420,6 +420,63 @@ _TYPE_FIELD_CLASSIFICATIONS: dict[str, dict[str, FieldClassification]] = {
             "observed_head_commit_sha": "allowlisted",
         }
     ),
+    # W5 software_transaction.v1: scalars promoted by
+    # flatten_software_transaction_fields; nested blobs stay metadata_only.
+    "software_transaction.v1": {
+        "schema_version": "allowlisted",
+        "transaction_id": "allowlisted",
+        "tenant_id": "allowlisted",
+        "org_id": "allowlisted",
+        "repository": "allowlisted",
+        "durable_outcome": "allowlisted",
+        "recorded_at": "allowlisted",
+        "event_seq": "allowlisted",
+        "append_only": "allowlisted",
+        "run_id": "allowlisted",
+        "trace_id": "allowlisted",
+        "task_id": "allowlisted",
+        "task_digest": "allowlisted",
+        "provider_task_id": "allowlisted",
+        "actor_session_id": "allowlisted",
+        "actor_identity_id": "allowlisted",
+        "actor_identity_kind": "allowlisted",
+        "worker_identity_id": "allowlisted",
+        "worker_identity_kind": "allowlisted",
+        "proposal_id": "allowlisted",
+        "source_sha": "allowlisted",
+        "patch_digest": "allowlisted",
+        "bundle_id": "allowlisted",
+        "bundle_digest": "allowlisted",
+        "admission_decision": "allowlisted",
+        "decision_digest": "allowlisted",
+        "escalation_id": "allowlisted",
+        "capability_id": "allowlisted",
+        "capability_digest": "allowlisted",
+        "admission_decision_digest": "allowlisted",
+        "consumed": "allowlisted",
+        "expired": "allowlisted",
+        "replayed": "allowlisted",
+        "issued_at": "allowlisted",
+        "expires_at": "allowlisted",
+        "issuer": "allowlisted",
+        "allowed_target_branch": "allowlisted",
+        "capability_repo": "allowlisted",
+        "identity_on_behalf_of_identity_id": "allowlisted",
+        "identity_on_behalf_of_identity_kind": "allowlisted",
+        "identity_executed_by_identity_id": "allowlisted",
+        "identity_executed_by_identity_kind": "allowlisted",
+        "identity_authorized_by_identity_id": "allowlisted",
+        "identity_authorized_by_identity_kind": "allowlisted",
+        "task": "metadata_only",
+        "actor": "metadata_only",
+        "patch": "metadata_only",
+        "evidence": "metadata_only",
+        "decision": "metadata_only",
+        "capability": "metadata_only",
+        "identity": "metadata_only",
+        "notes": "redacted",
+        "reasons": "allowlisted",
+    },
 }
 
 
@@ -537,7 +594,19 @@ _SUMMARY_BUILDERS: dict[str, Callable[[dict[str, Any]], str]] = {
         )
     ),
     "agent.fix_ci_repair_stale": lambda f: f"CI repair stale: {f.get('reason', '?')}",
+    "software_transaction.v1": (
+        lambda f: (
+            f"Software transaction {f.get('admission_decision') or f.get('durable_outcome') or '?'}"
+            f" ({f.get('transaction_id') or 'no-id'})"
+        )
+    ),
 }
+
+
+def _transaction_category(event_type: str) -> str | None:
+    if event_type in {"software_transaction.v1", "transaction_graph_edge.v1"}:
+        return "transaction"
+    return None
 
 
 def _summary_for(event_type: str, display_fields: dict[str, Any]) -> str:
@@ -568,6 +637,10 @@ def safe_display_event(event: dict[str, Any]) -> ObserveEventV1:
     # keys (see agent_control.observe.ci_channel.flatten_observation_fields).
     # A no-op for every other event type.
     event = flatten_observation_fields(event)
+    if event.get("type") == "software_transaction.v1":
+        from agent_control.observe.transaction_view import flatten_software_transaction_fields
+
+        event = flatten_software_transaction_fields(event)
     event_type = str(event.get("type") or "")
     payload = event.get("payload")
     known = is_known_event_type(event_type)
@@ -628,7 +701,7 @@ def safe_display_event(event: dict[str, Any]) -> ObserveEventV1:
         project=event.get("project"),
         source=event.get("source"),
         known_type=known,
-        category=ci_log_category(event_type),
+        category=ci_log_category(event_type) or _transaction_category(event_type),
         summary=summary,
         display_fields=display_fields,
         metadata_only_field_names=metadata_only_names,

@@ -1,4 +1,127 @@
-# Canonical schema digests (VExp W0-C)
-
+# Canonical schema digests (VExp W0-C + W2-0 + W3-0 + W3-B)
 experience_verification_result.v1
 sha256: f4bf354020903368fa3f5d0bec266dabc0b55f698ea23398b5bc21e1e8a4f1e0
+
+failure_evidence.v1
+sha256: aaf287a5fea3de411ce8250a8b80c4e5b13bda088e6917b1bda591bc8950976d
+
+verifier_selection.v1
+sha256: d6ee0987f5ba48e326b70d1aab5cb0423658ced659d7798f6dd0594a8206fb40
+
+fast_verification_request.v1
+sha256: f545b23482537abeaea49578e26623ad5c19393726f02cf38e4539e68af4d266
+
+fast_verification_result.v1
+sha256: 18e5e34bc236c4c6d5b4eec5fb44bbfb12cf2190d8c3dfc1e201e62b23f0b872
+
+repair_gate.v1
+sha256: 08d3778e22417ba3694396282e83a0ddc26c1c10b912629f2a462bfed77b4785
+
+repair_budget.v1
+sha256: 783028b6225a80dd4fbee39d3a19980f06c73a480b000d15fab13e7cddb4743e
+
+repair_request.v1
+sha256: 4a6cf314587043f55b668963e252fc5674a965f961889135c26be9271069841e
+
+repair_context.v1
+sha256: 0408cd929937cf284d111e3ccc052fc17ed3f25efa577a4759a01359cb5e955b
+
+repair_outcome.v1
+sha256: afe3a07dc2eb268ed4b898a6dea85d979b30a4be6100352e76b5c9f0a39d01b7
+
+repair_attempt_record.v1
+sha256: 67a38396f52d8dee741b719086517c8e593713fa98f407068d700fb95855e820
+
+authoritative_handoff.v1
+sha256: 13a6da2277d4cf3359c263d24f5ef50abdb8f9430720867f9dd7caadacf82df9
+
+# VExp W3-0 episode ledger
+
+artifact_ref.v1
+sha256: 1906bfec821a78765c8ec6200fcc601579ca8c9f14d2ae51158352e39895212c
+
+execution_provenance.v1
+sha256: f96bcf1f91e15bc22760c97ba29af1b155c84224aa99e680391884561df8a383
+
+context_provenance.v1
+sha256: 846bd681e06a3b57b20ca907e11de59e2ff234ced8340160bea4df7e461950ed
+
+action_authorization_snapshot.v1
+sha256: 921492da6f50f9e48720407b48ba8f1fff12f0f1bb2a4c46c578d2c65966f149
+
+verification_ref.v1
+sha256: efa58073fb0ae89bdd7edcb0b576094d590caa4329a97b3fb810a5f461ffb365
+
+patch_candidate_ref.v1
+sha256: 4ade1c6b8a145f82d6971f280d6d8e892544af00e1a73a7f33395c7c2fcf2a93
+
+episode_step.v1
+sha256: 0e5a1820f25a66fbdcff233412e43640e5af27e9c7bc497355351de9745cc505
+
+episode_checkpoint.v1
+sha256: 36d7dee692e76c5687a7c5847f6cf85433175df4e43e8bbfe62be392d0f7b06d
+
+outcome_summary.v1
+sha256: 88a43a01d4a05cd93b15f4f308f39d56eee30fd90cc76a1ca86b6088f8751c64
+
+episode_lineage.v1
+sha256: 0cf72b424dc92cef4b8b6508729e8d029133231874255bbc1d872bb54ec2db9f
+
+episode_record.v1
+sha256: 9fdd8f1ed78fc9b57ea91abda2797d04e65e6a28edff82c584b8ca9a28b731fe
+
+# VExp W3-B experience contracts
+
+experience_source_ref.v1
+sha256: 67ed5c2c1a6833edf182cd3b0275485f06219fa55b4563e8579f2638321b0f7c
+
+experience_provenance.v1
+sha256: 6dd961b9f6ae5c3cf781cdecb24c7f508611f0aa6b2f9e51e6132312d77932fa
+
+problem_signature.v1
+sha256: 446fa3599537be736505a04cce9ccb89fdd0441e051d7058086a9cf519c802e9
+
+state_requirement_spec.v1
+sha256: f969a6fdf1c7dd71aaa72359d0256e4a7eba3579240ab858c78584eb33421875
+
+applicability_requirements.v1
+sha256: fa9ca6025a380dfe1f175f50fe7f698baa2d7d72776d822e4e3752d710f8f8fc
+
+action_pattern.v1
+sha256: 6b209b5df4b49e0546fde34f58a53eace7803f5e8a277781ac41dec4d40ad2fe
+
+procedure_candidate.v1
+sha256: d84cedb4c9fb7991386e5a94d66aee8347c3849e0855e93c605ef1d5ea64de11
+
+contraindication.v1
+sha256: 2a009b608857e2d96bcf7f9f08c2787ccace3c85c05195c5036835a7756fd08e
+
+evidence_backlink.v1
+sha256: d67bb24506e130942db3cdbd1542c32f268ba7588a3d5dbb9d60ace575f8f1e8
+
+transfer_scope_evidence.v1
+sha256: 0e224a4cea1aacfefc64bd8e36259d7060c7640f53341884f7faf05390654748
+
+experience_uncertainty.v1
+sha256: e6ebe762d6787b4233284f1ad4a23b2896a2ec98a18a5c92a9028b9dfd58fa1b
+
+evidence_confidence.v1
+sha256: 217c141ab2dc72ead12e034a059cfa07028431f712d46d92e9c845f267c3aefc
+
+invalidation_hint.v1
+sha256: 889033030677361d03f02e4b94ce33a5bd949556b1fd187125a1afbe5d45638a
+
+experience_rationale.v1
+sha256: 555826986303d0d6f3d0b7b157dd2393e145495e64ad57d07d626f81d57b454a
+
+positive_admission_evidence.v1
+sha256: 6ce0314feefcc60fe4c8b0394c5a421ee8bc149b60b0c7d509e79844163c3844
+
+failed_repair_observation.v1
+sha256: 7862725f4531175b0ef7bca7d868152ea96fa85ee7740cecc5de27050d0feb08
+
+policy_rejection_observation.v1
+sha256: 1b0b02bbc53873df83c033686cd8eee68459ab00a57cda4a49a5cec56d783035
+
+experience_record.v1
+sha256: 33b8e0cb86ad29dc810677a9aad26e417ff6eb0b7eb419cd0fd20afaa3b366db

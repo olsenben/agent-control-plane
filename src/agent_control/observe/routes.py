@@ -24,6 +24,7 @@ from agent_control.observe.auth import (
 from agent_control.observe.notify import is_circuit_open, notify_channel, record_publish_failure
 from agent_control.observe.projection import build_observation_projection
 from agent_control.observe.store import ObserveStore
+from agent_control.observe.transaction_view import transaction_panel_view
 from agent_control.observe.ui import (
     current_state_view,
     live_log_view,
@@ -196,6 +197,12 @@ def observe_session_page(
         ),
         "live_log": live_log_view(store, run_id),
         "artifacts": {"artifacts": observe_artifacts.artifact_disposition_rows(session, settings.agent_state_root)},
+        "transaction": transaction_panel_view(
+            settings.agent_state_root,
+            project=canonical_project,
+            run_id=run_id,
+            session=session,
+        ),
     }
     return templates.TemplateResponse(request, "session_detail.html", context)
 

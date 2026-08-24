@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-sdlc-lab.local/schemas/software_transaction_attestation.v1.schema.json",
+  "title": "software_transaction_attestation.v1",
+  "description": "Serializable, hashable binding of task, source, patch, actor, evidence bundle, policy, admission decision, capability, publish receipt, and CI outcome. Canonical hash is SHA-256 over UTF-8 JSON with sorted keys. No Sigstore or public transparency log.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "attestation_id",
+    "tenant_id",
+    "org_id",
+    "repository",
+    "task",
+    "source",
+    "patch",
+    "actor",
+    "evidence_bundle",
+    "policy",
+    "admission_decision",
+    "capability",
+    "publish_receipt",
+    "ci_outcome",
+    "identity",
+    "hash_algorithm",
+    "attestation_digest",
+    "sigstore",
+    "public_transparency_log"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "software_transaction_attestation.v1"
+    },
+    "attestation_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "transaction_id": {
+      "type": ["string", "null"]
+    },
+    "tenant_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "org_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "repository": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "task_digest"],
+      "properties": {
+        "task_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "task_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_sha"],
+      "properties": {
+        "source_sha": {
+          "$ref": "#/$defs/source_sha"
+        },
+        "source_tree_digest": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["patch_digest"],
+      "properties": {
+        "proposal_id": {
+          "type": ["string", "null"]
+        },
+        "patch_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_identity", "worker_identity"],
+      "properties": {
+        "actor_identity": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "worker_identity": {
+          "$ref": "#/$defs/identity_principal"
+        }
+      }
+    },
+    "evidence_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_id", "bundle_digest"],
+      "properties": {
+        "bundle_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "bundle_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "policy_version",
+        "policy_digest",
+        "admission_implementation_digest"
+      ],
+      "properties": {
+        "policy_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "policy_version": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "admission_implementation_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "admission_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "decision_digest"],
+      "properties": {
+        "decision": {
+          "enum": [
+            "AUTO_ADMIT",
+            "REJECT",
+            "ESCALATE"
+          ]
+        },
+        "decision_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "capability": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["admission_decision_digest"],
+      "properties": {
+        "capability_id": {
+          "type": ["string", "null"]
+        },
+        "admission_decision_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "capability_digest": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "publish_receipt": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["receipt_id", "receipt_digest"],
+      "properties": {
+        "receipt_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "receipt_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "ci_outcome": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "enum": [
+            "verification_requested",
+            "verification_passed",
+            "verification_failed",
+            "verification_missing"
+          ]
+        },
+        "verifier_identity": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "outcome_digest": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "identity": {
+      "$ref": "#/$defs/composite_identity"
+    },
+    "hash_algorithm": {
+      "const": "sha256"
+    },
+    "attestation_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "sigstore": {
+      "const": false
+    },
+    "public_transparency_log": {
+      "const": false
+    },
+    "issued_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "nonempty": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha": {
+      "type": "string",
+      "minLength": 7
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "principal_kind": {
+      "enum": [
+        "HUMAN_INITIATOR",
+        "AGENT_WORKER",
+        "CONTROL_PLANE",
+        "VERIFIER",
+        "EVIDENCE_PROVIDER"
+      ]
+    },
+    "identity_principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal_kind", "identity_id"],
+      "properties": {
+        "principal_kind": {
+          "$ref": "#/$defs/principal_kind"
+        },
+        "identity_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "issuer": {
+          "type": ["string", "null"]
+        },
+        "namespace": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "composite_identity": {
+      "description": "Object is authoritative. ON_BEHALF_OF = human initiator; EXECUTED_BY = agent/service; AUTHORIZED_BY = control-plane or human override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ON_BEHALF_OF", "EXECUTED_BY", "AUTHORIZED_BY"],
+      "properties": {
+        "ON_BEHALF_OF": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "EXECUTED_BY": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "AUTHORIZED_BY": {
+          "$ref": "#/$defs/identity_principal"
+        }
+      }
+    }
+  }
+}

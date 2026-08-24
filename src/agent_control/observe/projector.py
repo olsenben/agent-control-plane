@@ -22,6 +22,10 @@ from typing import Any
 
 from agent_control.observe.ci_channel import FIX_CI_EVENT_TYPES, resolve_ci_run_id, resolve_ci_session_id
 from agent_control.observe.safe_display import safe_display_event
+from agent_control.observe.transaction_view import (
+    resolve_transaction_run_id,
+    resolve_transaction_session_id,
+)
 from agent_control.observe.session_snapshot import build_session_observation_row
 from agent_control.observe.store import ObserveStore, observe_db_path
 from agent_control.session.storage import load_session
@@ -39,7 +43,10 @@ def resolve_run_id(event: dict[str, Any]) -> str | None:
     # V9 T08: agent.fix_ci_* events key by fix_run_id, not run_id -- see
     # agent_control.observe.ci_channel for why that is the same run_id.
     ci_rid = resolve_ci_run_id(event)
-    return ci_rid if isinstance(ci_rid, str) and ci_rid else None
+    if isinstance(ci_rid, str) and ci_rid:
+        return ci_rid
+    tx_rid = resolve_transaction_run_id(event)
+    return tx_rid if isinstance(tx_rid, str) and tx_rid else None
 
 
 def resolve_session_id(event: dict[str, Any]) -> str | None:
@@ -47,7 +54,10 @@ def resolve_session_id(event: dict[str, Any]) -> str | None:
     if not isinstance(payload, dict):
         return None
     sid = payload.get("session_id")
-    return sid if isinstance(sid, str) and sid else None
+    if isinstance(sid, str) and sid:
+        return sid
+    tx_sid = resolve_transaction_session_id(event)
+    return tx_sid if isinstance(tx_sid, str) and tx_sid else None
 
 
 def project_ledger_event(
@@ -66,6 +76,8 @@ def project_ledger_event(
     (:func:`project_event_fail_open`, :mod:`agent_control.cli` rebuild).
     """
     run_id = resolve_run_id(event)
+    if not run_id:
+        run_id = resolve_transaction_run_id(event, state_root=state_root, project=project)
     if not run_id:
         return None
     source_event_id = str(event.get("event_id") or "")
@@ -152,6 +164,8 @@ def project_event_fail_open(
     live SSE subscribers with a backlog of historical notifies.
     """
     run_id = resolve_run_id(event)
+    if run_id is None:
+        run_id = resolve_transaction_run_id(event, state_root=state_root, project=project)
     if run_id is None:
         return
     try:

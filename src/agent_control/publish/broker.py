@@ -96,6 +96,91 @@ def _load_binding_from_approval(approval) -> FixAuthorizationBinding:
     )
 
 
+def _pdp_reject_payload(pdp) -> dict:
+    from agent_control.transaction.admission import ESCALATE
+
+    if pdp.decision == ESCALATE:
+        payload = {
+            "ok": False,
+            "reason": "admission_escalate",
+            "decision": pdp.decision,
+            "detail": list(pdp.reasons),
+        }
+        if pdp.escalation is not None:
+            payload["escalation_id"] = pdp.escalation.escalation_id
+            payload["admission_escalation"] = pdp.escalation.model_dump(mode="json")
+        return payload
+    return {
+        "ok": False,
+        "reason": "admission_reject",
+        "decision": pdp.decision,
+        "detail": list(pdp.reasons),
+        "decision_digest": pdp.admission.decision_digest,
+    }
+
+
+def _run_broker_pdp(
+    *,
+    state_root: Path,
+    project: str,
+    run_id: str,
+    attempt_id: str,
+    bundle_id: str,
+    bundle_root: Path,
+    manifest,
+    authorized_files: list[str],
+    source_sha: str,
+    agent_branch: str,
+    invoked_by: str,
+    kind: str,
+    record,
+) -> tuple[object | None, dict | None]:
+    """Frozen C PDP. Returns (pdp, None) on AUTO_ADMIT else (None, reject dict)."""
+    from agent_control.publish.pdp import run_publish_pdp
+    from agent_control.transaction.admission import AUTO_ADMIT, ESCALATE
+
+    pdp = run_publish_pdp(
+        state_root=state_root,
+        project=project,
+        run_id=run_id,
+        bundle_id=bundle_id,
+        bundle_root=bundle_root,
+        manifest=manifest,
+        authorized_files=authorized_files,
+        source_sha=source_sha,
+        agent_branch=agent_branch,
+        invoked_by=invoked_by,
+    )
+    if pdp.decision == AUTO_ADMIT:
+        return pdp, None
+    cas_transition(
+        state_root,
+        run_id=run_id,
+        kind=kind,
+        attempt_id=attempt_id,
+        bundle_id=bundle_id,
+        from_state="validating",
+        to_state="rejected",
+        messages=[pdp.decision, *list(pdp.reasons)],
+    )
+    broker_reason = (
+        "admission_escalate" if pdp.decision == ESCALATE else "admission_reject"
+    )
+    detail = (
+        ["human_approval_required", *list(pdp.reasons)]
+        if pdp.decision == ESCALATE
+        else list(pdp.reasons)
+    )
+    _terminalize_broker_reject(
+        state_root,
+        project=record.project if record else project,
+        run_id=run_id,
+        broker_reason=broker_reason,
+        detail=detail,
+    )
+    return None, _pdp_reject_payload(pdp)
+
+
 def broker_publish_fix(
     *,
     state_root: Path,
@@ -340,6 +425,24 @@ def broker_publish_fix(
             "authorization": auth.model_dump(mode="json"),
         }
 
+    pdp, pdp_reject = _run_broker_pdp(
+        state_root=state_root,
+        project=project,
+        run_id=run_id,
+        attempt_id=attempt_id,
+        bundle_id=bundle_id,
+        bundle_root=bundle_root,
+        manifest=manifest,
+        authorized_files=list(binding.allowed_files),
+        source_sha=trusted_sha,
+        agent_branch=agent_branch,
+        invoked_by=invoker_login,
+        kind="fix",
+        record=record,
+    )
+    if pdp_reject is not None:
+        return pdp_reject
+
     commit_msg = build_commit_message(
         run_id=run_id,
         binding=binding,
@@ -378,6 +481,47 @@ def broker_publish_fix(
             detail=[str(exc)],
         )
         return {"ok": False, "reason": exc.reason, "detail": str(exc)}
+
+    from agent_control.publish.pdp import witness_and_consume
+    from agent_control.transaction.capability import CAPABILITY_ALREADY_CONSUMED
+
+    consume = witness_and_consume(
+        pdp,
+        current_base_sha=trusted_sha,
+        patch_digest=validated.patch_sha256,
+        repo=project,
+        target_ref=agent_branch,
+        policy_digest=pdp.policy.policy_digest,
+    )
+    if not consume.get("allowed"):
+        status = str(consume.get("status") or "STATE_WITNESS")
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="fix",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=[status, *list(consume.get("reasons") or [])],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason=(
+                "capability_consume_failed"
+                if status == CAPABILITY_ALREADY_CONSUMED
+                else "state_witness_failed"
+            ),
+            detail=list(consume.get("reasons") or [status]),
+        )
+        return {
+            "ok": False,
+            "reason": status,
+            "detail": consume.get("reasons"),
+            "published": False,
+        }
 
     job_key = f"{run_id}:{bundle_id}"
     claimed = claim_approval_for_publish(
@@ -649,12 +793,25 @@ def broker_publish_fix(
         commit_sha=validated.commit_sha,
     )
 
+    from agent_control.publish.pdp import record_published_transaction
+
+    record_published_transaction(
+        state_root,
+        pdp,
+        pr_number=pr_number,
+        commit_sha=validated.commit_sha,
+    )
+
     return {
         "ok": True,
         "publish_state": "succeeded",
         "commit_sha": validated.commit_sha,
         "pr_number": pr_number,
         "pr_url": pr_url,
+        "decision": "AUTO_ADMIT",
+        "capability_id": (
+            pdp.capability.capability_id if getattr(pdp, "capability", None) else None
+        ),
     }
 
 
@@ -827,6 +984,28 @@ def broker_publish_repair(
         approved_base_sha=expected_head_commit_sha,
     )
 
+    from agent_control.session.storage import load_session_by_run as _load_session_by_run
+
+    repair_session = _load_session_by_run(state_root, project, run_id)
+    repair_invoker = (repair_session.invoked_by if repair_session else None) or "unknown"
+    pdp, pdp_reject = _run_broker_pdp(
+        state_root=state_root,
+        project=project,
+        run_id=run_id,
+        attempt_id=attempt_id,
+        bundle_id=bundle_id,
+        bundle_root=bundle_root,
+        manifest=manifest,
+        authorized_files=list(allowed_files),
+        source_sha=expected_head_commit_sha,
+        agent_branch=agent_branch,
+        invoked_by=repair_invoker,
+        kind="repair",
+        record=record,
+    )
+    if pdp_reject is not None:
+        return pdp_reject
+
     try:
         validated = validate_and_commit(
             settings=settings,
@@ -856,6 +1035,47 @@ def broker_publish_repair(
             detail=[str(exc)],
         )
         return {"ok": False, "reason": exc.reason, "detail": str(exc)}
+
+    from agent_control.publish.pdp import witness_and_consume as _witness_and_consume
+    from agent_control.transaction.capability import CAPABILITY_ALREADY_CONSUMED as _ALREADY
+
+    consume = _witness_and_consume(
+        pdp,
+        current_base_sha=expected_head_commit_sha,
+        patch_digest=validated.patch_sha256,
+        repo=project,
+        target_ref=agent_branch,
+        policy_digest=pdp.policy.policy_digest,
+    )
+    if not consume.get("allowed"):
+        status = str(consume.get("status") or "STATE_WITNESS")
+        cas_transition(
+            state_root,
+            run_id=run_id,
+            kind="repair",
+            attempt_id=attempt_id,
+            bundle_id=bundle_id,
+            from_state="validating",
+            to_state="rejected",
+            messages=[status, *list(consume.get("reasons") or [])],
+        )
+        _terminalize_broker_reject(
+            state_root,
+            project=project,
+            run_id=run_id,
+            broker_reason=(
+                "capability_consume_failed"
+                if status == _ALREADY
+                else "state_witness_failed"
+            ),
+            detail=list(consume.get("reasons") or [status]),
+        )
+        return {
+            "ok": False,
+            "reason": status,
+            "detail": consume.get("reasons"),
+            "published": False,
+        }
 
     # Supersede intent before push
     intent = PublishIntent(
@@ -988,8 +1208,21 @@ def broker_publish_repair(
         commit_sha=validated.commit_sha,
     )
 
+    from agent_control.publish.pdp import record_published_transaction as _record_published
+
+    _record_published(
+        state_root,
+        pdp,
+        pr_number=None,
+        commit_sha=validated.commit_sha,
+    )
+
     return {
         "ok": True,
         "new_head_commit_sha": validated.commit_sha,
         "publish_state": "succeeded",
+        "decision": "AUTO_ADMIT",
+        "capability_id": (
+            pdp.capability.capability_id if getattr(pdp, "capability", None) else None
+        ),
     }

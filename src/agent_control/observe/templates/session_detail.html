@@ -65,6 +65,141 @@
   </table>
 </section>
 
+<section class="panel" id="panel-software-transaction">
+  <h2>Software transaction (read-only)</h2>
+  <p class="placeholder">
+    Observatory is not an admission or publish authority. This panel
+    projects recorded ledger / graph / session events only.
+  </p>
+  <table>
+    <tbody>
+      <tr><th>Transaction id</th><td>{{ transaction.transaction_id or "" }}</td></tr>
+      <tr><th>Trace id</th><td>{{ transaction.trace_id or "" }}</td></tr>
+      <tr>
+        <th>TASK</th>
+        <td>
+          {% if transaction.task.status == "unavailable" %}
+          <span class="placeholder">no task recorded</span>
+          {% else %}
+          {{ transaction.task.task_id or "" }}
+          {% if transaction.task.task_digest %} digest {{ transaction.task.task_digest }}{% endif %}
+          <span class="placeholder">({{ transaction.task.status }})</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>ACTOR / INITIATOR</th>
+        <td>
+          {% if transaction.actor.status == "unavailable" %}
+          <span class="placeholder">no actor recorded</span>
+          {% else %}
+          initiator {{ transaction.actor.initiator_id or "" }}
+          ({{ transaction.actor.initiator_kind or "" }})
+          / actor {{ transaction.actor.actor_id or "" }}
+          <span class="placeholder">({{ transaction.actor.status }})</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>PATCH SUMMARY + DIGEST</th>
+        <td>
+          {% if transaction.patch.status == "unavailable" %}
+          <span class="placeholder">no patch recorded</span>
+          {% else %}
+          {{ transaction.patch.summary or "" }}
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>EVIDENCE PROVIDERS / STATUS</th>
+        <td>
+          {% if transaction.evidence_providers %}
+          <ul>
+            {% for provider in transaction.evidence_providers %}
+            <li>{{ provider.provider_id or "" }}: {{ provider.status or "" }}{% if provider.evidence_type %} ({{ provider.evidence_type }}){% endif %}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <span class="placeholder">{{ transaction.evidence_status or "unavailable" }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>ADMISSION RESULT</th>
+        <td>
+          {% if transaction.admission_result %}
+          {{ transaction.admission_result }}
+          {% else %}
+          <span class="placeholder">no admission result recorded</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>DECISION REASONS</th>
+        <td>
+          {% if transaction.decision_reasons %}
+          {{ transaction.decision_reasons | display_value }}
+          {% else %}
+          <span class="placeholder">no decision reasons recorded</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>CAPABILITY STATUS</th>
+        <td>
+          {{ transaction.capability_status.status or "unavailable" }}
+          {% if transaction.capability_status.capability_id %}
+          id {{ transaction.capability_status.capability_id }}
+          {% endif %}
+          {% if transaction.capability_status.consumed %} consumed{% endif %}
+          {% if transaction.capability_status.expired %} expired{% endif %}
+          {% if transaction.capability_status.replayed %} replayed{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>PUBLISH STATUS</th>
+        <td>
+          {% if transaction.publish_status == "unavailable" %}
+          <span class="placeholder">no publish status recorded</span>
+          {% else %}
+          {{ transaction.publish_status }}
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>CI / VERIFICATION STATUS</th>
+        <td>
+          {% if transaction.ci_verification_status.status == "unavailable" %}
+          <span class="placeholder">no CI / verification recorded</span>
+          {% else %}
+          {{ transaction.ci_verification_status.status }}
+          {% if transaction.ci_verification_status.phase %} ({{ transaction.ci_verification_status.phase }}){% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>TIMELINE</h3>
+  {% if transaction.timeline %}
+  <table>
+    <thead><tr><th>At</th><th>Kind</th><th>Summary</th><th>Transaction id</th><th>Trace id</th></tr></thead>
+    <tbody>
+      {% for row in transaction.timeline %}
+      <tr>
+        <td>{{ row.at or "" }}</td>
+        <td>{{ row.kind or "" }}</td>
+        <td>{{ row.summary or "" }}</td>
+        <td>{{ row.transaction_id or "" }}</td>
+        <td>{{ row.trace_id or "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="placeholder">No transaction timeline events recorded yet.</p>
+  {% endif %}
+</section>
+
 <section class="panel" id="panel-timeline">
   <h2>2. Decision timeline</h2>
   <p>{{ timeline.total }} event(s) recorded in observe.sqlite for this run.</p>

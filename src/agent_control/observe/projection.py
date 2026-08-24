@@ -30,9 +30,15 @@ def _events_for_run(events: list[dict[str, Any]], run_id: str, session_id: str |
     matched: list[dict[str, Any]] = []
     for ev in events:
         payload = ev.get("payload") or {}
+        if not isinstance(payload, dict):
+            payload = {}
         rid = payload.get("run_id") or ev.get("run_id")
         sid = payload.get("session_id")
-        if rid == run_id or (session_id and sid == session_id):
+        actor = payload.get("actor") if isinstance(payload.get("actor"), dict) else {}
+        actor_sid = actor.get("session_id")
+        if rid == run_id or (session_id and sid == session_id) or (
+            session_id and actor_sid == session_id
+        ):
             matched.append(ev)
     matched.sort(
         key=lambda e: (

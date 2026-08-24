@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-sdlc-lab.local/schemas/transaction_graph_edge.v1.schema.json",
+  "title": "transaction_graph_edge.v1",
+  "description": "Normalized graph-ready capture of software-transaction relationships. Capture only; not used for live decisions. Stable entity IDs. Namespaceable by tenant/org and repository. Not a graph database.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "edge_id",
+    "edge_type",
+    "from_entity_id",
+    "from_entity_kind",
+    "to_entity_id",
+    "to_entity_kind",
+    "tenant_id",
+    "org_id",
+    "repository",
+    "captured_at",
+    "used_for_live_decision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "transaction_graph_edge.v1"
+    },
+    "edge_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "edge_type": {
+      "enum": [
+        "HUMAN_INITIATED_TASK",
+        "TASK_CREATED_SESSION",
+        "SESSION_PRODUCED_PATCH",
+        "PATCH_CHANGED_SYMBOL",
+        "PATCH_RESOLVED_FINDING",
+        "PATCH_INTRODUCED_FINDING",
+        "EVIDENCE_SUPPORTS_PATCH",
+        "POLICY_GOVERNED_DECISION",
+        "DECISION_MINTED_CAPABILITY",
+        "CAPABILITY_PUBLISHED_PR",
+        "PR_RECEIVED_CI_VERDICT",
+        "HUMAN_OVERRULED_DECISION",
+        "TRANSACTION_FINALIZED_AS"
+      ]
+    },
+    "from_entity_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "from_entity_kind": {
+      "$ref": "#/$defs/entity_kind"
+    },
+    "to_entity_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "to_entity_kind": {
+      "$ref": "#/$defs/entity_kind"
+    },
+    "tenant_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "org_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "repository": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "transaction_id": {
+      "type": ["string", "null"]
+    },
+    "captured_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "used_for_live_decision": {
+      "const": false
+    },
+    "identity": {
+      "$ref": "#/$defs/composite_identity"
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "nonempty": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entity_kind": {
+      "enum": [
+        "HUMAN",
+        "TASK",
+        "SESSION",
+        "PATCH",
+        "SYMBOL",
+        "FINDING",
+        "EVIDENCE",
+        "POLICY",
+        "DECISION",
+        "CAPABILITY",
+        "PR",
+        "CI_VERDICT",
+        "TRANSACTION",
+        "HUMAN_DECISION"
+      ]
+    },
+    "principal_kind": {
+      "enum": [
+        "HUMAN_INITIATOR",
+        "AGENT_WORKER",
+        "CONTROL_PLANE",
+        "VERIFIER",
+        "EVIDENCE_PROVIDER"
+      ]
+    },
+    "identity_principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal_kind", "identity_id"],
+      "properties": {
+        "principal_kind": {
+          "$ref": "#/$defs/principal_kind"
+        },
+        "identity_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "issuer": {
+          "type": ["string", "null"]
+        },
+        "namespace": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "composite_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ON_BEHALF_OF", "EXECUTED_BY"],
+      "properties": {
+        "ON_BEHALF_OF": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "EXECUTED_BY": {
+          "$ref": "#/$defs/identity_principal"
+        },
+        "AUTHORIZED_BY": {
+          "$ref": "#/$defs/identity_principal"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-sdlc-lab.local/schemas/task_envelope.v1.schema.json",
+  "title": "task_envelope.v1",
+  "description": "Authoritative task evidence for a software transaction. Not prompt text. Namespaceable by tenant/org and repository. Identity principals are explicit; the agent must not impersonate the human.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "tenant_id",
+    "org_id",
+    "repository",
+    "source_sha",
+    "task_provider",
+    "provider_task_id",
+    "human_initiator",
+    "initiator_identity",
+    "task_type",
+    "requested_change",
+    "authorized_change_classes",
+    "authorized_files",
+    "authorized_surfaces",
+    "security_finding_ids",
+    "policy_context",
+    "created_at",
+    "task_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "task_envelope.v1"
+    },
+    "task_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "tenant_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "org_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "repository": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "source_sha": {
+      "$ref": "#/$defs/source_sha"
+    },
+    "task_provider": {
+      "enum": [
+        "GITEA_ISSUE",
+        "SECURITY_FINDING_FIXTURE",
+        "OTHER_TYPED"
+      ]
+    },
+    "provider_task_id": {
+      "description": "Provider-native id. Not globally unique without tenant/org/repository.",
+      "$ref": "#/$defs/nonempty"
+    },
+    "human_initiator": {
+      "$ref": "#/$defs/identity_principal"
+    },
+    "initiator_identity": {
+      "description": "Stable identity_id of the HUMAN_INITIATOR. Must match human_initiator.identity_id.",
+      "$ref": "#/$defs/nonempty"
+    },
+    "identity": {
+      "$ref": "#/$defs/composite_identity"
+    },
+    "task_type": {
+      "enum": [
+        "SECURITY_REMEDIATION",
+        "FUNCTIONAL_MAINTENANCE",
+        "DEPENDENCY",
+        "PUBLIC_API",
+        "CONFIG",
+        "OTHER_TYPED"
+      ]
+    },
+    "requested_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary"],
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "title": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "authorized_change_classes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "PRODUCTION_SOURCE_CHANGE",
+          "SECURITY_FINDING_TASK",
+          "DEPENDENCY_MANIFEST_CHANGE",
+          "SECURITY_SENSITIVE_SYMBOL_OR_CONFIG",
+          "PUBLIC_API_CHANGE",
+          "LOCAL_PRIVATE_CHANGE",
+          "OTHER_TYPED"
+        ]
+      }
+    },
+    "authorized_files": {
+      "description": "Explicit authorized files when the provider supplied them. Empty if not provided.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonempty"
+      }
+    },
+    "authorized_surfaces": {
+      "description": "Explicit authorized surfaces/symbols when the provider supplied them. Empty if not provided.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonempty"
+      }
+    },
+    "security_finding_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonempty"
+      }
+    },
+    "policy_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "policy_version",
+        "policy_digest"
+      ],
+      "properties": {
+        "policy_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "policy_version": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "admission_implementation_digest": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "nonempty": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha": {
+      "type": "string",
+      "minLength": 7
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "principal_kind": {
+      "enum": [
+        "HUMAN_INITIATOR",
+        "AGENT_WORKER",
+        "CONTROL_PLANE",
+        "VERIFIER",
+        "EVIDENCE_PROVIDER"
+      ]
+    },
+    "identity_principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal_kind", "identity_id"],
+      "properties": {
+        "principal_kind": {
+          "const": "HUMAN_INITIATOR"
+        },
+        "identity_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "issuer": {
+          "type": ["string", "null"]
+        },
+        "namespace": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "composite_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ON_BEHALF_OF", "EXECUTED_BY"],
+      "properties": {
+        "ON_BEHALF_OF": {
+          "$ref": "#/$defs/identity_principal_any"
+        },
+        "EXECUTED_BY": {
+          "$ref": "#/$defs/identity_principal_any"
+        },
+        "AUTHORIZED_BY": {
+          "$ref": "#/$defs/identity_principal_any"
+        }
+      }
+    },
+    "identity_principal_any": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal_kind", "identity_id"],
+      "properties": {
+        "principal_kind": {
+          "$ref": "#/$defs/principal_kind"
+        },
+        "identity_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "issuer": {
+          "type": ["string", "null"]
+        },
+        "namespace": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
