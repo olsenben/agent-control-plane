@@ -24,12 +24,23 @@ from agent_control.publish.envelope import (
 from agent_control.session.storage import load_session_by_run, sessions_dir
 from agent_control.transaction.admission import (
     AUTO_ADMIT,
+    C_LOAD_MODE,
     ESCALATE,
     FROZEN_C_HASH,
+    HARNESS_SPECIFIC_CONTROL_LOGIC,
     MODEL_SPECIFIC_CONTROL_LOGIC,
     SCANNER_SPECIFIC_ADMISSION_LOGIC,
     make_escalation,
     wrap_decide_c,
+)
+from agent_control.transaction.policy_bundle import (
+    bind_g0_input,
+    create_policy_bundle_receipt,
+)
+from agent_control.transaction.preflight import (
+    PREFLIGHT_READY,
+    evaluate_transaction_preflight,
+    incomplete_admission_decision,
 )
 from agent_control.transaction.capability import (
     CAPABILITY_ALREADY_CONSUMED,
@@ -94,6 +105,7 @@ EVENT_DURABLE_PATCH_CAPABILITY = "durable_patch_capability.v1"
 
 assert MODEL_SPECIFIC_CONTROL_LOGIC == "NO"
 assert SCANNER_SPECIFIC_ADMISSION_LOGIC == "NO"
+assert HARNESS_SPECIFIC_CONTROL_LOGIC == "NO"
 
 
 def utc_now() -> str:
@@ -736,11 +748,33 @@ def run_publish_pdp(
         admission_implementation_digest=envelope.policy_context.admission_implementation_digest
         or FROZEN_C_HASH,
     )
+    g0_binding = bind_g0_input(changed)
+    policy_receipt = create_policy_bundle_receipt(
+        policy=policy,
+        g0=g0_binding,
+        c_load_mode=C_LOAD_MODE,
+    )
+    receipt_path = store_dir / "policy_bundles" / f"{policy_receipt.bundle_digest}.json"
+    _atomic_write_json(receipt_path, policy_receipt.model_dump(mode="json"))
+    preflight = evaluate_transaction_preflight(
+        changed_paths=changed,
+        units=projected_units,
+        verification=projected_verify,
+        policy=policy,
+        g0=g0_binding,
+        proposal_id=str(proposal.proposal_id),
+        patch_digest=patch_digest,
+        policy_bundle_digest=policy_receipt.bundle_digest,
+    )
+    preflight_path = store_dir / "preflight" / f"{policy_receipt.bundle_digest}.json"
+    _atomic_write_json(preflight_path, preflight.model_dump(mode="json"))
     admission_key = canonical_json_hash(
         {
             "proposal_id": proposal.proposal_id,
             "bundle_digest": bundle_digest,
             "policy_digest": policy.policy_digest,
+            "policy_bundle_digest": policy_receipt.bundle_digest,
+            "g0_input_state": g0_binding.state,
         }
     )
     admission_path = store_dir / "admission" / f"{admission_key}.json"
@@ -752,21 +786,38 @@ def run_publish_pdp(
             norm = path.replace("\\", "/")
             writable.append({"path": norm, "element_key": f"file:{norm}"})
         decision_map = {"writable_resources": writable}
-        admission = wrap_decide_c(
-            units=projected_units,
-            changed_paths=changed,
-            decision=decision_map,
-            g0=[],
-            verification=projected_verify,
-            policy=policy,
-            proposal_id=str(proposal.proposal_id),
-            patch_digest=patch_digest,
-            tenant_id=envelope.tenant_id,
-            org_id=envelope.org_id,
-            repository=envelope.repository,
-            required_provider_failed=required_failed,
-        )
-        _atomic_write_json(admission_path, admission.model_dump(mode="json"))
+        if preflight.status != PREFLIGHT_READY:
+            reason = preflight.incomplete_reason or "PDP_INPUT_INCOMPLETE"
+            admission = incomplete_admission_decision(
+                proposal_id=str(proposal.proposal_id),
+                patch_digest=patch_digest,
+                policy=policy,
+                reason=reason,
+                g0_input_state=g0_binding.state,
+                policy_bundle_digest=policy_receipt.bundle_digest,
+                verification=projected_verify,
+            )
+        else:
+            admission = wrap_decide_c(
+                units=projected_units,
+                changed_paths=changed,
+                decision=decision_map,
+                g0=list(g0_binding.violations),
+                verification=projected_verify,
+                policy=policy,
+                proposal_id=str(proposal.proposal_id),
+                patch_digest=patch_digest,
+                tenant_id=envelope.tenant_id,
+                org_id=envelope.org_id,
+                repository=envelope.repository,
+                required_provider_failed=required_failed,
+                g0_input_state=g0_binding.state,
+                policy_bundle_digest=policy_receipt.bundle_digest,
+            )
+        payload = admission.model_dump(mode="json")
+        payload["g0_input_state"] = g0_binding.state
+        payload["policy_bundle_digest"] = policy_receipt.bundle_digest
+        _atomic_write_json(admission_path, payload)
     else:
         admission = PatchAdmissionDecision.model_validate(cached_admission)
 

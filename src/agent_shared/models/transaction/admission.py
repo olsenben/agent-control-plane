@@ -74,6 +74,8 @@ class PatchAdmissionDecision(BaseModel):
     tenant_id: str | None = None
     org_id: str | None = None
     repository: str | None = None
+    g0_input_state: str | None = None
+    policy_bundle_digest: str | None = None
 
 
 class AdmissionEscalation(BaseModel):

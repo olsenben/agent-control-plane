@@ -186,6 +186,10 @@ def test_flags_are_no() -> None:
     ).read_text(encoding="utf-8")
     assert "from agent_control.gitea" not in text
     assert "GiteaClient" not in text
+    assert "g0=[]" not in text
+    from agent_control.transaction.admission import HARNESS_SPECIFIC_CONTROL_LOGIC
+
+    assert HARNESS_SPECIFIC_CONTROL_LOGIC == "NO"
 
 
 def test_task_envelope_bound_at_dispatch(tmp_path: Path, monkeypatch) -> None:

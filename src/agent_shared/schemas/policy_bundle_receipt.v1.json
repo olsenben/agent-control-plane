@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "policy_bundle_receipt.v1.json",
+  "title": "policy_bundle_receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_digest",
+    "frozen_c_hash",
+    "expected_frozen_c_hash",
+    "policy_id",
+    "policy_version",
+    "policy_digest",
+    "admission_implementation_digest",
+    "g0_input_state",
+    "g0_source_identity"
+  ],
+  "properties": {
+    "schema_version": { "const": "policy_bundle_receipt.v1" },
+    "bundle_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "frozen_c_hash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "expected_frozen_c_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "policy_id": { "type": "string", "minLength": 1 },
+    "policy_version": { "type": "string", "minLength": 1 },
+    "policy_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "admission_implementation_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "g0_input_state": {
+      "enum": [
+        "G0_PRESENT_NONEMPTY",
+        "G0_PRESENT_EXPLICIT_EMPTY",
+        "G0_LOAD_FAILED",
+        "G0_UNBOUND",
+        "G0_SCHEMA_INVALID"
+      ]
+    },
+    "g0_source_identity": { "type": ["string", "null"] },
+    "c_load_mode": { "type": ["string", "null"] },
+    "ruleset_present": { "type": "boolean" },
+    "created_at": { "type": ["string", "null"] }
+  }
+}

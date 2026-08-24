@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "transaction_preflight.v1.json",
+  "title": "transaction_preflight.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "missing_inputs",
+    "deterministic_preflight_revisit"
+  ],
+  "properties": {
+    "schema_version": { "const": "transaction_preflight.v1" },
+    "status": { "enum": ["READY", "INCOMPLETE"] },
+    "missing_inputs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "incomplete_reason": {
+      "type": ["string", "null"],
+      "enum": ["PDP_INPUT_INCOMPLETE", "POLICY_UNAVAILABLE", null]
+    },
+    "g0_input_state": {
+      "type": ["string", "null"],
+      "enum": [
+        "G0_PRESENT_NONEMPTY",
+        "G0_PRESENT_EXPLICIT_EMPTY",
+        "G0_LOAD_FAILED",
+        "G0_UNBOUND",
+        "G0_SCHEMA_INVALID",
+        null
+      ]
+    },
+    "policy_bundle_digest": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "deterministic_preflight_revisit": { "const": "YES" }
+  }
+}

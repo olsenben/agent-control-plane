@@ -18,6 +18,7 @@ from agent_control.transaction.admission.frozen_c import (
     admit_proposal as vendored_admit_proposal,
     classify_units as vendored_classify_units,
     decide_c as vendored_decide_c,
+    g0_violations as vendored_g0_violations,
 )
 from agent_shared.hash_utils import canonical_json_hash
 from agent_shared.models.transaction.admission import (
@@ -29,6 +30,12 @@ from agent_shared.models.transaction.identity import CompositeIdentity
 
 MODEL_SPECIFIC_CONTROL_LOGIC = "NO"
 SCANNER_SPECIFIC_ADMISSION_LOGIC = "NO"
+HARNESS_SPECIFIC_CONTROL_LOGIC = "NO"
+
+
+def g0_violations(paths: Sequence[str]) -> list[str]:
+    """Thin wrapper over frozen C G0 tables. Do not retune rules here."""
+    return vendored_g0_violations(paths)
 
 
 def load_c_functions() -> tuple[Any, Any, Any, str]:
@@ -67,6 +74,8 @@ def wrap_decide_c(
     org_id: str | None = None,
     repository: str | None = None,
     required_provider_failed: bool = False,
+    g0_input_state: str | None = None,
+    policy_bundle_digest: str | None = None,
 ) -> PatchAdmissionDecision:
     """Call frozen decide_c. Required-provider failure is projected as incomplete."""
     verify = dict(verification)
@@ -109,6 +118,8 @@ def wrap_decide_c(
         tenant_id=tenant_id,
         org_id=org_id,
         repository=repository,
+        g0_input_state=g0_input_state,
+        policy_bundle_digest=policy_bundle_digest,
     )
 
 
@@ -159,12 +170,14 @@ __all__ = [
     "C_LOAD_MODE",
     "ESCALATE",
     "FROZEN_C_HASH",
+    "HARNESS_SPECIFIC_CONTROL_LOGIC",
     "MODEL_SPECIFIC_CONTROL_LOGIC",
     "REJECT",
     "SCANNER_SPECIFIC_ADMISSION_LOGIC",
     "admit_proposal",
     "classify_units",
     "decide_c",
+    "g0_violations",
     "load_c_functions",
     "make_escalation",
     "wrap_decide_c",
