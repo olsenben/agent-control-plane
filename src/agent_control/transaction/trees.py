@@ -104,7 +104,10 @@ def materialize_source_candidate_trees(
         patch_digest: str | None = None,
         receipt_dir: Path | None = None,
     ) -> MaterializedTrees:
-    """Write bundle_root/source and bundle_root/candidate as read-only-intended trees.
+    """Write parent/source and parent/candidate as read-only-intended trees.
+
+    bundle_root here is the tree parent (transaction-store sidecar). It must not
+    be the producer bundle inbox: those directories are not allowed artifacts.
 
     candidate = exact source SHA working tree + sealed patch apply.
     A failed patch does not leave candidate as a copy of source.

@@ -38,7 +38,12 @@ from agent_control.transaction.trees import (
     materialize_source_candidate_trees,
     tree_content_digest,
 )
-from agent_shared.bundles.inbox import bundle_dir, write_ready_bundle
+from agent_shared.bundles.inbox import (
+    bundle_dir,
+    copy_bundle_to_snapshot,
+    load_ready_bundle,
+    write_ready_bundle,
+)
 from agent_shared.hash_utils import canonical_json_hash
 from agent_shared.models.jobs import RLMJob, TriggerContext
 from tests.test_transaction_broker import CORE, PROJECT, _approval, _attestations, _seed_publish, _settings
@@ -410,12 +415,28 @@ def test_pdp_live_p2_kwargs_include_tree_paths(tmp_path: Path, monkeypatch) -> N
             repo_url=_file_url(origin),
         )
     p2 = (captured.get("adapter_kwargs") or {}).get("P2") or {}
-    assert p2["source_root"] == str(root / "source")
-    assert p2["candidate_root"] == str(root / "candidate")
-    assert (root / "source").is_dir()
-    assert (root / "candidate").is_dir()
-    assert tree_content_digest(root / "source") == _expected_digest({CORE: SOURCE_BODY})
-    assert tree_content_digest(root / "candidate") == _expected_digest({CORE: CANDIDATE_BODY})
+    live_dirs = [path for path in state.rglob("live_trees") if path.is_dir()]
+    assert live_dirs, "live SOURCE/CANDIDATE trees must live under the transaction store"
+    trees_root = live_dirs[0]
+    assert p2["source_root"] == str(trees_root / "source")
+    assert p2["candidate_root"] == str(trees_root / "candidate")
+    assert (trees_root / "source").is_dir()
+    assert (trees_root / "candidate").is_dir()
+    assert not (root / "source").exists()
+    assert not (root / "candidate").exists()
+    assert tree_content_digest(trees_root / "source") == _expected_digest({CORE: SOURCE_BODY})
+    assert tree_content_digest(trees_root / "candidate") == _expected_digest({CORE: CANDIDATE_BODY})
+    loaded, loaded_root = load_ready_bundle(
+        state, run_id="run-trees", kind="fix", attempt_id="1", bundle_id=manifest.bundle_id
+    )
+    assert loaded.bundle_id == manifest.bundle_id
+    assert loaded_root == root
+    snap = copy_bundle_to_snapshot(
+        state, run_id="run-trees", kind="fix", attempt_id="1", bundle_id=manifest.bundle_id
+    )
+    assert (snap / "patch.diff").is_file()
+    assert not (snap / "source").exists()
+    assert not (snap / "candidate").exists()
     receipt_files = list(state.rglob(TREE_DIGESTS_FILENAME))
     assert receipt_files
     payload = json.loads(receipt_files[0].read_text(encoding="utf-8"))

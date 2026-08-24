@@ -238,11 +238,15 @@ def in_process_adapter_kwargs(
     return kwargs
 
 
-def _p2_live_trees(bundle_root: Path) -> dict[str, str]:
-    """Intended SOURCE/CANDIDATE paths. Missing dirs fail-closed in the live P2 adapter."""
+def _p2_live_trees(trees_root: Path) -> dict[str, str]:
+    """Intended SOURCE/CANDIDATE paths. Missing dirs fail-closed in the live P2 adapter.
+
+    trees_root is a transaction-store sidecar, not the producer bundle inbox.
+    Scan trees must not appear as bundle artifacts named source/candidate.
+    """
     return {
-        "source_root": str(bundle_root / "source"),
-        "candidate_root": str(bundle_root / "candidate"),
+        "source_root": str(trees_root / "source"),
+        "candidate_root": str(trees_root / "candidate"),
     }
 
 
@@ -766,9 +770,10 @@ def run_publish_pdp(
     evidence_path = store_dir / "evidence" / f"{evidence_key}.json"
     cached = _load_json(evidence_path)
     routed_ids = {item.provider_id for item in routed_providers(route)}
+    trees_root = store_dir / "live_trees"
     trees = MaterializedTrees(
-        source_root=bundle_root / "source",
-        candidate_root=bundle_root / "candidate",
+        source_root=trees_root / "source",
+        candidate_root=trees_root / "candidate",
         source_tree_digest=None,
         candidate_tree_digest=None,
         source_ready=False,
@@ -776,7 +781,7 @@ def run_publish_pdp(
     )
     if repo_url is not None or "P2" in routed_ids:
         trees = materialize_source_candidate_trees(
-            bundle_root=bundle_root,
+            bundle_root=trees_root,
             source_sha=source_sha or proposal.source_sha,
             patch_path=patch_path,
             repo_url=repo_url,
@@ -798,7 +803,7 @@ def run_publish_pdp(
     else:
         kwargs = in_process_adapter_kwargs(envelope=envelope, units=units)
         kwargs["P2"] = {
-            **_p2_live_trees(bundle_root),
+            **_p2_live_trees(trees_root),
             "artifact_dir": str(store_dir / "evidence" / "p2"),
         }
         if freeze_result is not None:
